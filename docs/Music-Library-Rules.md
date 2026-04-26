@@ -1,39 +1,11 @@
 # Music Library Rules
 
+**Reference guide.** For the complete end-to-end workflow (Streaming discovery → tagging → device sync), see **Music-Discovery-Workflow.md**.
+
 ## Paths
 - Library: `<home>\Audio\`
 - New music inbox: `<home>\Downloads\NewMusic\`
 - AudioManager tool: `<home>\GitHubRepos\AudioManager\` (compiled exe in `bin/Release/`)
-
-## Workflow
-
-GENERAL FEEDBACK: 
-I want entire process from streaming into my phone to be documented, the whole workflow, so can look at it and figure out how to make process better. maybe should be seprate doc to mujsic library rules??? think about best way to rognaise!! 
-
-**Stage 1: Discovery**
-Discover on Streaming via release radar - add to liked songs.
-For each new song, check that artist out - look at top 10 streamed songs, find other tracks you like.
-
-**Stage 2: Acquiring**
-(FIX NUMBERING IN DOC)
-3. Add all songs to a playlist and remove all songs from liked songs
-4. Run <home>\GitHubRepos\other tooling\scripts\a helper script on that playlist 
-5. This script opens each track in a special service in my browser, then puts songs in <home>\Downloads\NewMusic
-(RN THIS PROGRAM IS VERY ROUGH, will imrpvoe later, rpobbly integrate into StreamingPlaylist)
-
-**Stage 2: Integrate**
-1. Apply rules using Mp3tag in the Downloads/NewMusic folder (tag cleanup, filename format). Note: TCMP and Akira The Don genre are set automatically by AudioManager - no need to set in Mp3tag. (FEEDBACK: AUDIOMANAGER SHOULD DO THIS, SHOULDNT HAVE TO DO THIS)
-2. Run AudioManager integrate (dry run first, then real) - routes files into library.
-3. Run AudioManager analysis - checks library, commits audio report and AudioMirror changes.
-
-**Stage 3: Sync to Device** *(manual - cannot automate)*
-1. Open iTunes and ensure device is detected.
-2. Add Audio folder to iTunes.
-3. File -> Library -> Show Duplicate Items -> remove duplicates.
-4. Check for broken files (exclamation symbol on far left).
-5. Sync device twice to pick up new music.
-
----
 
 ## Library Structure
 ```
