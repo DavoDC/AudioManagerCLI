@@ -7,13 +7,22 @@
 
 ## Workflow
 
-**Stage 1: Acquire**
-1. Discover on Streaming via release radar - add to liked songs.
-2. For each new song, check that artist out - look at top 10 streamed songs, find other tracks you like.
-3. Download from relevant source - remove from liked songs.
+GENERAL FEEDBACK: 
+I want entire process from streaming into my phone to be documented, the whole workflow, so can look at it and figure out how to make process better. maybe should be seprate doc to mujsic library rules??? think about best way to rognaise!! 
+
+**Stage 1: Discovery**
+Discover on Streaming via release radar - add to liked songs.
+For each new song, check that artist out - look at top 10 streamed songs, find other tracks you like.
+
+**Stage 2: Acquiring**
+(FIX NUMBERING IN DOC)
+3. Add all songs to a playlist and remove all songs from liked songs
+4. Run <home>\GitHubRepos\other tooling\scripts\a helper script on that playlist 
+5. This script opens each track in a special service in my browser, then puts songs in <home>\Downloads\NewMusic
+(RN THIS PROGRAM IS VERY ROUGH, will imrpvoe later, rpobbly integrate into StreamingPlaylist)
 
 **Stage 2: Integrate**
-1. Apply rules using Mp3tag in the Downloads/NewMusic folder (tag cleanup, filename format). Note: TCMP and Akira The Don genre are set automatically by AudioManager - no need to set in Mp3tag.
+1. Apply rules using Mp3tag in the Downloads/NewMusic folder (tag cleanup, filename format). Note: TCMP and Akira The Don genre are set automatically by AudioManager - no need to set in Mp3tag. (FEEDBACK: AUDIOMANAGER SHOULD DO THIS, SHOULDNT HAVE TO DO THIS)
 2. Run AudioManager integrate (dry run first, then real) - routes files into library.
 3. Run AudioManager analysis - checks library, commits audio report and AudioMirror changes.
 
