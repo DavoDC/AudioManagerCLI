@@ -14,7 +14,7 @@ For each new song, check that artist out - look at top 10 streamed songs, find o
 2. Run `<home>\GitHubRepos\other tooling\scripts\a helper script` on that playlist
 3. This script places songs in `<home>\Downloads\NewMusic\`
 
-> **Note:** other tooling is currently rough. Future: integrate into another tool for seamless workflow.
+> **Note:** `a helper script` script is rough and not fully integrated. Future: integrate seamlessly into other tooling.
 
 ## Stage 3: Integrate
 
