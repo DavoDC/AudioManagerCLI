@@ -274,7 +274,7 @@ bash scripts/build.bat  # WRONG - will fail
 
 ## Current Focus
 
-TIER 1 integration bugs exist (force regen post-integration, LibChecker "version/bonus" regex, missing Album tag prompt, Dolly Parton data fix) but are blocked while not integrating. Active focus: automated test infrastructure. See TIER 1 in `docs/Development/IDEAS.md` for the two-session plan (an earlier session: TagNormalizer extraction + inline test runner; an earlier session: routing tests). Implementation derived from /think analysis 2026-05-28.
+TIER 1 integration bugs exist (force regen post-integration, LibChecker "version/bonus" regex, missing Album tag prompt, Dolly Parton data fix) but are blocked while not integrating. Test infrastructure done (2026-05-28): 19 TagFixer tests, --test flag, test.bat - see HISTORY.md. Next: TIER 1 an earlier session (routing tests) and TIER 2 thin-bat refactor (move launch.bat menu into Program.cs).
 
 ## Code Invariants (session learnings - update if refactored)
 
