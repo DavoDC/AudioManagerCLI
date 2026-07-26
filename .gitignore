@@ -355,9 +355,6 @@ reports/with-issues/
 # Aider AI files
 .aider*
 
-# Claude Code - local only, except shared guard rules
+# Claude Code - local only. Local tooling config is kept at machine level,
+# not per-repo - never commit local config in this repo.
 .claude/
-!.claude/hooks/
-!.claude/local-hook
-!.claude/local-hook
-!.claude/settings.json
