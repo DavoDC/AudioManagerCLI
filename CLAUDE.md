@@ -114,6 +114,12 @@ This is a .NET Framework 4.8 project with the old-style csproj format. New `.cs`
 
 **Platform constraint:** Solution only defines `Any CPU`. Never pass `-p:Platform=x86` to MSBuild - it will fail with `MSB4126: The specified solution configuration "Release|x86" is invalid`. Always use `-p:Platform="Any CPU"` (which is the default in build.bat).
 
+### Claude: UI dev live refresh - use the trigger, don't kill the process
+
+If `scripts\the launcher` is running while editing `the UI`, touch/create
+`a trigger file` once ready instead of `taskkill`/closing the window.
+Detail: `docs/References/the architecture doc` "Dev mode: live refresh".
+
 ## Key Paths (from Constants.cs)
 
 - Audio library: `<home>\Audio\`
