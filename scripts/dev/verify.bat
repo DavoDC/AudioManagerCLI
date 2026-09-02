@@ -1,7 +1,8 @@
 @echo off
-:: Build + unit tests + routing manifest. Human mode: no args (window stays open). Claude mode: --no-pause (clean exit).
+:: Build + unit tests + routing manifest + UI tests. Human mode: no args (window stays open). Claude mode: --no-pause (clean exit).
 set EXE=%~dp0..\..\project\AudioManager\bin\Release\AudioManager.exe
 set MANIFEST=%~dp0..\..\test-fixtures\routing-manifest.json
+set REPO_ROOT=%~dp0..\..
 set START_TIME=%TIME%
 
 call "%~dp0build.bat" --no-pause
@@ -11,11 +12,24 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo [step] C# verify
 "%EXE%" --verify "%MANIFEST%"
 set VERIFY_EXIT=%ERRORLEVEL%
+
+echo [step] UI tests
+pushd "%REPO_ROOT%"
+python -m pytest tests -q
+set PYTEST_EXIT=%ERRORLEVEL%
+popd
 
 echo.
 echo Start: %START_TIME%  End: %TIME%
 echo.
+if %VERIFY_EXIT%==0 if %PYTEST_EXIT%==0 (
+    echo [PASS] C# verify + UI tests
+    if not "%1"=="--no-pause" cmd /k
+    exit /b 0
+)
+echo [FAIL] C# verify=%VERIFY_EXIT% UI tests=%PYTEST_EXIT%
 if not "%1"=="--no-pause" cmd /k
-exit /b %VERIFY_EXIT%
+exit /b 1
