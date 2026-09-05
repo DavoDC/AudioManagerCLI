@@ -55,6 +55,10 @@ If `scripts\the launcher` is running while editing `the UI`, touch/create
 `a trigger file` once ready instead of `taskkill`/closing the window.
 Detail: `docs/References/the architecture doc` "Dev mode: live refresh".
 
+### Development priority: Priority area over Priority area (confirmed 2026-09-05)
+
+**Priority area (Acquire, Integration, Tag Fix - the UI's write/mutate tabs) is the current development focus; Priority area (Statistics, Library, Mirror, Services - read-only views) is explicitly lower priority for now.** When picking up open work with no other signal, prefer an open Intake item over an open Insight item. See `docs/Development/IDEAS.md` TIER 2 priority-ordering note for the audited item order.
+
 ### Claude: UI visual design - read the design doc first
 
 Before adding or changing any control, panel, table, or layout in `the UI`,
@@ -134,18 +138,7 @@ TagFixer modifies ID3 tags and renames files to match library convention. Tag ch
 
 ## Library Operations Constraint
 
-**In the Audio library, the program can ONLY:**
-- Move files from NewMusic into library destinations
-- Create destination folders as needed
-- Delete duplicates (user-approved L decisions only)
-
-**The program CANNOT:**
-- Modify tags on library files
-- Rename library files (except during move)
-- Delete files for any reason other than duplicates
-- Reorganise existing library structure without user approval
-
-**Audit trail:** See `docs/References/SAFETY_CONSTRAINTS.md` for a detailed safety review against these rules.
+**What the program can/cannot do to files already in the Audio library:** see "Library Operations Constraint" in `docs/References/DevContext.md`.
 
 ## What the Test Suite Can and Cannot Prove
 
