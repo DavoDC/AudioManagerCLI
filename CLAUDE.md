@@ -57,7 +57,7 @@ Detail: `docs/References/the architecture doc` "Dev mode: live refresh".
 
 ### Development priority: Priority area over Priority area (confirmed 2026-09-05)
 
-**Priorities for now.** No-signal work picks: Intake first. See `docs/Development/IDEAS.md` TIER 2 priority note.
+**Priorities for now.** No-signal work picks: Intake first. See the backlog TIER 2 priority note.
 
 ### Claude: UI visual design - read the design doc first
 
