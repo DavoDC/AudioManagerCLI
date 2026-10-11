@@ -50,7 +50,7 @@ While `scripts\the launcher` runs, touch `a trigger file` instead of killing the
 
 ### Claude: driving and checking the UI
 
-Run block: `scripts\the launcher` (launch), `python -m the UI entry point --check`, `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. Verification ladder (cheapest first: unit test, verify, DOM text, capture, browser tool only for real interaction), state endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI.
+Run block: `scripts\the launcher` (launch), `python -m the UI entry point --check|--preflight|--stop`, `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. Verification ladder (cheapest first: unit test, verify, DOM text, capture, browser tool only for real interaction), state endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI.
 
 ### Development priority
 
