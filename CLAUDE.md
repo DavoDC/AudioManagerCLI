@@ -52,6 +52,10 @@ While `scripts\the launcher` runs, touch `a trigger file` instead of killing the
 
 Run block: `scripts\the launcher` (launch), `python -m the UI entry point --check|--preflight|--stop`, `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. Verification ladder (cheapest first: unit test, verify, DOM text, capture, browser tool only for real interaction), state endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI.
 
+### UI test suite speed
+
+Measured 2026-10-12: `python -m pytest ui -q` runs 482 tests in about 14 s (465 in about 7.5 s before the fixture-server tests were added); no xdist or sleep removal needed, nothing real sleeps for more than 2.4 s (test_preflight). The UI check step of `python -m a verify tool` fell from 34 s to 2 s because fixture servers are now addressed as 127.0.0.1 (the name localhost cost 2 s per request on Windows); the Chrome capture step still takes about 98 s and is the bulk of verify. Re-measure with `--durations=15` if the suite passes 2 minutes.
+
 ### Development priority
 
 Priorities for now; no-signal work picks Intake. Detail: "Development Priority" in `docs/References/DevContext.md`.
