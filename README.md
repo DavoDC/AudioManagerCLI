@@ -26,6 +26,7 @@ album-art wall of the entire library with search, filters and pagination.
   the UI consumes, so statistics can never drift from the canonical analyser. All
   file operations stay inside the engine's safety-gated modes; subprocess calls are
   serialized, cancellable, and surface failures in a structured error dialog.
+- **Optional view:** reads playlists through another tool, found as a sibling `other tooling` checkout or via the `other tooling_ROOT` environment variable; the rest of the app runs without it
 - Details: [`the UI`](the UI)
 
 ## CLI Usage
