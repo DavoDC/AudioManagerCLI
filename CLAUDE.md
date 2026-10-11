@@ -147,3 +147,7 @@ TagFixer modifies ID3 tags and renames files to match library convention. Tag ch
 ## What the Test Suite Can and Cannot Prove
 
 See "What the test suite can and cannot prove" in `docs/References/DevContext.md` - a green `verify.bat` proves the logic, never that a real integration batch is safe to fire.
+
+## shared standard
+
+This UI is scored against the shared shared standard kept in the shared notes (topic folder `shared standard`, checklist of WS ids, per-repo scores); backlog items cite WS ids.
