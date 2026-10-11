@@ -22,12 +22,7 @@ See "Project Structure" in `docs/References/DevContext.md` for the full tree.
 
 ### User Workflow (launch.bat)
 
-**Primary:** Always run via interactive menu:
-```powershell
-.\scripts\launch.bat
-```
-
-Menu (arrow-key navigable, shown in the exe after build): Analysis, Analysis (Force Regen), Integrate (dry run first, then prompts "Proceed with real integration? [y/N]"). launch.bat handles build internally; the exe shows the menu.
+**Primary:** run `.\scripts\launch.bat` (builds internally; menu: Analysis, Analysis (Force Regen), Integrate with a dry run first, then "Proceed with real integration? [y/N]").
 
 ### Claude: Building the Program
 
@@ -51,18 +46,15 @@ Legacy csproj format, csproj file registration, the `Any CPU`-only platform cons
 
 ### Claude: UI dev live refresh - use the trigger, don't kill the process
 
-If `scripts\the launcher` is running while editing `the UI`, touch/create
-`a trigger file` once ready instead of `taskkill`/closing the window.
-live refresh is on by default and defers while a job runs.
-Detail: `docs/References/the architecture doc` "Dev mode: live refresh".
+While `scripts\the launcher` runs, touch `a trigger file` instead of killing the window (reload defers while a job runs). Detail: `docs/References/the architecture doc` "Dev mode: live refresh".
 
 ### Claude: driving and checking the UI
 
-Drive and check the UI (state endpoints, `window.__debug`, fixtures, `UI check`, `capture`, `a verify tool`, CLI parity): `docs/References/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI.
+Run block: `scripts\the launcher` (launch), `python -m the UI entry point --check`, `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. Verification ladder (cheapest first: unit test, verify, DOM text, capture, browser tool only for real interaction), state endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI.
 
-### Development priority: Priority area over Priority area (confirmed 2026-09-05)
+### Development priority
 
-**Priorities for now.** No-signal work picks: Intake first. See the backlog TIER 2 priority note.
+Priorities for now; no-signal work picks Intake. Detail: "Development Priority" in `docs/References/DevContext.md`.
 
 ### Claude: UI visual design - read the design doc first
 
@@ -91,10 +83,7 @@ patterns it defines rather than inventing new styling per tab.
 
 ## Display Conventions
 
-- **"In AudioMirror"** = the XML entry in AudioMirror repo (`<home>\GitHubRepos\AudioMirror\AUDIO_MIRROR\...xml`)
-- **"In library"** = the MP3 file in the Audio folder (`<home>\Audio\...mp3`)
-- Never say "In library" with an XML path, or "In AudioMirror" with an MP3 path. Match label to file type.
-- Duplicate detection surfaces AudioMirror XML paths - display as "In AudioMirror" so the user knows where the detection came from.
+Label "In AudioMirror" for XML paths and "In library" for MP3 paths, never mixed: "Display Conventions" in `docs/References/DevContext.md`.
 
 ## Library Routing Rules
 
@@ -102,7 +91,7 @@ patterns it defines rather than inventing new styling per tab.
 
 ## Workflow Note
 
-**David's actual integration cadence: one big batch every 2-4 weeks, not daily.** Any UI/report design (UI dashboards, stats, "recent activity" views) that assumes daily/steady-drip additions will look wrong or empty most days and spike hard on integration day - design for batch-shaped data (group by integration-run/week, not by day). Noted 2026-07-02 during UI mockup review.
+Integration is one big batch every 2-4 weeks: design UI and reports for batch-shaped data, not daily drips ("Integration Cadence" in `docs/References/DevContext.md`).
 
 For LibChecker-warning triage, post-integration validation mechanics, AudioMirror commit/regen policy, and audit-metadata rationale, see `docs/References/DevContext.md`.
 
@@ -123,11 +112,7 @@ After the run: check `git -C AudioMirror diff HEAD`, confirm the diff looks corr
 **Claude CANNOT run:**
 - `integrate` (real) - moves files, irreversible
 
-**User workflow for real integration:**
-```
-.\scripts\launch.bat
--> Select option 3 (Integration) - runs dry run first, prompts "Proceed with real integration? [y/N]"
-```
+**User workflow for real integration:** `.\scripts\launch.bat`, option 3 (Integration); it dry-runs first and prompts "Proceed with real integration? [y/N]".
 
 **Claude dev workflow for verifying fixes:** build, then run `integrate --dry-run --no-input` (skips interactive prompts) to see real output without blocking - see "Claude dev verify workflow" in `docs/References/DevContext.md` for the exact commands.
 
