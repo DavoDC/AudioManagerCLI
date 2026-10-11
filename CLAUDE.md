@@ -53,7 +53,12 @@ Legacy csproj format, csproj file registration, the `Any CPU`-only platform cons
 
 If `scripts\the launcher` is running while editing `the UI`, touch/create
 `a trigger file` once ready instead of `taskkill`/closing the window.
+live refresh is on by default and defers while a job runs.
 Detail: `docs/References/the architecture doc` "Dev mode: live refresh".
+
+### Claude: driving and checking the UI
+
+Drive and check the UI (state endpoints, `window.__debug`, fixtures, `UI check`, `capture`, `a verify tool`, CLI parity): `docs/References/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI.
 
 ### Development priority: Priority area over Priority area (confirmed 2026-09-05)
 
