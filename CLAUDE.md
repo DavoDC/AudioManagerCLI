@@ -144,4 +144,4 @@ See "What the test suite can and cannot prove" in `docs/References/DevContext.md
 
 ## shared standard
 
-This UI is scored against the shared shared standard kept in the shared notes (topic folder `shared standard`, checklist of WS ids, per-repo scores); backlog items cite WS ids.
+This UI follows a shared shared standard (checklist of WS ids); backlog items cite WS ids.
