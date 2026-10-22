@@ -50,7 +50,9 @@ While `scripts\the launcher` runs, touch `a trigger file` instead of killing the
 
 ### Claude: driving and checking the UI
 
-Run block: `scripts\the launcher` (launch), `python -m the UI entry point --check|--preflight|--stop`, `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. Verification ladder (cheapest first: unit test, verify, DOM text, capture, browser tool only for real interaction), state endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI.
+Run block: `scripts\the launcher` (launch), `python -m the UI entry point --check|--preflight|--stop`, `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. State endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI.
+
+**Verification ladder, cheapest first:** (1) unit test `python -m pytest the UI -q`; (2) `python -m a verify tool --fast` (pytest + UI check, about 20s); (3) `python -m the state command` for the DOM-state read (`/state.json`); (4) `python -m capture` for screenshots; (5) Chrome browser tool only for real interaction.
 
 ### UI test suite speed
 
