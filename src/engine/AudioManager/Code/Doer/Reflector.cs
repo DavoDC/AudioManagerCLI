@@ -15,23 +15,60 @@ namespace AudioManager
         // Mirror path variable
         string mirrorPath;
 
+        // Folder the XMLs are written into: mirrorPath.staging on a regen, else mirrorPath
+        string buildPath;
+
+        // Audio library root being mirrored
+        string audioRoot;
+
         /// <summary>
         /// Construct an audio mirror
         /// </summary>
         /// <param name="mirrorPath">The audio mirror folder path</param>
         public Reflector(string mirrorPath)
+            : this(Constants.AudioFolderPath, mirrorPath, Constants.MirrorRepoPath, null)
+        {
+        }
+
+        /// <summary>
+        /// Test seam: the same build with an injectable audio root, repo root and stamp path.
+        /// </summary>
+        internal Reflector(string audioRoot, string mirrorPath, string repoRoot, string lastRunInfoPath)
         {
             // Save parameters
+            this.audioRoot = audioRoot;
             this.mirrorPath = mirrorPath;
 
             // Notify
-            Console.WriteLine($"\nCreating mirror of '{Constants.AudioFolderPath}'...");
+            Console.WriteLine($"\nCreating mirror of '{audioRoot}'...");
+
+            // If mirror path is outside of repo
+            if (!IsInsideMirrorRepo(mirrorPath, repoRoot))
+            {
+                // Throw exception and notify
+                string msg = $"\nMirror path was incorrect, outside the repo:\n{mirrorPath}\n";
+                throw new ArgumentException(msg);
+            }
+
+            // Heal any interrupted swap before touching anything (every run, incremental too)
+            RecoverLeftovers(mirrorPath);
+
+            bool regen = AgeChecker.RegenMirror;
+            buildPath = regen ? mirrorPath + ".staging" : mirrorPath;
+            DateTime builtAt = DateTime.Now;
 
             // Setup folder structure
             CreateFolders();
 
             // Populate with files
             var statisticsInfo = CreateFiles();
+
+            // Regen: swap the finished staging folder in, then record the run only after success
+            if (regen)
+            {
+                SwapDirectory(buildPath, mirrorPath);
+                AgeChecker.MarkRegenerated(builtAt, lastRunInfoPath);
+            }
 
             // Print statistics
             PrintStats(statisticsInfo);
@@ -40,51 +77,47 @@ namespace AudioManager
 
         /// <summary>
         /// True only when the path, once normalised (no .. segments), sits strictly under the mirror repo.
-        /// Guards the recursive delete in CreateFolders.
+        /// Guards the recursive delete of a stale staging folder.
         /// </summary>
         internal static bool IsInsideMirrorRepo(string path)
+        {
+            return IsInsideMirrorRepo(path, Constants.MirrorRepoPath);
+        }
+
+        internal static bool IsInsideMirrorRepo(string path, string repoRoot)
         {
             if (string.IsNullOrWhiteSpace(path)) return false;
             string full;
             try { full = Path.GetFullPath(path); }
             catch (Exception) { return false; }
             if (!full.EndsWith(Path.DirectorySeparatorChar.ToString())) full += Path.DirectorySeparatorChar;
-            return full.Length > Constants.MirrorRepoPath.Length
-                && full.StartsWith(Constants.MirrorRepoPath, StringComparison.OrdinalIgnoreCase);
+            return full.Length > repoRoot.Length
+                && full.StartsWith(repoRoot, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
-        /// Set up folder structure mirroring the actual folder
+        /// Set up folder structure mirroring the actual folder, inside buildPath
         /// </summary>
         public void CreateFolders()
         {
-            // If mirror path is outside of repo
-            if (!IsInsideMirrorRepo(mirrorPath))
-            {
-                // Throw exception and notify
-                string msg = $"\nMirror path was incorrect, outside the repo:\n{mirrorPath}\n";
-                throw new ArgumentException(msg);
-            }
+            // Directory.GetDirectories throws for a missing audio root, before anything is created
+            string[] realDirs = Directory.GetDirectories(audioRoot, "*", SearchOption.AllDirectories);
 
-            // If recreation wanted
-            if (AgeChecker.RegenMirror)
+            // A stale staging folder (never the live mirror) is cleared before a fresh build
+            if (AgeChecker.RegenMirror && Directory.Exists(buildPath))
             {
-                // Remove the mirror path if it exists, to recreate it
-                if (Directory.Exists(mirrorPath))
-                {
-                    Directory.Delete(mirrorPath, true);
-                }
+                Directory.Delete(buildPath, true);
             }
+            Directory.CreateDirectory(buildPath);
 
             // For every actual folder
-            string[] realDirs = Directory.GetDirectories(Constants.AudioFolderPath, "*", SearchOption.AllDirectories);
             foreach (var directoryPath in realDirs)
             {
                 // Get real relative path
-                string relativePath = GetRelativePath(Constants.AudioFolderPath, directoryPath);
+                string relativePath = GetRelativePath(audioRoot, directoryPath);
 
-                // Create relative folder within mirror path
-                string newDirectoryPath = Path.Combine(mirrorPath, relativePath);
+                // Create relative folder within the build path
+                string newDirectoryPath = Path.Combine(buildPath, relativePath);
                 Directory.CreateDirectory(newDirectoryPath);
             }
         }
@@ -104,7 +137,7 @@ namespace AudioManager
             List<string> nonMP3Files = new List<string>();
 
             // For every actual file
-            string[] realFiles = Directory.GetFiles(Constants.AudioFolderPath, "*", SearchOption.AllDirectories);
+            string[] realFiles = Directory.GetFiles(audioRoot, "*", SearchOption.AllDirectories);
 
             // Track expected XML paths so orphan detection knows what to keep
             var expectedXmlPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -112,7 +145,7 @@ namespace AudioManager
             foreach (var realFilePath in realFiles)
             {
                 // Get relative file path
-                string relativePath = GetRelativePath(Constants.AudioFolderPath, realFilePath);
+                string relativePath = GetRelativePath(audioRoot, realFilePath);
 
                 // For non-MP3 files, add to list and skip
                 if (Path.GetExtension(realFilePath)?.ToLower() != ".mp3")
@@ -127,7 +160,7 @@ namespace AudioManager
                 string xmlRelPath = fileName != sanitisedName
                     ? ReplaceFileNameSegment(relativePath, sanitisedName)
                     : relativePath;
-                expectedXmlPaths.Add(Path.ChangeExtension(Path.Combine(mirrorPath, xmlRelPath), ".xml"));
+                expectedXmlPaths.Add(Path.ChangeExtension(Path.Combine(buildPath, xmlRelPath), ".xml"));
 
                 // Otherwise, process MP3 file
                 if (CreateFile(realFilePath, relativePath, out bool refreshed))
@@ -142,7 +175,7 @@ namespace AudioManager
             // Guard: skip if Audio root returned 0 files (access failure or unexpected empty library).
             int prunedCount = 0;
             if (!AgeChecker.RegenMirror && realFiles.Length > 0)
-                prunedCount = PruneOrphanedXmls(mirrorPath, expectedXmlPaths);
+                prunedCount = PruneOrphanedXmls(buildPath, expectedXmlPaths);
 
             // Return holders
             return Tuple.Create(mp3FileCount, sanitisationCount, refreshedCount, prunedCount, nonMP3Files);
@@ -179,7 +212,7 @@ namespace AudioManager
             }
 
             // Generate the full mirror path
-            string fullMirrorPath = Path.Combine(mirrorPath, relativePath);
+            string fullMirrorPath = Path.Combine(buildPath, relativePath);
 
             // Change extension
             fullMirrorPath = Path.ChangeExtension(fullMirrorPath, ".xml");

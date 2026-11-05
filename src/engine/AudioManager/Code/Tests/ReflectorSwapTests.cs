@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 
 namespace AudioManager
@@ -132,6 +133,112 @@ namespace AudioManager
                 Assert.True(!File.Exists(Path.Combine(target, "stale.xml")), "stale backup content is not restored over the target");
             }
             finally { Cleanup(root); }
+        }
+
+        // --- Staged rebuild (Reflector regen builds in .staging, swaps, then stamps) ---
+
+        private static string RepoRootFor(string root)
+        {
+            return Path.GetFullPath(root) + Path.DirectorySeparatorChar;
+        }
+
+        public static void IsInsideMirrorRepo_StagingAndOldCountAsInside()
+        {
+            Assert.True(Reflector.IsInsideMirrorRepo(Constants.MirrorFolderPath + ".staging"), ".staging sibling is inside the mirror repo");
+            Assert.True(Reflector.IsInsideMirrorRepo(Constants.MirrorFolderPath + ".old"), ".old sibling is inside the mirror repo");
+        }
+
+        public static void RecoverLeftovers_OldRestoredWhenTargetMissingAndStagingGone()
+        {
+            string root = NewTempRoot();
+            try
+            {
+                string target = Path.Combine(root, "mirror");
+                Directory.CreateDirectory(target + ".old");
+                File.WriteAllText(Path.Combine(target + ".old", "backup.xml"), "backup");
+
+                Reflector.RecoverLeftovers(target);
+
+                Assert.True(File.Exists(Path.Combine(target, "backup.xml")), "crash after parking .old restores it when staging is gone");
+                Assert.True(!Directory.Exists(target + ".staging"), "no staging folder appears");
+            }
+            finally { Cleanup(root); }
+        }
+
+        private static string MakeAudio(string root)
+        {
+            string audio = Path.Combine(root, "Audio");
+            Directory.CreateDirectory(Path.Combine(audio, "Artist"));
+            File.WriteAllText(Path.Combine(audio, "Artist", "a.mp3"), "x");
+            return audio;
+        }
+
+        public static void Reflector_ForcedRegen_EndToEnd_SwapsAndStamps()
+        {
+            string root = NewTempRoot();
+            bool saved = AgeChecker.RegenMirror;
+            try
+            {
+                string audio = MakeAudio(root);
+                string mirror = Path.Combine(root, "AUDIO_MIRROR");
+                string stamp = Path.Combine(root, "LastRunInfo.txt");
+                Directory.CreateDirectory(mirror);
+                File.WriteAllText(Path.Combine(mirror, "stale.xml"), "stale");
+                AgeChecker.RegenMirror = true;
+
+                new Reflector(audio, mirror, RepoRootFor(root), stamp);
+
+                Assert.True(File.Exists(Path.Combine(mirror, "Artist", "a.xml")), "new XML is in the target");
+                Assert.True(!File.Exists(Path.Combine(mirror, "stale.xml")), "stale XML is gone after a regen");
+                Assert.True(!Directory.Exists(mirror + ".staging"), "no .staging left");
+                Assert.True(!Directory.Exists(mirror + ".old"), "no .old left");
+                Assert.True(File.Exists(stamp), "stamp is written after the swap");
+                DateTime parsed;
+                Assert.True(DateTime.TryParseExact(File.ReadAllText(stamp).Trim(), "yyyy-MM-dd HH:mm:ss",
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed), "stamp is in the fixed format");
+            }
+            finally { AgeChecker.RegenMirror = saved; Cleanup(root); }
+        }
+
+        public static void Reflector_ForcedRegen_FailedBuild_KeepsLiveMirror()
+        {
+            string root = NewTempRoot();
+            bool saved = AgeChecker.RegenMirror;
+            try
+            {
+                string mirror = Path.Combine(root, "AUDIO_MIRROR");
+                Directory.CreateDirectory(mirror);
+                File.WriteAllText(Path.Combine(mirror, "live.xml"), "live");
+                AgeChecker.RegenMirror = true;
+
+                bool threw = false;
+                try { new Reflector(Path.Combine(root, "NoSuchAudio"), mirror, RepoRootFor(root), Path.Combine(root, "LastRunInfo.txt")); }
+                catch (Exception) { threw = true; }
+
+                Assert.True(threw, "a missing audio root fails the build");
+                Assert.True(File.Exists(Path.Combine(mirror, "live.xml")), "the live mirror is not deleted by a failed rebuild");
+            }
+            finally { AgeChecker.RegenMirror = saved; Cleanup(root); }
+        }
+
+        public static void Reflector_ForcedRegen_FailedBuild_LeavesStampUntouched()
+        {
+            string root = NewTempRoot();
+            bool saved = AgeChecker.RegenMirror;
+            try
+            {
+                string mirror = Path.Combine(root, "AUDIO_MIRROR");
+                string stamp = Path.Combine(root, "LastRunInfo.txt");
+                Directory.CreateDirectory(mirror);
+                File.WriteAllText(stamp, "2020-01-02 03:04:05");
+                AgeChecker.RegenMirror = true;
+
+                try { new Reflector(Path.Combine(root, "NoSuchAudio"), mirror, RepoRootFor(root), stamp); }
+                catch (Exception) { }
+
+                Assert.Equal("2020-01-02 03:04:05", File.ReadAllText(stamp));
+            }
+            finally { AgeChecker.RegenMirror = saved; Cleanup(root); }
         }
     }
 }

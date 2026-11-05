@@ -20,15 +20,22 @@ namespace AudioManager
         public static bool RegenMirror { get; set; }
 
         /// <summary>
-        /// Forces force-regen mode for the next Reflector call and updates LastRunInfo.txt.
-        /// Used by post-integration validation, which always needs a full mirror rebuild
-        /// to prune orphaned XMLs left behind by deleted/moved library files.
+        /// Forces force-regen mode for the next Reflector call. Only decides: the stamp is written by
+        /// MarkRegenerated after the rebuilt mirror is swapped in. Used by post-integration validation,
+        /// which always needs a full mirror rebuild to prune orphaned XMLs. The path parameter is unused.
         /// </summary>
         public static void ForceRegen(string lastRunInfoPath = null)
         {
             RegenMirror = true;
+        }
+
+        /// <summary>
+        /// Writes the last-run stamp (fixed invariant format). Called only after a successful mirror swap.
+        /// </summary>
+        public static void MarkRegenerated(DateTime builtAt, string lastRunInfoPath = null)
+        {
             string effectivePath = lastRunInfoPath ?? Constants.LastRunInfoFilePath;
-            File.WriteAllText(effectivePath, DateTime.Now.ToString(LastRunDateFormat, CultureInfo.InvariantCulture));
+            File.WriteAllText(effectivePath, builtAt.ToString(LastRunDateFormat, CultureInfo.InvariantCulture));
         }
 
         /// <summary>
@@ -52,9 +59,6 @@ namespace AudioManager
             // If the last run info file doesn't exist
             if (!File.Exists(effectivePath))
             {
-                // Create with it the current date
-                File.WriteAllText(effectivePath, GetStrFromDate(curDate));
-
                 // Notify and regenerate
                 Console.WriteLine(" - Mirror age is unknown, will regenerate!");
                 RegenMirror = true;
@@ -108,12 +112,6 @@ namespace AudioManager
 
                 // Notify
                 Console.WriteLine(mirrMsg);
-            }
-
-            // If regeneration will occur, update last run info
-            if (RegenMirror)
-            {
-                File.WriteAllText(effectivePath, GetStrFromDate(curDate));
             }
 
             // Finish and print time taken

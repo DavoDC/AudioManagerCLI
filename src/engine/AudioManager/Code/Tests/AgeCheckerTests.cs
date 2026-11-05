@@ -23,7 +23,21 @@ namespace AudioManager
             {
                 new AgeChecker(forceMirrorRegen: false, lastRunInfoPath: path);
                 Assert.True(AgeChecker.RegenMirror, "missing last-run file should set RegenMirror=true");
-                Assert.True(File.Exists(path), "AgeChecker should create the last-run file when missing");
+                Assert.True(!File.Exists(path), "AgeChecker only decides: it must not create the last-run file");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        public static void Stale_DoesNotRewriteStamp()
+        {
+            string path = TempInfoFile();
+            try
+            {
+                string stale = DateTime.Now.AddDays(-10).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+                File.WriteAllText(path, stale);
+                new AgeChecker(forceMirrorRegen: false, lastRunInfoPath: path);
+                Assert.True(AgeChecker.RegenMirror, "stale mirror should regen");
+                Assert.Equal(stale, File.ReadAllText(path));
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
@@ -98,35 +112,39 @@ namespace AudioManager
             finally { if (File.Exists(path)) File.Delete(path); }
         }
 
-        public static void ForceRegen_WritesLastRunInfoFile()
+        public static void ForceRegen_DoesNotWriteStamp()
         {
-            // ForceRegen must write LastRunInfo.txt (so the timestamp is committed with the mirror)
+            // ForceRegen only decides; the stamp is written by MarkRegenerated after a successful swap
+            AgeChecker.RegenMirror = false;
             string path = TempInfoFile();
             try
             {
-                Assert.True(!File.Exists(path), "precondition: file should not exist yet");
                 AgeChecker.ForceRegen(path);
-                Assert.True(File.Exists(path), "ForceRegen should create LastRunInfo.txt when missing");
-                string content = File.ReadAllText(path);
-                Assert.True(!string.IsNullOrWhiteSpace(content), "ForceRegen should write a non-empty timestamp");
-                DateTime.Parse(content); // throws if not a valid date - verifies format is parseable
+                Assert.True(AgeChecker.RegenMirror, "ForceRegen sets RegenMirror");
+                Assert.True(!File.Exists(path), "ForceRegen must not create the stamp file");
+                string old = "2020-01-02 03:04:05";
+                File.WriteAllText(path, old);
+                AgeChecker.ForceRegen(path);
+                Assert.Equal(old, File.ReadAllText(path));
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
 
-        public static void ForceRegen_UpdatesExistingLastRunInfoFile()
+        public static void MarkRegenerated_WritesInvariantStamp()
         {
-            // ForceRegen must overwrite an existing LastRunInfo.txt with a fresh timestamp
             string path = TempInfoFile();
+            CultureInfo original = Thread.CurrentThread.CurrentCulture;
             try
             {
-                string oldTimestamp = DateTime.Now.AddDays(-5).ToString("yyyy-MM-dd HH:mm:ss");
-                File.WriteAllText(path, oldTimestamp);
-                AgeChecker.ForceRegen(path);
-                string newContent = File.ReadAllText(path);
-                Assert.True(newContent != oldTimestamp, "ForceRegen should overwrite old timestamp with current time");
+                Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+                AgeChecker.MarkRegenerated(new DateTime(2026, 11, 4, 9, 8, 7), path);
+                Assert.Equal("2026-11-04 09:08:07", File.ReadAllText(path));
             }
-            finally { if (File.Exists(path)) File.Delete(path); }
+            finally
+            {
+                Thread.CurrentThread.CurrentCulture = original;
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // --- Culture-independent parsing ---
@@ -173,13 +191,13 @@ namespace AudioManager
 
         public static void AgeChecker_GermanCulture_TimestampRoundTrips()
         {
-            // ForceRegen writes the stamp; a fresh AgeChecker under de-DE must read it back as fresh
+            // MarkRegenerated writes the stamp; a fresh AgeChecker under de-DE must read it back as fresh
             string path = TempInfoFile();
             CultureInfo original = Thread.CurrentThread.CurrentCulture;
             try
             {
                 Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
-                AgeChecker.ForceRegen(path);
+                AgeChecker.MarkRegenerated(DateTime.Now, path);
                 new AgeChecker(forceMirrorRegen: false, lastRunInfoPath: path);
                 Assert.True(!AgeChecker.RegenMirror, "a stamp written by ForceRegen must round-trip as fresh under de-DE");
             }
