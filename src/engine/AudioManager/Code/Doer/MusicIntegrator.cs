@@ -1636,8 +1636,9 @@ namespace AudioManager
 
                 return Path.Combine(Constants.AudioFolderPath, relativePath);
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"  [WARN] Could not derive library path from '{mirrorXmlPath}': {ex.Message}");
                 return mirrorXmlPath;
             }
         }
@@ -1745,8 +1746,9 @@ namespace AudioManager
 
                 return RulesEngine.IsCompilation(distinctArtists.Count);
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"  [WARN] Compilation check skipped for '{xmlPath}': {ex.Message}");
                 return false;
             }
         }

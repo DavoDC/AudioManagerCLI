@@ -232,16 +232,20 @@ namespace AudioManager
             total > 0 ? Num(Math.Round(part * 100.0 / total, 1)) : "0";
 
         /// <summary>Walks the audio library once for a real byte total; 0 if it can't be read.</summary>
-        private static long TryGetLibraryBytes()
+        private static long TryGetLibraryBytes() => TryGetLibraryBytes(Constants.AudioFolderPath);
+
+        /// <summary>Walks the given folder for a real mp3 byte total; 0 (with a [WARN] line) if it can't be read.</summary>
+        internal static long TryGetLibraryBytes(string audioFolder)
         {
             try
             {
-                return new DirectoryInfo(Constants.AudioFolderPath)
+                return new DirectoryInfo(audioFolder)
                     .GetFiles("*.mp3", SearchOption.AllDirectories)
                     .Sum(f => f.Length);
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"  [WARN] Could not read library size under '{audioFolder}': {ex.Message}");
                 return 0;
             }
         }

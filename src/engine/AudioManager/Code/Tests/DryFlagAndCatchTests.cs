@@ -1,13 +1,41 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
 
 namespace AudioManager
 {
     /// <summary>
-    /// Covers the analysis-mode --dry-run rejection (Program.cs). Analysis has no dry path, so
-    /// --dry-run there would regen the mirror and auto-commit; the helper makes that rule testable.
+    /// Covers two fixes: analysis mode rejects --dry-run (it has no dry path and would regenerate
+    /// the mirror and auto-commit), and the return-in-catch sites that used to fail silently now
+    /// log a [WARN] line with the path and exception message. Return values are unchanged.
+    ///
+    /// Not covered here (need a real library or mirror tree, or are unreachable without one):
+    /// MusicIntegrator.FindDuplicateInMirror / BuildMirrorIndex (read Constants paths),
+    /// AudioMirrorCommitter.RunGitDetailed catch (needs a broken git install), TracksJson.TryGetAddedDate
+    /// and ReportWriter git-hash catches (best-effort by design, fixed Constants paths).
     /// </summary>
     internal static class DryFlagAndCatchTests
     {
+        private static string CaptureConsole(Action action)
+        {
+            var capture = new StringWriter();
+            TextWriter original = Console.Out;
+            Console.SetOut(capture);
+            try { action(); }
+            finally { Console.SetOut(original); }
+            return capture.ToString();
+        }
+
+        private static string NewTempDir()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        // ---- Item 1: analysis mode rejects --dry-run (Program.cs mode dispatch) ----
+
         public static void AnalysisRejectsDryRun_AnalysisWithDryRun_IsRejected()
         {
             Assert.True(Program.AnalysisRejectsDryRun(1, true),
@@ -24,6 +52,96 @@ namespace AudioManager
         {
             Assert.True(!Program.AnalysisRejectsDryRun(2, true), "integrate --dry-run must not be affected");
             Assert.True(!Program.AnalysisRejectsDryRun(3, true), "tagfix --dry-run must not be affected");
+        }
+
+        // ---- Item 2a: StatsJson library byte walk (Doer/Analyser/StatsJson.cs) ----
+
+        public static void StatsJsonLibraryBytes_MissingFolder_ReturnsZeroAndWarnsWithPath()
+        {
+            string dir = NewTempDir();
+            try
+            {
+                string missing = Path.Combine(dir, "no-such-audio-folder");
+                long bytes = -1;
+                string output = CaptureConsole(() => bytes = StatsJson.TryGetLibraryBytes(missing));
+
+                Assert.True(bytes == 0, $"Unreadable library must still report 0 bytes, got {bytes}");
+                Assert.True(output.IndexOf("[WARN]", StringComparison.Ordinal) >= 0,
+                    "Unreadable library folder must log a [WARN] line");
+                Assert.True(output.IndexOf(missing, StringComparison.Ordinal) >= 0,
+                    "The [WARN] line should include the library path");
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        public static void StatsJsonLibraryBytes_ReadableFolder_SumsMp3SizesWithoutWarning()
+        {
+            string dir = NewTempDir();
+            try
+            {
+                string sub = Path.Combine(dir, "Artist");
+                Directory.CreateDirectory(sub);
+                File.WriteAllBytes(Path.Combine(dir, "a.mp3"), new byte[3]);
+                File.WriteAllBytes(Path.Combine(sub, "b.mp3"), new byte[5]);
+                File.WriteAllBytes(Path.Combine(sub, "ignored.txt"), new byte[100]);
+
+                long bytes = -1;
+                string output = CaptureConsole(() => bytes = StatsJson.TryGetLibraryBytes(dir));
+
+                Assert.True(bytes == 8, $"Expected 8 mp3 bytes, got {bytes}");
+                Assert.True(output.IndexOf("[WARN]", StringComparison.Ordinal) < 0,
+                    "A readable library must not warn");
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        // ---- Item 2b: MusicIntegrator.DeriveLibraryPathFromMirrorPath (instance, private) ----
+
+        public static void DeriveLibraryPath_InvalidChars_ReturnsInputAndWarns()
+        {
+            string dir = NewTempDir();
+            try
+            {
+                var integrator = new MusicIntegrator(dir);
+                // Concatenate, not Path.Combine: Combine rejects the invalid '|' in the test itself.
+                string badXml = Constants.MirrorFolderPath + "\\bad|name.xml";
+                MethodInfo method = typeof(MusicIntegrator).GetMethod(
+                    "DeriveLibraryPathFromMirrorPath", BindingFlags.Instance | BindingFlags.NonPublic);
+
+                string result = null;
+                string output = CaptureConsole(() => result = (string)method.Invoke(integrator, new object[] { badXml }));
+
+                Assert.Equal(badXml, result, "Failure must still return the mirror XML path unchanged");
+                Assert.True(output.IndexOf("[WARN]", StringComparison.Ordinal) >= 0,
+                    "Path derivation failure must log a [WARN] line");
+                Assert.True(output.IndexOf(badXml, StringComparison.Ordinal) >= 0,
+                    "The [WARN] line should include the mirror XML path");
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        // ---- Item 2c: MusicIntegrator.IsAlbumFolderCompilation (instance, private) ----
+
+        public static void IsAlbumFolderCompilation_InvalidPath_ReturnsFalseAndWarns()
+        {
+            string dir = NewTempDir();
+            try
+            {
+                var integrator = new MusicIntegrator(dir);
+                string badXml = "C:\\Music|Mirror\\Album\\track.xml";
+                MethodInfo method = typeof(MusicIntegrator).GetMethod(
+                    "IsAlbumFolderCompilation", BindingFlags.Instance | BindingFlags.NonPublic);
+
+                bool result = true;
+                string output = CaptureConsole(() => result = (bool)method.Invoke(integrator, new object[] { badXml }));
+
+                Assert.True(!result, "Unreadable album must still report not-a-compilation");
+                Assert.True(output.IndexOf("[WARN]", StringComparison.Ordinal) >= 0,
+                    "Compilation check failure must log a [WARN] line");
+                Assert.True(output.IndexOf(badXml, StringComparison.Ordinal) >= 0,
+                    "The [WARN] line should include the XML path");
+            }
+            finally { Directory.Delete(dir, true); }
         }
     }
 }
