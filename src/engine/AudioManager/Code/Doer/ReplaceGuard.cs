@@ -76,6 +76,9 @@ namespace AudioManager
             try
             {
                 baks = Directory.GetFiles(libraryRoot, "*" + BakSuffix, SearchOption.AllDirectories);
+                // Windows 3-char extension patterns also match longer extensions (x.replaced.bakX);
+                // keep only true baks so the Substring below never builds a truncated restore target.
+                baks = Array.FindAll(baks, p => p.EndsWith(BakSuffix, StringComparison.OrdinalIgnoreCase));
             }
             catch (Exception ex)
             {

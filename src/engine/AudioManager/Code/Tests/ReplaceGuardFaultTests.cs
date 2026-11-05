@@ -252,5 +252,24 @@ namespace AudioManager
             }
             finally { Cleanup(dir); }
         }
+
+        public static void ReplaceGuard_SweepLongerExtensionStray_IsIgnoredNotTruncated()
+        {
+            string dir = MakeTempDir();
+            try
+            {
+                string strayPath = Path.Combine(dir, "Artist - Title.mp3.replaced.bakX");
+                string truncatedPath = Path.Combine(dir, "Artist - Title.mp3");
+                File.WriteAllBytes(strayPath, new byte[] { 3, 3 });
+
+                int restored = ReplaceGuard.SweepOrphans(dir);
+
+                Assert.Equal("0", restored.ToString(), "sweep must not restore a name that only matches the 3-char extension pattern");
+                Assert.True(!File.Exists(truncatedPath), "sweep must not move the stray file to a truncated library name");
+                Assert.Equal(Convert.ToBase64String(new byte[] { 3, 3 }), Base64(strayPath), "the stray file must keep its original name and bytes");
+                Assert.Equal("1", Directory.GetFiles(dir).Length.ToString(), "sweep must neither add nor remove files");
+            }
+            finally { Cleanup(dir); }
+        }
     }
 }
