@@ -126,7 +126,7 @@ Both `the UI:parse_confidence_report` and `the UI:_update_exec_status`'s authori
 
 ---
 
-## 3. C# changes (`project/AudioManager/Code/Doer/MusicIntegrator.cs` unless stated)
+## 3. C# changes (`src/engine/AudioManager/Code/Doer/MusicIntegrator.cs` unless stated)
 
 ### 3.1 `BuildJson` - additive
 
@@ -230,7 +230,7 @@ Remove the function and its docstring from `the UI`. Remove its tests from `the 
 
 ## 5. Tests
 
-### C# (`project/AudioManager/Code/Tests/`)
+### C# (`src/engine/AudioManager/Code/Tests/`)
 
 New file `MusicIntegratorExecutionRecordTests.cs`. **It must be registered in BOTH `AudioManager.csproj` (`<Compile Include>`) and the hardcoded type array in `Tests/TestRunner.cs`** - the backlog already records that missing either silently shrinks the suite while still reporting `[PASS]`. Verify the new test names actually appear in `--test` output before claiming done.
 

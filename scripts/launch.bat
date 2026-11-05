@@ -8,7 +8,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-"%~dp0..\project\AudioManager\bin\Release\AudioManager.exe"
+"%~dp0..\src\engine\AudioManager\bin\Release\AudioManager.exe"
 
 echo.
 echo ============================================================

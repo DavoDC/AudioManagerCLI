@@ -21,7 +21,7 @@ namespace AudioManager
         // Absolute path to the repo root (discovered by walking up from exe directory)
         public static readonly string RepoRoot = FindRepoRoot();
 
-        // Relative path from executable back to project folder
+        // Relative path from executable back to the C# backend folder (src/engine)
         public const string ProjectPath = "..\\..\\..\\";
 
         // Absolute path to the mirror repo (assumed to sit next to this repo in GitHubRepos\)

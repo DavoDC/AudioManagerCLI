@@ -170,7 +170,7 @@ The `_run_analysis_now()` path (wired to the cancelled modal's "Run Analysis Now
 
 Unchanged in behaviour: it always constructs and passes a synthetic record, so it never enters the verification-failed path. Add the three new state resets from 4.1 to its reset block. Do not add a simulated failure mode here - `IntegrationState.accepted` already guarantees Simulate can never fail mid-batch, and inventing a fake unverified run would be the one place in the UI where an alarming data-safety banner appears over something that never happened.
 
-### 4.9 `project/AudioManager/Code/Doer/MusicIntegrator.cs` - `WriteExecutionRecord` (recommended, justified)
+### 4.9 `src/engine/AudioManager/Code/Doer/MusicIntegrator.cs` - `WriteExecutionRecord` (recommended, justified)
 
 The app-side change is the primary ask; this is a small, contained C# improvement that materially reduces how often the strict path fires spuriously. **Do implement it.**
 

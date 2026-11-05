@@ -212,7 +212,7 @@ Your comment references "what if issue" - if you're concerned about a specific f
 
 ## Code Locations
 
-- **TagFixer:** `project/AudioManager/Code/Doer/TagFixer.cs`
-- **MusicIntegrator:** `project/AudioManager/Code/Doer/MusicIntegrator.cs` (duplicate logic, routing, L decision)
-- **Program entry:** `project/AudioManager/Code/Program.cs` (user-triggered only)
+- **TagFixer:** `src/engine/AudioManager/Code/Doer/TagFixer.cs`
+- **MusicIntegrator:** `src/engine/AudioManager/Code/Doer/MusicIntegrator.cs` (duplicate logic, routing, L decision)
+- **Program entry:** `src/engine/AudioManager/Code/Program.cs` (user-triggered only)
 

@@ -2,7 +2,7 @@
 
 Status: PROPOSAL. No code has moved. David approves this document before any extraction starts.
 
-Date: 2026-10-12. Source: `project/AudioManager/Code/Doer/MusicIntegrator.cs`, about 2,400 lines as of this date (it was 2,201 when the 2026-09-06 design review flagged it).
+Date: 2026-10-12. Source: `src/engine/AudioManager/Code/Doer/MusicIntegrator.cs`, about 2,400 lines as of this date (it was 2,201 when the 2026-09-06 design review flagged it).
 
 ## 1. Why
 

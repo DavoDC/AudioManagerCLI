@@ -8,7 +8,7 @@ Backlog item this feeds: the backlog - "Real-integration outcomes are reconstruc
 
 The problem statement (UI reconstructs real-integration outcomes by regexing `MusicIntegrator.cs`'s `Console.WriteLine` text) is accurate, but the natural next assumption - "we need to design a brand-new JSON contract from scratch" - is wrong. The structured data already exists in memory on the C# side, and a tested JSON serializer for it already exists and already runs today, just not for real runs.
 
-## What already exists (C# side, `project/AudioManager/Code/Doer/MusicIntegrator.cs`)
+## What already exists (C# side, `src/engine/AudioManager/Code/Doer/MusicIntegrator.cs`)
 
 - **`LogEntry`** (class def ~line 48-70): one instance per file, already carries `Filename`, `Title`, `Artists`, `Album`, `Destination`, `Reason`, `TagChanges`, `Status` ("moved"/"would-move"/"skipped"/"error"), `Detail`, `IsNewFolder`, `InBatchDuplicate`, `CompilationAlbum`, plus a library-duplicate block (`LibraryDuplicate`, `DupLibraryPath`, `DupLibraryTrack`, `DupLibraryAlbum`, `DupNewAlbum`, `DupRecommendationKey`, `DupRecommendation`, `DupReason`).
 - **`logEntries`** - a `List<LogEntry>` built during both dry-run and real routing (`RouteAllFiles`, ~line 421-534) and passed through to `PrintConfidenceReport` (~line 1009) at the end of a run, real or dry.
