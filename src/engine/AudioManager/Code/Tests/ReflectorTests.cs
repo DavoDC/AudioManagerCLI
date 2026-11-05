@@ -185,5 +185,61 @@ namespace AudioManager
             }
             finally { Directory.Delete(mirror, recursive: true); }
         }
+
+        public static void PruneOrphanedXmls_StrayXmlxFile_NeverDeleted()
+        {
+            // "*.xml" is matched with 8.3 semantics on .NET Framework, so Orphan.xmlX can match.
+            // Only real .xml files may be pruned; the stray file must survive.
+            string mirror = Path.Combine(Path.GetTempPath(), "am_prune_xmlx_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            Directory.CreateDirectory(mirror);
+            try
+            {
+                string stray = Path.Combine(mirror, "Orphan.xmlX");
+                File.WriteAllText(stray, "not an xml");
+                string orphan = Path.Combine(mirror, "real-orphan.xml");
+                File.WriteAllText(orphan, "stub");
+                string kept = Path.Combine(mirror, "kept-track.xml");
+                File.WriteAllText(kept, "stub");
+
+                var expected = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase) { kept };
+                int pruned = Reflector.PruneOrphanedXmls(mirror, expected);
+
+                Assert.True(pruned == 1, "only the real orphan .xml should be counted as pruned");
+                Assert.True(!File.Exists(orphan), "real orphan .xml should be deleted");
+                Assert.True(File.Exists(stray), "non-.xml file matching the 3-char pattern must never be deleted");
+            }
+            finally { Directory.Delete(mirror, recursive: true); }
+        }
+
+        public static void PruneOrphanedXmls_LockedOrphan_SkippedAndOthersStillPruned()
+        {
+            // A locked orphan must not throw and must not abort the prune; it is not counted.
+            string mirror = Path.Combine(Path.GetTempPath(), "am_prune_lock_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            Directory.CreateDirectory(mirror);
+            try
+            {
+                string locked = Path.Combine(mirror, "a-locked.xml");
+                File.WriteAllText(locked, "stub");
+                string free = Path.Combine(mirror, "b-free.xml");
+                File.WriteAllText(free, "stub");
+                string kept = Path.Combine(mirror, "kept-track.xml");
+                File.WriteAllText(kept, "stub");
+
+                var expected = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase) { kept };
+                int pruned;
+                Exception thrown = null;
+                using (var hold = new FileStream(locked, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    try { pruned = Reflector.PruneOrphanedXmls(mirror, expected); }
+                    catch (Exception ex) { thrown = ex; pruned = -1; }
+                }
+
+                Assert.True(thrown == null, "a locked orphan must not make the prune throw");
+                Assert.True(pruned == 1, "the locked orphan must not be counted; the other orphan is counted");
+                Assert.True(!File.Exists(free), "other orphans must still be pruned after a locked one");
+                Assert.True(File.Exists(locked), "locked orphan should survive the failed delete");
+            }
+            finally { Directory.Delete(mirror, recursive: true); }
+        }
     }
 }

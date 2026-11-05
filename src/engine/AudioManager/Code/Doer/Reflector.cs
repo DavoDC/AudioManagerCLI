@@ -259,12 +259,20 @@ namespace AudioManager
                 return 0;
             }
             int pruned = 0;
+            // "*.xml" also matches longer extensions on .NET Framework (8.3 semantics), so filter exactly.
             foreach (string xmlFile in Directory.GetFiles(mirrorPath, "*.xml", SearchOption.AllDirectories))
             {
-                if (!expectedXmlPaths.Contains(xmlFile))
+                if (!xmlFile.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)) continue;
+                if (expectedXmlPaths.Contains(xmlFile)) continue;
+                try
                 {
                     File.Delete(xmlFile);
                     pruned++;
+                }
+                catch (Exception ex)
+                {
+                    // One locked file must not abort the prune of the rest
+                    Console.WriteLine($"  [WARN] Could not prune '{Path.GetFileName(xmlFile)}': {ex.Message}");
                 }
             }
             return pruned;
