@@ -11,7 +11,12 @@ namespace AudioManager.Code.Modules
 
         public string PrimaryArtist
         {
-            get => Track.ProcessProperty(Artists)[0];
+            get
+            {
+                if (string.IsNullOrEmpty(Artists)) return null;
+                string[] artists = Track.ProcessProperty(Artists);
+                return artists.Length > 0 ? artists[0] : null;
+            }
         }
 
         public string Album { get; set; }
@@ -48,6 +53,7 @@ namespace AudioManager.Code.Modules
 
         public static string[] ProcessProperty(string full)
         {
+            if (full == null) return new string[0];
             char[] separators = { ';', ',' };
             if (!separators.Any(full.Contains))
             {

@@ -56,38 +56,39 @@ namespace AudioManager.Code.Modules
 
             // # Otherwise, if mirror file contains a valid path, initialise fields
 
-            // Load metadata object from file
-            TagLib.File tagFile = TagLib.File.Create(fileContents[0]);
-
-            // Extract duration info from properties
-            Length = tagFile.Properties.Duration.ToString();
-
-            // Extract info from generic tag
-            Tag tag = tagFile.Tag;
-            Title = string.IsNullOrEmpty(tag.Title) ? "Missing" : tag.Title;
-            Artists = string.IsNullOrEmpty(tag.JoinedPerformers) ? "Missing" : tag.JoinedPerformers;
-            Album = string.IsNullOrEmpty(tag.Album) ? "Missing" : tag.Album;
-            Year = (tag.Year == 0) ? "Missing" : tag.Year.ToString();
-            TrackNumber = tag.Track.ToString();
-            Genres = string.IsNullOrEmpty(tag.JoinedGenres) ? "Missing" : tag.JoinedGenres;
-            AlbumCoverCount = (tag.Pictures?.Length ?? 0).ToString();
-
-            // Extract compilation info from ID3 tag (see https://id3.org/iTunes%20Compilation%20Flag)
-            ID3Tag id3tag = (ID3Tag) tagFile.GetTag(TagLib.TagTypes.Id3v2, true);
-            Compilation = id3tag.IsCompilation.ToString();
-
-            // Extract album art dimensions (pure byte parsing - no System.Drawing dependency)
-            var pics = tag.Pictures;
-            if (pics != null && pics.Length > 0)
+            // Load metadata object from file; disposed (releasing the file handle) once read
+            using (TagLib.File tagFile = TagLib.File.Create(fileContents[0]))
             {
-                var (w, h) = GetCoverDimensions(pics[0].Data.Data);
-                CoverWidth  = w > 0 ? w.ToString() : "Unknown";
-                CoverHeight = h > 0 ? h.ToString() : "Unknown";
-            }
-            else
-            {
-                CoverWidth = "0";
-                CoverHeight = "0";
+                // Extract duration info from properties
+                Length = tagFile.Properties.Duration.ToString();
+
+                // Extract info from generic tag
+                Tag tag = tagFile.Tag;
+                Title = string.IsNullOrEmpty(tag.Title) ? "Missing" : tag.Title;
+                Artists = string.IsNullOrEmpty(tag.JoinedPerformers) ? "Missing" : tag.JoinedPerformers;
+                Album = string.IsNullOrEmpty(tag.Album) ? "Missing" : tag.Album;
+                Year = (tag.Year == 0) ? "Missing" : tag.Year.ToString();
+                TrackNumber = tag.Track.ToString();
+                Genres = string.IsNullOrEmpty(tag.JoinedGenres) ? "Missing" : tag.JoinedGenres;
+                AlbumCoverCount = (tag.Pictures?.Length ?? 0).ToString();
+
+                // Extract compilation info from ID3 tag (see https://id3.org/iTunes%20Compilation%20Flag)
+                ID3Tag id3tag = (ID3Tag) tagFile.GetTag(TagLib.TagTypes.Id3v2, true);
+                Compilation = id3tag.IsCompilation.ToString();
+
+                // Extract album art dimensions (pure byte parsing - no System.Drawing dependency)
+                var pics = tag.Pictures;
+                if (pics != null && pics.Length > 0)
+                {
+                    var (w, h) = GetCoverDimensions(pics[0].Data.Data);
+                    CoverWidth  = w > 0 ? w.ToString() : "Unknown";
+                    CoverHeight = h > 0 ? h.ToString() : "Unknown";
+                }
+                else
+                {
+                    CoverWidth = "0";
+                    CoverHeight = "0";
+                }
             }
 
             TrackXML.Write(mirrorFilePath, this);
