@@ -36,7 +36,7 @@ namespace AudioManager
             if (!Directory.Exists(Constants.LogsPath))
                 Directory.CreateDirectory(Constants.LogsPath);
             string outPath = Path.Combine(Constants.LogsPath, OutputFileName);
-            File.WriteAllText(outPath, json, Encoding.UTF8);
+            AtomicFile.WriteAllText(outPath, json, Encoding.UTF8);
             return outPath;
         }
 

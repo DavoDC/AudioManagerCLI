@@ -1242,7 +1242,7 @@ namespace AudioManager
                     Directory.CreateDirectory(Constants.LogsPath);
                 string jsonPath = Path.Combine(Constants.LogsPath, $"routing-{timestamp}.json");
 
-                File.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary()), System.Text.Encoding.UTF8);
+                AtomicFile.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary()), System.Text.Encoding.UTF8);
                 Console.WriteLine($"\n  JSON: {jsonPath}");
             }
             catch (Exception ex)
@@ -1294,7 +1294,7 @@ namespace AudioManager
                     Directory.CreateDirectory(logsPath);
                 string jsonPath = Path.Combine(logsPath, $"execution-{timestamp}.json");
 
-                File.WriteAllText(jsonPath, json, System.Text.Encoding.UTF8);
+                AtomicFile.WriteAllText(jsonPath, json, System.Text.Encoding.UTF8);
                 log(FormatExecutionJsonLine(jsonPath));
                 return true;
             }
@@ -1303,7 +1303,7 @@ namespace AudioManager
                 try
                 {
                     string retryPath = Path.Combine(logsPath, $"execution-{timestamp}-retry.json");
-                    File.WriteAllText(retryPath, json, System.Text.Encoding.UTF8);
+                    AtomicFile.WriteAllText(retryPath, json, System.Text.Encoding.UTF8);
                     log(FormatExecutionJsonLine(retryPath));
                     return true;
                 }
