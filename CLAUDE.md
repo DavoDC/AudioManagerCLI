@@ -46,11 +46,11 @@ Legacy csproj format, csproj file registration, the `Any CPU`-only platform cons
 
 ### Claude: UI dev live refresh - use the trigger, don't kill the process
 
-While `scripts\the launcher` runs, touch `a trigger file` instead of killing the window (reload defers while a job runs). Detail: `docs/References/the architecture doc` "Dev mode: live refresh".
+While `scripts\the launcher` runs, touch `a trigger file` instead of killing the window (reload defers while a job runs). Detail: `docs/References/architecture/the architecture doc` "Dev mode: live refresh".
 
 ### Claude: driving and checking the UI
 
-Run block (`python -m tools` from `src/`, or with `PYTHONPATH=src`): `scripts\the launcher` (launch), `python -m the UI entry point --check|--status|--preflight|--stop|--launch` (every non-GET request needs the per-launch auth header header), `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. State endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI. The UI is desktop-only: no phone-width support or checks (David, 2026-10-23).
+Run block (`python -m tools` from `src/`, or with `PYTHONPATH=src`): `scripts\the launcher` (launch), `python -m the UI entry point --check|--status|--preflight|--stop|--launch` (every non-GET request needs the per-launch auth header header), `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. State endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/contracts/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI. The UI is desktop-only: no phone-width support or checks (David, 2026-10-23).
 
 **Verification ladder, cheapest first:** (1) unit test `python -m pytest the UI -q`; (2) `python -m a verify tool --fast` (pytest + UI check, about 20s); (3) `python -m the state command` for the DOM-state read (`/state.json`); (4) `python -m capture` for screenshots; (5) Chrome browser tool only for real interaction.
 
@@ -93,7 +93,7 @@ Label "In AudioMirror" for XML paths and "In library" for MP3 paths, never mixed
 
 ## Library Routing Rules
 
-**Before touching GetDestDir or any routing code**, read `docs/References/Music-Library-Rules.md` and see "Library Routing Rules" in `docs/References/DevContext.md` - subfolder-before-song and scan-ahead invariants. Violating them causes files to land in wrong locations.
+**Before touching GetDestDir or any routing code**, read `docs/References/rules/Music-Library-Rules.md` and see "Library Routing Rules" in `docs/References/DevContext.md` - subfolder-before-song and scan-ahead invariants. Violating them causes files to land in wrong locations.
 
 ## Workflow Note
 
@@ -134,7 +134,7 @@ TagFixer modifies ID3 tags and renames files to match library convention. Tag ch
 
 ## UI Code-Change Escalation Boundary
 
-**C#/Python split (decided 2026-09-06, do not relitigate):** keep the language split; never let Python write to the library, reimplement C# logic, or parse AudioMirror XML (2 read-only tag/art exceptions excepted). Reasoning: `docs/References/Architecture-Language-Decision.md`.
+**C#/Python split (decided 2026-09-06, do not relitigate):** keep the language split; never let Python write to the library, reimplement C# logic, or parse AudioMirror XML (2 read-only tag/art exceptions excepted). Reasoning: `docs/References/architecture/Architecture-Language-Decision.md`.
 
 **The guarded path:** the path from a decline click to the exe's argument list - `IntegrationState.accepted`/`declined`, the manifest-writing block in `run_execute`, and the construction of `args` - is the only thing standing between a declined file and it being moved for real. A change there is written unattended but reviewed before it ships.
 

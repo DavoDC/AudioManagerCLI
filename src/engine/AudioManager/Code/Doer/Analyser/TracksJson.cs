@@ -15,7 +15,7 @@ namespace AudioManager
     /// The UI reads these two files and NEVER parses XML itself - so there is exactly one XML parser
     /// (the C# Parser) and zero risk of a second, drifting implementation in Python.
     ///
-    /// Data contract: see docs/References/AnalysisJson-Format.md (Tracks section). Bump SchemaVersion
+    /// Data contract: see docs/References/contracts/AnalysisJson-Format.md (Tracks section). Bump SchemaVersion
     /// on any breaking change.
     /// </summary>
     internal static class TracksJson

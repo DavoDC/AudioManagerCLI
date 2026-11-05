@@ -18,7 +18,7 @@ namespace AudioManager
     /// C# Analyser over time), this exporter reuses the SAME StatList primitives the text
     /// report uses, so the JSON and the report can never disagree.
     ///
-    /// Data contract: see docs/References/AnalysisJson-Format.md and the "analysis --json-output"
+    /// Data contract: see docs/References/contracts/AnalysisJson-Format.md and the "analysis --json-output"
     /// section of the UI design notes. Bump SchemaVersion on any breaking change.
     /// </summary>
     internal static class StatsJson

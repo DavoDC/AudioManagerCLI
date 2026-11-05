@@ -46,7 +46,7 @@ AudioManager/
 
 ## Library Routing Rules
 
-These are invariants from Music-Library-Rules.md. Violating them causes files to land in wrong locations.
+These are invariants from rules/Music-Library-Rules.md. Violating them causes files to land in wrong locations.
 
 - **Subfolder before song - at every level.** No song file ever sits directly in an artist folder. Always `Artist/Singles/song.mp3` or `Artist/AlbumName/song.mp3`. This applies at ALL nesting levels - including `Musivation/Akira The Don/People/{Person}/`. `People/Scott Adams/song.mp3` is wrong; `People/Scott Adams/Singles/song.mp3` is correct.
 - **Routing thresholds and the album normalizer live in `RulesEngine.cs`.** MusicIntegrator.GetDestDir and LibChecker both call it; never inline a 2 or 3 threshold or `StripAlbumSuffixes(RemoveParentheticals(..))` again. Known divergence: LibChecker groups albums by the raw tag, GetDestDir by the normalized one (pinned in RulesCharacterisationTests).
@@ -115,7 +115,7 @@ When you need to determine what something IS (compilation? artist album? genre f
 
 ## Stage 3 Integration Architecture and ParseCache Architecture
 
-Moved to `Integration-and-ParseCache-Architecture.md` (same folder). Read it when touching MusicIntegrator stage 3 or the ParseCache.
+Moved to `architecture/Integration-and-ParseCache-Architecture.md` (same folder). Read it when touching MusicIntegrator stage 3 or the ParseCache.
 
 ---
 
@@ -274,7 +274,7 @@ This is exactly how the dry-run `[DRY RUN] Would route to:` line is computed for
 
 - **Post-integration validation always force-regens.** Program.cs calls `AgeChecker.ForceRegen()` before `new Reflector()` in the post-integration block. Any future code that runs Reflector after integration-level file moves/deletes must do the same - force-regen gives a guaranteed clean rebuild after bulk moves, as defense-in-depth.
 
-- **Post-integration LibChecker warnings - confirm with force-regen before acting.** Incremental Reflector now prunes orphaned XMLs, so ghost hits are much less likely than before. If warnings appear post-integration, run `analysis --force-regen --no-input --no-auto-commit` first to rule out any residual ghost. Warnings that survive a force-regen are real. Full mechanism: `docs/References/Post-Integration-Validation.md`.
+- **Post-integration LibChecker warnings - confirm with force-regen before acting.** Incremental Reflector now prunes orphaned XMLs, so ghost hits are much less likely than before. If warnings appear post-integration, run `analysis --force-regen --no-input --no-auto-commit` first to rule out any residual ghost. Warnings that survive a force-regen are real. Full mechanism: `docs/References/rules/Post-Integration-Validation.md`.
 
 - **AudioMirror dirty state after force-regen = expected, not corruption.** XDocument.Save() writes CRLF; .gitattributes enforces eol=lf storage - so every regen leaves all XMLs "modified" until committed.
 - **Temporarily disabled checks need tests commented out too.** When a LibChecker check is commented out, its unit tests must also be commented (not deleted) - both re-enable together. Leaving tests active causes false failures.
@@ -319,7 +319,7 @@ Treat it like you treat the XML files: version-control it, don't relegate it to 
 - Delete files for any reason other than duplicates
 - Reorganise existing library structure without user approval
 
-**Audit trail:** See `docs/References/SAFETY_CONSTRAINTS.md` for a detailed safety review against these rules.
+**Audit trail:** See `docs/References/rules/SAFETY_CONSTRAINTS.md` for a detailed safety review against these rules.
 
 ## Mirror Generation Architecture: Stub-to-Replacement Pattern
 

@@ -98,7 +98,7 @@ namespace AudioManager
 
         /// <summary>
         /// Structured post-run integrity data for a real run's execution record (section 2.2 of
-        /// docs/References/Execution-Record-Contract-Design.md). Populated by PrintConfidenceReport
+        /// docs/References/design/Execution-Record-Contract-Design.md). Populated by PrintConfidenceReport
         /// from the exact same locals it already prints from, so the JSON and the console text can
         /// never disagree. Null on a dry run - the sanity check never runs there. Data only, no
         /// behaviour.
@@ -908,7 +908,7 @@ namespace AudioManager
             if (!dryRun)
             {
                 // Unconditional on a real run - not gated on jsonOutput. This keeps the UI's
-                // `args` untouched (docs/References/Execution-Record-Contract-Design.md section 1):
+                // `args` untouched (docs/References/design/Execution-Record-Contract-Design.md section 1):
                 // the exe emits the execution record on its own, no new CLI flag needed.
                 // Known scope limit (accepted, not "fixed" here): RunMiscMigration/CleanupNewMusicFolder
                 // below move library files that are not in logEntries, so the record does not cover them.
@@ -1080,7 +1080,7 @@ namespace AudioManager
         /// compilationAlbums}, "confidence": null | {countCheck, sanityCheck, newFolders,
         /// errorCount, errors}, "files": [ {filename, artist, title, album, destination, reason,
         /// isNewFolder, status, detail, inBatchDuplicate, compilationAlbum, libraryDuplicate + dup*
-        /// fields, tagChanges[]} ]}. See docs/References/Execution-Record-Contract-Design.md.
+        /// fields, tagChanges[]} ]}. See docs/References/design/Execution-Record-Contract-Design.md.
         /// </summary>
         /// <summary>
         /// Builds the routing/execution JSON contract text (pure, no I/O) - see the UI's
@@ -1176,7 +1176,7 @@ namespace AudioManager
         /// <summary>
         /// Appends the "confidence" block: the literal null on a dry run (the sanity check never
         /// runs there), otherwise the object built from a populated ConfidenceRecord. See section
-        /// 2.2 of docs/References/Execution-Record-Contract-Design.md for the exact shape.
+        /// 2.2 of docs/References/design/Execution-Record-Contract-Design.md for the exact shape.
         /// </summary>
         private static void AppendConfidenceBlock(StringBuilder sb, ConfidenceRecord confidence)
         {
@@ -1254,12 +1254,12 @@ namespace AudioManager
         /// <summary>
         /// Writes a real run's execution record to data/logs/execution-{timestamp}.json - the durable,
         /// structured account of what actually moved, distinct from the dry run's routing-*.json
-        /// (see docs/References/Execution-Record-Contract-Design.md section 2). Unconditional on a
+        /// (see docs/References/design/Execution-Record-Contract-Design.md section 2). Unconditional on a
         /// real run, not gated on jsonOutput. A failed write must never fail an integration run that
         /// already moved files, so failures are caught and warned, never thrown.
         ///
         /// On a write failure, attempts exactly one retry to an alternate "-retry" filename before
-        /// giving up (docs/References/Execution-Record-Fallback-Removal-Design.md section 4.9) - the
+        /// giving up (docs/References/design/Execution-Record-Fallback-Removal-Design.md section 4.9) - the
         /// dominant real-world cause of the primary write failing is transient (antivirus/indexer
         /// holding the just-created file), and a retry to a different filename costs nothing on the
         /// success path. A retry success prints the SAME "EXECUTION JSON:" marker the UI matches on,
@@ -1278,7 +1278,7 @@ namespace AudioManager
         /// <summary>
         /// The write-with-one-retry logic extracted out of WriteExecutionRecord so it is reachable
         /// from a test without reflecting into a private instance method (docs/References/
-        /// Execution-Record-Fallback-Removal-Design.md section 5.3, test 11/12) - takes the logs
+        /// design/Execution-Record-Fallback-Removal-Design.md section 5.3, test 11/12) - takes the logs
         /// directory, timestamp and pre-built JSON as plain values and a log sink instead of writing
         /// to Console directly, so a test can capture the printed lines. Returns true when either the
         /// primary or the retry write succeeded, false only when both failed - the caller (a real run)
@@ -1321,7 +1321,7 @@ namespace AudioManager
         /// than silently stripped - a
         /// malformed record from an unescaped control character (e.g. in a raw exception message
         /// landing in "detail") must never be produced. See
-        /// docs/References/Execution-Record-Contract-Design.md section 6.</summary>
+        /// docs/References/design/Execution-Record-Contract-Design.md section 6.</summary>
         private static string JStr(string s)
         {
             if (s == null) return "null";
@@ -1354,7 +1354,7 @@ namespace AudioManager
         /// Prints a confidence report to the console after integration, then returns the same data
         /// as a ConfidenceRecord for WriteExecutionRecord - compute-then-print-then-return, so the
         /// JSON and the console text are always in agreement (docs/References/
-        /// Execution-Record-Contract-Design.md section 3.3). Console output text is unchanged from
+        /// design/Execution-Record-Contract-Design.md section 3.3). Console output text is unchanged from
         /// before this record existed.
         /// Covers: count check, per-file table, new folders, destination sanity check, errors.
         /// </summary>
