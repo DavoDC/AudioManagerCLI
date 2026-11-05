@@ -1000,12 +1000,7 @@ namespace AudioManager
                             Console.WriteLine($"  Moved: {fileName}");
                             totalCount++;
                         }
-                        catch (IOException ex)
-                        {
-                            failedCount++;
-                            Console.WriteLine($"  [ERROR] Misc migration failed for {fileName}: {ex.Message}");
-                        }
-                        catch (UnauthorizedAccessException ex)
+                        catch (Exception ex)
                         {
                             failedCount++;
                             Console.WriteLine($"  [ERROR] Misc migration failed for {fileName}: {ex.Message}");
