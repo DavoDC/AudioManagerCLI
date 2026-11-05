@@ -76,7 +76,7 @@ namespace AudioManager
         /// </summary>
         public static string ConvertTimeSpanToString(TimeSpan timeSpan)
         {
-            return ($"{Math.Round(timeSpan.TotalSeconds, 3)} seconds");
+            return FormattableString.Invariant($"{Math.Round(timeSpan.TotalSeconds, 3)} seconds");
         }
     }
 }

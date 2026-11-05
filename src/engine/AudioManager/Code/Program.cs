@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -90,7 +91,7 @@ namespace AudioManager
                 }
 
                 // Set up file logging for all modes (console output tee'd to file + console simultaneously)
-                string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+                string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss", CultureInfo.InvariantCulture);
                 string modeLabel = (mode == 1) ? "analysis" : (mode == 2) ? "integrate" : "tagfix";
                 bool isIntegrate = (mode == 2);
                 string logPrefix = isIntegrate ? "run" : modeLabel;

@@ -613,7 +613,7 @@ namespace AudioManager
                         if (startIndex <= destPath.Length)
                         {
                             relativeDest = destPath.Substring(startIndex);
-                            if (relativeDest.StartsWith("\\") || relativeDest.StartsWith("/"))
+                            if (relativeDest.StartsWith("\\", StringComparison.Ordinal) || relativeDest.StartsWith("/", StringComparison.Ordinal))
                                 relativeDest = relativeDest.Substring(1);
                         }
                     }
@@ -1243,7 +1243,7 @@ namespace AudioManager
         {
             try
             {
-                string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
                 if (!Directory.Exists(Constants.LogsPath))
                     Directory.CreateDirectory(Constants.LogsPath);
                 string jsonPath = Path.Combine(Constants.LogsPath, $"routing-{timestamp}.json");
@@ -1276,7 +1276,7 @@ namespace AudioManager
         /// </summary>
         private void WriteExecutionRecord(List<LogEntry> entries, ConfidenceRecord confidence)
         {
-            string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
             string json = BuildJson(entries, BuildCurrentSummary(), dryRun: false, confidence: confidence);
             WriteExecutionRecordWithRetry(Constants.LogsPath, timestamp, json, Console.WriteLine);
         }
@@ -1391,7 +1391,7 @@ namespace AudioManager
                 string tagNote = e.TagChanges?.Count > 0 ? $" | Tags: {string.Join(", ", e.TagChanges)}" : "";
                 string destNote = !string.IsNullOrEmpty(e.Destination) ? $"\n    -> {e.Destination}" : "";
                 string detailNote = !string.IsNullOrEmpty(e.Detail) ? $" ({e.Detail})" : "";
-                Console.WriteLine($"  [{e.Status?.ToUpper()}] {e.Filename}{tagNote}{detailNote}{destNote}");
+                Console.WriteLine($"  [{e.Status?.ToUpperInvariant()}] {e.Filename}{tagNote}{detailNote}{destNote}");
             }
 
             // 3. New folders created

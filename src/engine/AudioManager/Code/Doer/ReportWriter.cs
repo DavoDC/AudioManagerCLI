@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text;
 
@@ -23,7 +24,7 @@ namespace AudioManager
         {
             string effectiveRoot = reportsRoot ?? Constants.ReportsPath;
             DateTime now = DateTime.Now;
-            string filename = now.ToString("yyyy-MM-dd") + " - AudioReport.md";
+            string filename = now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + " - AudioReport.md";
 
             // Determine save location based on LibChecker status
             string folder;
@@ -58,7 +59,7 @@ namespace AudioManager
         /// </summary>
         private static string BuildHeader(DateTime now)
         {
-            string date = now.ToString("dddd d MMMM yyyy, HH:mm");
+            string date = now.ToString("dddd d MMMM yyyy, HH:mm", CultureInfo.InvariantCulture);
             string commitHash = GetGitCommitHash();
             string commitLink = string.IsNullOrEmpty(commitHash)
                 ? "unavailable"

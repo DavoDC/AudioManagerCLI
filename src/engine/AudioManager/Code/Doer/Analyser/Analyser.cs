@@ -84,7 +84,7 @@ namespace AudioManager
             double totalDuration = audioTags.Sum(tag => TimeSpan.Parse(tag.Length, CultureInfo.InvariantCulture).TotalSeconds);
             double totalHours = Math.Round(totalDuration / 3600.0, 1);
             double days = Math.Round(totalHours / 24.0, 1);
-            Console.WriteLine($" - Total playback hours: {totalHours} hours (≈{days} days)");
+            Console.WriteLine(FormattableString.Invariant($" - Total playback hours: {totalHours} hours (≈{days} days)"));
 
             TimeSpan avgLength = TimeSpan.FromSeconds(totalDuration / audioTags.Count);
             Console.WriteLine($" - Average song length: {(int)avgLength.TotalMinutes}m{avgLength.Seconds:D2}s");
@@ -98,10 +98,10 @@ namespace AudioManager
 
             long totalBytes = new DirectoryInfo(Constants.AudioFolderPath).GetFiles("*.mp3", SearchOption.AllDirectories).Sum(f => f.Length);
             double totalGB = Math.Round(totalBytes / 1_073_741_824.0, 2);
-            Console.WriteLine($" - Total library size: {totalGB} GB");
+            Console.WriteLine(FormattableString.Invariant($" - Total library size: {totalGB} GB"));
 
             double avgFileMB = Math.Round((totalBytes / (double)audioTags.Count) / 1_048_576, 2);
-            Console.WriteLine($" - Average file size: {avgFileMB} MB");
+            Console.WriteLine(FormattableString.Invariant($" - Average file size: {avgFileMB} MB"));
         }
 
         /// <summary>
@@ -177,8 +177,8 @@ namespace AudioManager
                 ? ages[ages.Length / 2]
                 : (ages[ages.Length / 2 - 1] + ages[ages.Length / 2]) / 2.0;
 
-            Console.WriteLine($" - Average track age: {avg} years");
-            Console.WriteLine($" - Median track age:  {median} years");
+            Console.WriteLine(FormattableString.Invariant($" - Average track age: {avg} years"));
+            Console.WriteLine(FormattableString.Invariant($" - Median track age:  {median} years"));
             Console.WriteLine($" - Newest track:      {min} years old ({currentYear - min})");
             Console.WriteLine($" - Oldest track:      {max} years old ({currentYear - max})");
         }

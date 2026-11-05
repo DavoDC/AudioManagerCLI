@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 
 namespace AudioManager.Code.Modules
 {
@@ -38,7 +39,7 @@ namespace AudioManager.Code.Modules
             if (cutoff < percentage)
             {
                 // Format percentage
-                string percentageS = percentage.ToString("F2") + "%";
+                string percentageS = percentage.ToString("F2", CultureInfo.InvariantCulture) + "%";
 
                 // Print out info in columns (markdown table row)
                 PrintColumns(pos.ToString(), percentageS, property, count.ToString(), isHeader: false);

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 
@@ -63,7 +64,7 @@ namespace AudioManager
         private void WriteCharToFile(char value)
         {
             if (addFileTimestamps && atLineStart && value != '\r' && value != '\n')
-                fileWriter.Write($"[{DateTime.Now:HH:mm:ss}] ");
+                fileWriter.Write($"[{DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}] ");
             fileWriter.Write(value);
             if (value == '\n') atLineStart = true;
             else if (value != '\r') atLineStart = false;
@@ -85,7 +86,7 @@ namespace AudioManager
                 }
                 else if (addFileTimestamps && atLineStart)
                 {
-                    fileWriter.WriteLine($"[{DateTime.Now:HH:mm:ss}] {fileValue}");
+                    fileWriter.WriteLine($"[{DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}] {fileValue}");
                     atLineStart = true;
                 }
                 else

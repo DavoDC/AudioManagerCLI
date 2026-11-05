@@ -260,7 +260,7 @@ namespace AudioManager
                 }
 
                 // Register changes for combined display in MusicIntegrator's routing block
-                var nonFilenameChanges = log.Changes.Where(c => !c.StartsWith("Filename:")).ToList();
+                var nonFilenameChanges = log.Changes.Where(c => !c.StartsWith("Filename:", StringComparison.Ordinal)).ToList();
                 if (nonFilenameChanges.Count > 0)
                 {
                     FileChanges[log.OriginalFilename] = nonFilenameChanges;

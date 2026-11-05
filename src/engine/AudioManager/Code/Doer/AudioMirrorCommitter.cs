@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -73,7 +74,7 @@ namespace AudioManager
             }
 
             // Build commit message with artist breakdown
-            string commitTitle = DateTime.Now.ToString("MMM d") + " Update";
+            string commitTitle = DateTime.Now.ToString("MMM d", CultureInfo.InvariantCulture) + " Update";
             string commitBody = BuildCommitBody(
                 RunGit(repoPath, "-c core.quotepath=false status --porcelain=v1 -u all"),
                 GetTrackedArtists(repoPath));
@@ -132,7 +133,7 @@ namespace AudioManager
 
             foreach (string line in statusOutput.Split('\n'))
             {
-                if (!line.StartsWith("??")) continue;
+                if (!line.StartsWith("??", StringComparison.Ordinal)) continue;
 
                 // Path starts after "?? ", normalize separators
                 string path = line.Substring(3).Trim().Replace('\\', '/');
