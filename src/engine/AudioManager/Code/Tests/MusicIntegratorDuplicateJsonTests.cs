@@ -83,12 +83,12 @@ namespace AudioManager
             };
         }
 
-        public static void PresentDuplicateAndDecide_NoInput_NoManifestOverride_UsesRecommendation()
+        public static void PresentDuplicateAndDecide_NoInput_NoManifestOverride_DowngradesLToKeepBoth()
         {
             var integrator = new MusicIntegrator("C:\\fake\\lib", noInput: true, manifest: null);
             var sf = MakeDupScannedFile('L');
             integrator.PresentDuplicateAndDecide(sf);
-            Assert.Equal("L", sf.Duplicate.Decision.ToString());
+            Assert.Equal("K", sf.Duplicate.Decision.ToString());
         }
 
         public static void PresentDuplicateAndDecide_NoInput_NoRecommendation_DefaultsToKeepBoth()

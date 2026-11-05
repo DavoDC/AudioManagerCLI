@@ -882,6 +882,7 @@ namespace AudioManager
             Console.WriteLine("===========================================================================");
 
             int totalCount = 0;
+            int failedCount = 0;
             foreach (var kvp in _miscMigrationCandidates)
             {
                 string artist = kvp.Key;
@@ -912,16 +913,32 @@ namespace AudioManager
                     }
                     else
                     {
-                        Directory.CreateDirectory(destFolder);
-                        File.Move(libPath, Path.Combine(destFolder, fileName));
-                        Console.WriteLine($"  Moved: {fileName}");
-                        totalCount++;
+                        // Per-file guard: one failed move must not abort the rest of the migration
+                        try
+                        {
+                            Directory.CreateDirectory(destFolder);
+                            File.Move(libPath, Path.Combine(destFolder, fileName));
+                            Console.WriteLine($"  Moved: {fileName}");
+                            totalCount++;
+                        }
+                        catch (IOException ex)
+                        {
+                            failedCount++;
+                            Console.WriteLine($"  [ERROR] Misc migration failed for {fileName}: {ex.Message}");
+                        }
+                        catch (UnauthorizedAccessException ex)
+                        {
+                            failedCount++;
+                            Console.WriteLine($"  [ERROR] Misc migration failed for {fileName}: {ex.Message}");
+                        }
                     }
                 }
             }
 
             Console.WriteLine();
-            Console.WriteLine(dryRun ? $"Would migrate: {totalCount} Misc song(s)" : $"Migrated: {totalCount} Misc song(s)");
+            Console.WriteLine(dryRun
+                ? $"Would migrate: {totalCount} Misc song(s)"
+                : $"Migrated: {totalCount} Misc song(s), {failedCount} failed");
         }
 
         /// <summary>
@@ -1923,10 +1940,19 @@ namespace AudioManager
                 }
 
                 char autoDecision = dup.RecommendedKey != '\0' ? dup.RecommendedKey : 'K';
+                // Safety: L deletes/replaces the library copy and no human confirmed it, so an
+                // unattended run downgrades it to K (Keep Both, non-destructive).
+                if (autoDecision == 'L')
+                {
+                    autoDecision = 'K';
+                    Console.WriteLine($"  [SAFETY] L (delete library copy) not auto-accepted under no-input: {Path.GetFileName(sf.SourcePath)} downgraded to K (keep both)");
+                }
                 dup.Decision = autoDecision;
-                string autoReason = dup.RecommendedKey != '\0'
-                    ? $"{autoDecision} (auto-accepted recommended)"
-                    : "K (no recommendation - defaulting to Keep Both)";
+                string autoReason = dup.RecommendedKey == '\0'
+                    ? "K (no recommendation - defaulting to Keep Both)"
+                    : dup.RecommendedKey == 'L' && autoDecision == 'K'
+                        ? "K (L downgraded - no-input never deletes the library copy)"
+                        : $"{autoDecision} (auto-accepted recommended)";
                 Console.WriteLine($"  [AUTO] {autoReason}");
                 Console.WriteLine();
                 return true;
