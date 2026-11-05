@@ -167,7 +167,7 @@ namespace AudioManager
             try
             {
                 // Row with 11 fields instead of the required 12 - must be rejected
-                File.WriteAllText(path, "PARSE_CACHE_V1\nfield1|field2|field3|field4|field5|field6|field7|field8|field9|field10|field11");
+                File.WriteAllText(path, "PARSE_CACHE_V2\nfield1|field2|field3|field4|field5|field6|field7|field8|field9|field10|field11");
                 bool ok = ParseCache.TryDeserialize(path, out var tags);
                 Assert.True(!ok, "row with too few fields should return false");
             }
@@ -180,29 +180,93 @@ namespace AudioManager
             try
             {
                 // 13 fields (e.g. a title containing '|') - must be rejected
-                File.WriteAllText(path, "PARSE_CACHE_V1\nf1|f2|f3|f4|f5|f6|f7|f8|f9|f10|f11|f12|extra");
+                File.WriteAllText(path, "PARSE_CACHE_V2\nf1|f2|f3|f4|f5|f6|f7|f8|f9|f10|f11|f12|extra");
                 bool ok = ParseCache.TryDeserialize(path, out var tags);
                 Assert.True(!ok, "row with too many fields (e.g. pipe in field value) should return false");
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
 
-        public static void RoundTrip_PipeInFieldValue_BreaksRoundTrip()
+        // Saves one tag and deserializes it back. Returns false (loaded stays null) if the row is rejected.
+        private static bool SaveAndLoadOne(TrackTag tag, out TrackTag loaded)
         {
-            // Known limitation: the '|' separator is not escaped, so pipe in any field
-            // value produces wrong field count on deserialization (returns false, not corrupted data).
-            // This test documents the behavior so it's intentional, not accidental.
             string path = TempCachePath();
             try
             {
-                var tag = new TrackTag("Artists/X/test.xml", "Title|With|Pipes", "Artist",
-                    "Album", "2020", "1", "Pop", "00:03:30.0000000", "1", "True", "500", "499");
-                ParseCache.Save(path, new System.Collections.Generic.List<TrackTag> { tag });
-                bool ok = ParseCache.TryDeserialize(path, out var loaded);
-                Assert.True(!ok,
-                    "pipe character in field value breaks the round-trip (known limitation of the flat-file format)");
+                ParseCache.Save(path, new List<TrackTag> { tag });
+                bool ok = ParseCache.TryDeserialize(path, out var tags);
+                loaded = ok ? tags[0] : null;
+                return ok;
             }
             finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        public static void RoundTrip_PipeInFieldValue_Survives()
+        {
+            var tag = new TrackTag("Artists/X/test.xml", "Title|With|Pipes", "Artist",
+                "Album", "2020", "1", "Pop", "00:03:30.0000000", "1", "True", "500", "499");
+            bool ok = SaveAndLoadOne(tag, out var loaded);
+            Assert.True(ok, "row with pipes in a field must round-trip");
+            Assert.Equal("Title|With|Pipes", loaded.Title, "title");
+            Assert.Equal("Artist", loaded.Artists, "artists");
+            Assert.Equal("Artists/X/test.xml", loaded.RelPath, "relpath");
+        }
+
+        public static void RoundTrip_BackslashInFieldValue_Survives()
+        {
+            var tag = new TrackTag("Artists/X/test.xml", "C:\\temp\\x", "AC\\DC",
+                "Album", "2020", "1", "Pop", "00:03:30.0000000", "1", "True", "500", "499");
+            bool ok = SaveAndLoadOne(tag, out var loaded);
+            Assert.True(ok, "row with backslashes in a field must round-trip");
+            Assert.Equal("C:\\temp\\x", loaded.Title, "title");
+            Assert.Equal("AC\\DC", loaded.Artists, "artists");
+        }
+
+        public static void RoundTrip_NewlineInFieldValue_Survives()
+        {
+            // LF and CR both split lines in File.ReadAllLines, so both must be escaped on save
+            var tag = new TrackTag("Artists/X/test.xml", "Line1\nLine2\r\nLine3", "A\rB",
+                "Album", "2020", "1", "Pop", "00:03:30.0000000", "1", "True", "500", "499");
+            bool ok = SaveAndLoadOne(tag, out var loaded);
+            Assert.True(ok, "row with CR or LF in a field must round-trip");
+            Assert.Equal("Line1\nLine2\r\nLine3", loaded.Title, "title");
+            Assert.Equal("A\rB", loaded.Artists, "artists");
+        }
+
+        public static void RoundTrip_FieldEndingInBackslash_Survives()
+        {
+            // A trailing backslash must not escape the field separator that follows it
+            var tag = new TrackTag("Artists/X/test.xml", "Trailing\\", "Pipe\\|End\\",
+                "Album\\", "2020", "1", "Pop", "00:03:30.0000000", "1", "True", "500", "499");
+            bool ok = SaveAndLoadOne(tag, out var loaded);
+            Assert.True(ok, "field ending in a backslash must round-trip");
+            Assert.Equal("Trailing\\", loaded.Title, "title");
+            Assert.Equal("Pipe\\|End\\", loaded.Artists, "artists");
+            Assert.Equal("Album\\", loaded.Album, "album");
+            Assert.Equal("Pop", loaded.Genres, "genres");
+        }
+
+        public static void TryLoad_V1Header_IsCacheMissWithoutThrowing()
+        {
+            // Old V1 rows have no escaping, so a V1 file must be rebuilt, never parsed
+            string dir = Path.Combine(Path.GetTempPath(), $"am_mirror_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(dir);
+            string cache = TempCachePath();
+            try
+            {
+                string xml = Path.Combine(dir, "a.xml");
+                File.WriteAllText(xml, "<x/>");
+                File.SetLastWriteTime(xml, DateTime.Now.AddHours(-1));
+                File.WriteAllText(cache, "PARSE_CACHE_V1\nArtists/X/a.xml|Title|Artist|Album|2020|1|Pop|00:03:30.0000000|1|False|500|499");
+                bool hit = ParseCache.TryLoad(cache, dir, out var tags);
+                Assert.True(!hit, "V1 cache file must be a cache miss");
+                Assert.True(tags == null, "V1 cache miss must yield null tags");
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+                if (File.Exists(cache)) File.Delete(cache);
+            }
         }
 
         // ---- Extract() ----
