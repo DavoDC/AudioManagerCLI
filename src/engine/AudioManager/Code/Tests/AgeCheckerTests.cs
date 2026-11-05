@@ -1,5 +1,7 @@
 using System;
+using System.Globalization;
 using System.IO;
+using System.Threading;
 
 namespace AudioManager
 {
@@ -125,6 +127,67 @@ namespace AudioManager
                 Assert.True(newContent != oldTimestamp, "ForceRegen should overwrite old timestamp with current time");
             }
             finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        // --- Culture-independent parsing ---
+
+        public static void AgeChecker_GermanCulture_ParsesWriterFormat()
+        {
+            // The writer always uses yyyy-MM-dd HH:mm:ss, so a fresh stamp must parse under any culture
+            string path = TempInfoFile();
+            CultureInfo original = Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+                File.WriteAllText(path, DateTime.Now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+                new AgeChecker(forceMirrorRegen: false, lastRunInfoPath: path);
+                Assert.True(!AgeChecker.RegenMirror, "a fresh writer-format timestamp must parse under de-DE and not force regen");
+            }
+            finally
+            {
+                Thread.CurrentThread.CurrentCulture = original;
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+
+        public static void AgeChecker_GermanCulture_RejectsNonWriterFormat()
+        {
+            // "04.11.2026 10:00:00" parses under de-DE with TryParse, but it is not the writer's format
+            string path = TempInfoFile();
+            CultureInfo original = Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+                File.WriteAllText(path, "04.11.2026 10:00:00");
+                bool threw = false;
+                try { new AgeChecker(forceMirrorRegen: false, lastRunInfoPath: path); }
+                catch (System.IO.FileLoadException) { threw = true; }
+                Assert.True(threw, "a culture-specific date that is not the writer format should throw FileLoadException");
+            }
+            finally
+            {
+                Thread.CurrentThread.CurrentCulture = original;
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+
+        public static void AgeChecker_GermanCulture_TimestampRoundTrips()
+        {
+            // ForceRegen writes the stamp; a fresh AgeChecker under de-DE must read it back as fresh
+            string path = TempInfoFile();
+            CultureInfo original = Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+                AgeChecker.ForceRegen(path);
+                new AgeChecker(forceMirrorRegen: false, lastRunInfoPath: path);
+                Assert.True(!AgeChecker.RegenMirror, "a stamp written by ForceRegen must round-trip as fresh under de-DE");
+            }
+            finally
+            {
+                Thread.CurrentThread.CurrentCulture = original;
+                if (File.Exists(path)) File.Delete(path);
+            }
         }
     }
 }

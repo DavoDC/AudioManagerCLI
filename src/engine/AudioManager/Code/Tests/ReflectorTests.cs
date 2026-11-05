@@ -109,8 +109,11 @@ namespace AudioManager
                 string orphan = Path.Combine(mirror, "deleted-track.xml");
                 File.WriteAllText(orphan, "stub");
 
-                // Empty expected set - orphan not in it
-                var expected = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                // A kept XML makes the expected set non-empty (an empty set now prunes nothing);
+                // the orphan is not in it
+                string kept = Path.Combine(mirror, "kept-track.xml");
+                File.WriteAllText(kept, "stub");
+                var expected = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase) { kept };
                 int pruned = Reflector.PruneOrphanedXmls(mirror, expected);
 
                 Assert.True(pruned == 1, "one orphaned XML should be pruned");

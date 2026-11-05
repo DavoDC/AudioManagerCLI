@@ -125,7 +125,7 @@ namespace AudioManager
                 string fileName = Path.GetFileName(realFilePath);
                 string sanitisedName = SanitiseFilename(fileName);
                 string xmlRelPath = fileName != sanitisedName
-                    ? relativePath.Replace(fileName, sanitisedName)
+                    ? ReplaceFileNameSegment(relativePath, sanitisedName)
                     : relativePath;
                 expectedXmlPaths.Add(Path.ChangeExtension(Path.Combine(mirrorPath, xmlRelPath), ".xml"));
 
@@ -172,7 +172,7 @@ namespace AudioManager
             if (fileName != sanitisedFilename)
             {
                 // Replace filename in path with sanitised version
-                relativePath = relativePath.Replace(fileName, sanitisedFilename);
+                relativePath = ReplaceFileNameSegment(relativePath, sanitisedFilename);
 
                 // Set flag
                 sanitised = true;
@@ -218,6 +218,13 @@ namespace AudioManager
         internal static int PruneOrphanedXmls(string mirrorPath, HashSet<string> expectedXmlPaths)
         {
             if (!Directory.Exists(mirrorPath)) return 0;
+
+            // Never delete everything on an empty expected set (e.g. a library with only non-MP3 files)
+            if (expectedXmlPaths.Count == 0)
+            {
+                Console.WriteLine(" - XML prune skipped: nothing was expected");
+                return 0;
+            }
             int pruned = 0;
             foreach (string xmlFile in Directory.GetFiles(mirrorPath, "*.xml", SearchOption.AllDirectories))
             {
@@ -385,6 +392,17 @@ namespace AudioManager
             // Directory.GetFiles both use backslashes, so a mismatch would cause PruneOrphanedXmls
             // to delete all XMLs (HashSet lookup fails because '/' != '\').
             return Uri.UnescapeDataString(relativeUri.ToString()).Replace('/', Path.DirectorySeparatorChar);
+        }
+
+        /// <summary>
+        /// Swaps the final path segment (the file name) for its sanitised form, leaving every
+        /// directory segment untouched even when it contains the same text.
+        /// </summary>
+        internal static string ReplaceFileNameSegment(string relativePath, string sanitisedName)
+        {
+            string directory = Path.GetDirectoryName(relativePath);
+            if (string.IsNullOrEmpty(directory)) return sanitisedName;
+            return Path.Combine(directory, sanitisedName);
         }
     }
 }

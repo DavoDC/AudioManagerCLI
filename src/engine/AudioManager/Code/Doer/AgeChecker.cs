@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 
 namespace AudioManager
@@ -8,6 +9,11 @@ namespace AudioManager
     /// </summary>
     internal class AgeChecker : Doer
     {
+        /// <summary>
+        /// The fixed format the last-run file is written and read in. Culture-independent by design.
+        /// </summary>
+        private const string LastRunDateFormat = "yyyy-MM-dd HH:mm:ss";
+
         /// <summary>
         /// True if the mirror should be regenerated
         /// </summary>
@@ -22,7 +28,7 @@ namespace AudioManager
         {
             RegenMirror = true;
             string effectivePath = lastRunInfoPath ?? Constants.LastRunInfoFilePath;
-            File.WriteAllText(effectivePath, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            File.WriteAllText(effectivePath, DateTime.Now.ToString(LastRunDateFormat, CultureInfo.InvariantCulture));
         }
 
         /// <summary>
@@ -52,13 +58,15 @@ namespace AudioManager
                 // Notify and regenerate
                 Console.WriteLine(" - Mirror age is unknown, will regenerate!");
                 RegenMirror = true;
+                FinishAndPrintTimeTaken();
                 return;
             }
 
             //// Else if the last run file exists:
             // Try to parse date
             DateTime mirrorCreationDate;
-            if (!DateTime.TryParse(File.ReadAllText(effectivePath), out mirrorCreationDate))
+            if (!DateTime.TryParseExact(File.ReadAllText(effectivePath).Trim(), LastRunDateFormat,
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out mirrorCreationDate))
             {
                 // If date parsing fails, notify and throw error
                 string parseErr = "\nERROR: Cannot parse date in: " + effectivePath;
@@ -130,7 +138,7 @@ namespace AudioManager
             if (timeVal is DateTime)
             {
                 DateTime dateTime = (DateTime)timeVal;
-                return dateTime.ToString("yyyy-MM-dd HH:mm:ss");
+                return dateTime.ToString(LastRunDateFormat, CultureInfo.InvariantCulture);
             }
             else if (timeVal is TimeSpan)
             {
