@@ -67,7 +67,24 @@ namespace AudioManager
             if (HasDeluxeKeyword(baseAlbum)) return false; // both deluxe: not a clear hierarchy
 
             string baseTrimmed = baseAlbum.TrimEnd(' ', '-', '(', '[');
-            return candidate.StartsWith(baseTrimmed, StringComparison.OrdinalIgnoreCase);
+            if (baseTrimmed.Length == 0) return false;
+            if (!candidate.StartsWith(baseTrimmed, StringComparison.OrdinalIgnoreCase)) return false;
+            return IsWordBoundaryAt(candidate, baseTrimmed.Length);
+        }
+
+        /// <summary>
+        /// True when the text at <paramref name="pos"/>, after any spaces, is the end of the string, a
+        /// non-letter/digit, or a deluxe keyword. Stops "Abbey" matching "Abbey Roadshow Deluxe" while keeping
+        /// "Abbey Road Deluxe" and "Abbey Road (Deluxe Edition)".
+        /// </summary>
+        private static bool IsWordBoundaryAt(string candidate, int pos)
+        {
+            int i = pos;
+            while (i < candidate.Length && candidate[i] == ' ') i++;
+            if (i == candidate.Length || !char.IsLetterOrDigit(candidate[i])) return true;
+            foreach (var kw in DeluxeKeywords)
+                if (string.Compare(candidate, i, kw, 0, kw.Length, StringComparison.OrdinalIgnoreCase) == 0) return true;
+            return false;
         }
     }
 }

@@ -24,6 +24,9 @@ namespace AudioManager
         {
             string effectiveCachePath = cachePath ?? Constants.ParseCachePath;
 
+            if (!Directory.Exists(mirrorPath))
+                throw new DirectoryNotFoundException($"Audio mirror folder not found: {mirrorPath}");
+
             // Notify
             Console.Write("\nParsing audio metadata...");
 
@@ -43,26 +46,45 @@ namespace AudioManager
             string[] mirrorFiles = Directory.GetFiles(mirrorPath, "*", SearchOption.AllDirectories);
             var bag = new ConcurrentBag<TrackTag>();
             var badFiles = new ConcurrentBag<string>(); // non-XML files found (mirror corruption)
+            var failures = new ConcurrentBag<string>(); // XML files that could not be parsed
 
             Parallel.ForEach(mirrorFiles, mirrorFilePath =>
             {
                 string name = Path.GetFileName(mirrorFilePath);
-                if (name.Equals("README.md")) return;
+                if (name.Equals("README.md", StringComparison.OrdinalIgnoreCase)) return;
 
-                if (Path.GetExtension(mirrorFilePath) != ".xml")
+                if (!string.Equals(Path.GetExtension(mirrorFilePath), ".xml", StringComparison.OrdinalIgnoreCase))
                 {
                     badFiles.Add(mirrorFilePath);
                     return;
                 }
 
-                bag.Add(new TrackTag(mirrorFilePath));
+                try
+                {
+                    bag.Add(new TrackTag(mirrorFilePath));
+                }
+                catch (Exception ex)
+                {
+                    failures.Add($"{mirrorFilePath}: {ex.Message}");
+                }
             });
 
             // Surface mirror corruption after parallel phase completes
             if (!badFiles.IsEmpty)
                 throw new ArgumentException($"Non-XML file(s) found in mirror folder: {string.Join(", ", badFiles)}");
 
+            // Report every failed file in one exception, not just the first
+            if (!failures.IsEmpty)
+            {
+                string[] failureList = failures.ToArray();
+                Array.Sort(failureList, StringComparer.Ordinal);
+                throw new InvalidDataException(
+                    $"Failed to parse {failureList.Length} file(s) in mirror folder:\n" + string.Join("\n", failureList));
+            }
+
             audioTags = new List<TrackTag>(bag);
+            // Ordinal sort so the result, and the cache written from it, is deterministic
+            audioTags.Sort((a, b) => string.CompareOrdinal(a.RelPath, b.RelPath));
             Console.WriteLine();
 
             // Save cache so next run can skip these reads
