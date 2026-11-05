@@ -74,6 +74,13 @@ namespace AudioManager
         {
             Console.WriteLine($"\n# General Statistics");
 
+            // Empty library: averages and medians are undefined, so print one line and stop
+            if (audioTags.Count == 0)
+            {
+                Console.WriteLine(" - No tracks in library");
+                return;
+            }
+
             double totalDuration = audioTags.Sum(tag => TimeSpan.Parse(tag.Length, CultureInfo.InvariantCulture).TotalSeconds);
             double totalHours = Math.Round(totalDuration / 3600.0, 1);
             double days = Math.Round(totalHours / 24.0, 1);
@@ -155,6 +162,13 @@ namespace AudioManager
                 .Select(t => currentYear - int.Parse(t.Year, CultureInfo.InvariantCulture))
                 .OrderBy(a => a)
                 .ToArray();
+
+            // No parsable years: average, min and max are undefined, so print one line and stop
+            if (ages.Length == 0)
+            {
+                Console.WriteLine(" - No tracks with a valid year");
+                return;
+            }
 
             double avg = Math.Round(ages.Average(), 1);
             int min = ages.First();
