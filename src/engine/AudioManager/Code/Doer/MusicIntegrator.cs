@@ -412,20 +412,33 @@ namespace AudioManager
                     }
                     else if (dryRun)
                     {
-                        Console.WriteLine($"[DRY RUN] Would delete from library: {dup.RelLibraryPath}");
-                        Console.WriteLine($"[DRY RUN] Would keep new file: {dup.DisplayNewFilename}");
                         string lDestDir = GetDestDir(track, newArtistFolders, _compilationAlbums, out _, out _);
                         string lDestFile = Reflector.SanitiseFilename(track.Artists) + " - " + Reflector.SanitiseFilename(track.Title) + ".mp3";
                         string lDestPath = Path.Combine(lDestDir, lDestFile);
-                        string lRelDest = lDestPath.StartsWith(Constants.AudioFolderPath, StringComparison.OrdinalIgnoreCase)
-                            ? lDestPath.Substring(Constants.AudioFolderPath.Length).TrimStart('\\', '/')
-                            : lDestPath;
-                        Console.WriteLine($"[DRY RUN] Would route to: {lRelDest}");
-                        entry.Status = "would-replace";
-                        entry.Detail = "duplicate (would replace)";
-                        logEntries.Add(entry); skippedCount++;
-                        Console.WriteLine();
-                        dup.SkipRouting = true;
+                        // Real run: the library copy is staged, then 3b routes with no batch set, so only an occupied
+                        // destination (other than the copy being replaced) skips the replacement.
+                        if (IsDestBlocked(lDestPath, dup.LibraryFilePath, null))
+                        {
+                            Console.WriteLine(FormatSkipLine(track.Artists, track.Title));
+                            Console.WriteLine();
+                            entry.Status = "would-skip"; entry.Detail = "already exists at destination";
+                            logEntries.Add(entry); skippedCount++;
+                            dup.SkipRouting = true;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[DRY RUN] Would delete from library: {dup.RelLibraryPath}");
+                            Console.WriteLine($"[DRY RUN] Would keep new file: {dup.DisplayNewFilename}");
+                            string lRelDest = lDestPath.StartsWith(Constants.AudioFolderPath, StringComparison.OrdinalIgnoreCase)
+                                ? lDestPath.Substring(Constants.AudioFolderPath.Length).TrimStart('\\', '/')
+                                : lDestPath;
+                            Console.WriteLine($"[DRY RUN] Would route to: {lRelDest}");
+                            entry.Status = "would-replace";
+                            entry.Detail = "duplicate (would replace)";
+                            logEntries.Add(entry); skippedCount++;
+                            Console.WriteLine();
+                            dup.SkipRouting = true;
+                        }
                     }
                     else
                     {
@@ -903,9 +916,9 @@ namespace AudioManager
         /// Runs in both dry-run (shows what would happen) and real mode (moves files).
         /// No-op if no artists were promoted with existing Misc songs.
         /// </summary>
-        private void RunMiscMigration()
+        private int RunMiscMigration()
         {
-            if (_miscMigrationCandidates.Count == 0) return;
+            if (_miscMigrationCandidates.Count == 0) return 0;
 
             Console.WriteLine("\n===========================================================================");
             Console.WriteLine(dryRun ? "Misc Migration (Dry Run)" : "Misc Migration");
@@ -917,7 +930,7 @@ namespace AudioManager
             {
                 string artist = kvp.Key;
                 var xmlPaths = kvp.Value;
-                string destFolder = Path.Combine(Constants.AudioFolderPath, Constants.ArtistsDir, SanitiseFolderName(artist), Constants.SinglesDir);
+                string destFolder = Path.Combine(_libraryPath, Constants.ArtistsDir, SanitiseFolderName(artist), Constants.SinglesDir);
                 string relDest = $"Artists\\{SanitiseFolderName(artist)}\\{Constants.SinglesDir}";
 
                 Console.WriteLine($"\n  {artist}: {xmlPaths.Count} song(s) -> {relDest}");
@@ -938,8 +951,17 @@ namespace AudioManager
 
                     if (dryRun)
                     {
-                        Console.WriteLine($"[DRY RUN] Would move: {fileName}");
-                        totalCount++;
+                        // Same outcome as the real File.Move below, which throws IOException when the destination exists
+                        if (File.Exists(Path.Combine(destFolder, fileName)))
+                        {
+                            Console.WriteLine($"  [ERROR] Misc migration would fail for {fileName}: destination already exists");
+                            failedCount++;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[DRY RUN] Would move: {fileName}");
+                            totalCount++;
+                        }
                     }
                     else
                     {
@@ -967,8 +989,9 @@ namespace AudioManager
 
             Console.WriteLine();
             Console.WriteLine(dryRun
-                ? $"Would migrate: {totalCount} Misc song(s)"
+                ? $"Would migrate: {totalCount} Misc song(s), {failedCount} would fail"
                 : $"Migrated: {totalCount} Misc song(s), {failedCount} failed");
+            return failedCount;
         }
 
         /// <summary>
