@@ -476,6 +476,61 @@ namespace AudioManager
             }
         }
 
+        // Pins the rename ordering: the TagLib handle must be released before File.Move, so the file
+        // lands at the new path with the new tags readable there and the old path is gone.
+        public static void ProcessFile_TagsAndNameChange_RenamedFileReadableAtNewPath()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "messy filename.mp3",
+                    "Song Title (Explicit)", "Album Name", "Primary Artist");
+
+                var fixer = TagFixer.ForTesting(dryRun: false);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("fixed", log.Status, "tags needing a fix and a name change must end with status fixed");
+                string newPath = System.IO.Path.Combine(tempDir, "Primary Artist - Song Title.mp3");
+                Assert.True(System.IO.File.Exists(newPath), "file must be renamed to the new path");
+                Assert.True(!System.IO.File.Exists(fixturePath), "old path must be gone after rename");
+                using (TagLib.File renamed = TagLib.File.Create(newPath))
+                {
+                    Assert.Equal("Song Title", renamed.Tag.Title, "new tags must be readable at the new path");
+                }
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
+        // A rename that throws (destination name already taken by a directory, so File.Move fails on any OS)
+        // must keep the fixed status, keep the original name, and not throw out of ProcessFile.
+        public static void ProcessFile_RenameFails_KeepsFixedStatusAndOriginalName()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "messy filename.mp3",
+                    "Song Title", "Album Name", "Primary Artist");
+                System.IO.Directory.CreateDirectory(System.IO.Path.Combine(tempDir, "Primary Artist - Song Title.mp3"));
+
+                var fixer = TagFixer.ForTesting(dryRun: false);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("fixed", log.Status, "a failed rename must not mark the file as an error");
+                Assert.True(System.IO.File.Exists(fixturePath), "file must stay at its original path when the rename fails");
+                Assert.Equal("messy filename.mp3", log.Filename, "filename must report the original name when the rename failed");
+                Assert.True(log.Detail != null && log.Detail.StartsWith("rename failed", StringComparison.Ordinal), "detail must note the rename failed");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
         public static void ProcessFile_CleanTags_SkipsWithNoChanges()
         {
             string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());

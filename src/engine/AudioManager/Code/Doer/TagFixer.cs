@@ -239,6 +239,11 @@ namespace AudioManager
 
                     tagFile.Save();
 
+                    // Release the TagLib handle before renaming (an open handle can block File.Move on Windows).
+                    // Nulled so the finally does not dispose it twice.
+                    tagFile.Dispose();
+                    tagFile = null;
+
                     // Rename file: {artists} - {title}.mp3
                     string sanitisedArtists = Reflector.SanitiseFilename(finalArtists);
                     string sanitisedTitle = Reflector.SanitiseFilename(finalTitle);
@@ -253,10 +258,24 @@ namespace AudioManager
                         string newPath = Path.Combine(Path.GetDirectoryName(sourcePath), newFilename);
                         if (newPath != sourcePath && !File.Exists(newPath))
                         {
-                            File.Move(sourcePath, newPath);
-                            log.Changes.Add($"Filename: \"{Path.GetFileName(sourcePath)}\"  -> \"{newFilename}\"");
+                            // Tags are already saved, so a failed rename keeps the fixed status and the original name.
+                            try
+                            {
+                                File.Move(sourcePath, newPath);
+                                log.Changes.Add($"Filename: \"{Path.GetFileName(sourcePath)}\"  -> \"{newFilename}\"");
+                                log.Filename = newFilename;
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"  [WARN] Could not rename '{Path.GetFileName(sourcePath)}' to '{newFilename}', kept original name: {ex.Message}");
+                                log.Filename = log.OriginalFilename;
+                                log.Detail = "rename failed: " + ex.Message;
+                            }
                         }
-                        log.Filename = newFilename;
+                        else
+                        {
+                            log.Filename = newFilename;
+                        }
                     }
                     log.Status = "fixed";
                     fixedCount++;
