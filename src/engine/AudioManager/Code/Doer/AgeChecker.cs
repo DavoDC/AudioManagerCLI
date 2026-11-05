@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.IO;
+using System.Text;
 
 namespace AudioManager
 {
@@ -35,7 +36,7 @@ namespace AudioManager
         public static void MarkRegenerated(DateTime builtAt, string lastRunInfoPath = null)
         {
             string effectivePath = lastRunInfoPath ?? Constants.LastRunInfoFilePath;
-            File.WriteAllText(effectivePath, builtAt.ToString(LastRunDateFormat, CultureInfo.InvariantCulture));
+            AtomicFile.WriteAllText(effectivePath, builtAt.ToString(LastRunDateFormat, CultureInfo.InvariantCulture), new UTF8Encoding(false));
         }
 
         /// <summary>

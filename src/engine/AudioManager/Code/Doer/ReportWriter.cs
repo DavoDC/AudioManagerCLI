@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 
 namespace AudioManager
 {
@@ -17,8 +18,10 @@ namespace AudioManager
         /// </summary>
         /// <param name="reportContent">The captured console output from the Analysis run.</param>
         /// <param name="libCheckerClean">Whether LibChecker reported zero issues.</param>
-        public static void Save(string reportContent, bool libCheckerClean)
+        /// <param name="reportsRoot">Override reports root folder. Null uses Constants.ReportsPath (production default).</param>
+        public static void Save(string reportContent, bool libCheckerClean, string reportsRoot = null)
         {
+            string effectiveRoot = reportsRoot ?? Constants.ReportsPath;
             DateTime now = DateTime.Now;
             string filename = now.ToString("yyyy-MM-dd") + " - AudioReport.md";
 
@@ -29,13 +32,13 @@ namespace AudioManager
             {
                 // Clean library - save to permanent records
                 string year = now.Year.ToString();
-                folder = Path.Combine(Constants.ReportsPath, year);
+                folder = Path.Combine(effectiveRoot, year);
                 displayPath = $"data\\reports\\{year}\\{filename}";
             }
             else
             {
                 // Issues found - save to gitignored folder to avoid cluttering diffs
-                folder = Path.Combine(Constants.ReportsPath, "with-issues");
+                folder = Path.Combine(effectiveRoot, "with-issues");
                 displayPath = $"data\\reports\\with-issues\\{filename}";
             }
 
@@ -45,7 +48,7 @@ namespace AudioManager
             // Save to file (overwrite same-day report if it exists)
             Directory.CreateDirectory(folder);
             string fullPath = Path.Combine(folder, filename);
-            File.WriteAllText(fullPath, header + reportContent);
+            AtomicFile.WriteAllText(fullPath, header + reportContent, new UTF8Encoding(false));
 
             Console.WriteLine($"\nReport saved: {fullPath}");
         }
