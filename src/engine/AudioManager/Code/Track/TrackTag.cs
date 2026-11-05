@@ -39,12 +39,11 @@ namespace AudioManager.Code.Modules
         public TrackTag(string mirrorFilePath)
         {
             // Always initialise relative path
-            int relStartPos = mirrorFilePath.LastIndexOf(Constants.MirrorFolderName, StringComparison.Ordinal);
-            if (relStartPos < 0)
+            RelPath = RelPathFor(mirrorFilePath, Constants.MirrorFolderPath);
+            if (RelPath == null)
             {
                 throw new ArgumentException("Path is not inside the mirror folder: " + mirrorFilePath, nameof(mirrorFilePath));
             }
-            RelPath = mirrorFilePath.Remove(0, relStartPos + Constants.MirrorFolderName.Length);
 
             // Get file contents of mirror file (should be a file path)
             string[] fileContents = File.ReadAllLines(mirrorFilePath);
@@ -78,8 +77,9 @@ namespace AudioManager.Code.Modules
                 AlbumCoverCount = (tag.Pictures?.Length ?? 0).ToString();
 
                 // Extract compilation info from ID3 tag (see https://id3.org/iTunes%20Compilation%20Flag)
-                // No ID3v2 tag -> not flagged as a compilation (bool.Parse consumers need a bool string, not "Missing")
-                ID3Tag id3tag = tagFile.GetTag(TagLib.TagTypes.Id3v2, true) as ID3Tag;
+                // No ID3v2 tag (create: false, so the file's tag set is not altered) -> not flagged as a compilation
+                // (bool.Parse consumers need a bool string, not "Missing")
+                ID3Tag id3tag = tagFile.GetTag(TagLib.TagTypes.Id3v2, false) as ID3Tag;
                 Compilation = (id3tag != null ? id3tag.IsCompilation : false).ToString();
 
                 // Extract album art dimensions (pure byte parsing - no System.Drawing dependency)
@@ -98,6 +98,27 @@ namespace AudioManager.Code.Modules
             }
 
             TrackXML.Write(mirrorFilePath, this);
+        }
+
+        /// <summary>
+        /// Returns the path remainder after the mirror root (ignoring case), so a folder name that
+        /// contains the marker text cannot truncate it. Falls back to the last marker occurrence when
+        /// the file is not under the root. Returns null when neither applies.
+        /// </summary>
+        internal static string RelPathFor(string mirrorFilePath, string mirrorRoot)
+        {
+            if (mirrorRoot != null && mirrorFilePath.StartsWith(mirrorRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                string rest = mirrorFilePath.Substring(mirrorRoot.Length);
+                if (rest.Length == 0 || rest[0] == '\\' || rest[0] == '/')
+                {
+                    return rest;
+                }
+            }
+
+            int relStartPos = mirrorFilePath.LastIndexOf(Constants.MirrorFolderName, StringComparison.Ordinal);
+            if (relStartPos < 0) return null;
+            return mirrorFilePath.Substring(relStartPos + Constants.MirrorFolderName.Length);
         }
 
         /// <summary>

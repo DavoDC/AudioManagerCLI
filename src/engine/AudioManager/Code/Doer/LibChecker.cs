@@ -1,6 +1,7 @@
 ﻿using AudioManager.Code.Modules;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -239,7 +240,13 @@ namespace AudioManager
         {
             try
             {
-                int albumCoverNum = int.Parse(tag.AlbumCoverCount);
+                // Invariant culture: the stored count is machine output, not localised text
+                if (!int.TryParse(tag.AlbumCoverCount, NumberStyles.Integer, CultureInfo.InvariantCulture, out int albumCoverNum))
+                {
+                    // Same route as before: a non-numeric count raised FormatException into the handler
+                    HandleLibCheckerException(new FormatException("Album cover count is not a number: " + tag.AlbumCoverCount), tag);
+                    return 0;
+                }
                 if (albumCoverNum == 0)
                 {
                     Console.WriteLine($"  - '{tag.RelPath}' has no album cover!");
@@ -303,17 +310,17 @@ namespace AudioManager
                 // If an exception to rules, skip
                 if (IsExceptionToRules(tag, unwanted)) { return 0; }
 
-                string propValue = propExt(tag).ToLower();
+                string propValue = propExt(tag).ToLowerInvariant();
                 bool foundUnwanted = false;
 
                 // For "feat." and "ft.", require whitespace/punctuation before the abbreviation
                 // to avoid false positives like "ft." in "LEFT" or "Theft"
-                if (unwanted.ToLower() == "feat." || unwanted.ToLower() == "ft.")
+                if (unwanted.ToLowerInvariant() == "feat." || unwanted.ToLowerInvariant() == "ft.")
                 {
-                    string pattern = @"(?:^|[\s\-\(\)\[\]\/,])" + Regex.Escape(unwanted.ToLower());
+                    string pattern = @"(?:^|[\s\-\(\)\[\]\/,])" + Regex.Escape(unwanted.ToLowerInvariant());
                     foundUnwanted = Regex.IsMatch(propValue, pattern);
                 }
-                else if (unwanted.ToLower() == "edit")
+                else if (unwanted.ToLowerInvariant() == "edit")
                 {
                     // Word-boundary match: "Radio Edit" flags but "Edition" does not
                     foundUnwanted = Regex.IsMatch(propValue, @"\bedit\b");
@@ -321,7 +328,7 @@ namespace AudioManager
                 else
                 {
                     // For other unwanted strings, use simple Contains check
-                    foundUnwanted = propValue.Contains(unwanted.ToLower());
+                    foundUnwanted = propValue.Contains(unwanted.ToLowerInvariant());
                 }
 
                 if (foundUnwanted)

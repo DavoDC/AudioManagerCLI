@@ -109,10 +109,11 @@ namespace AudioManager
         internal FixLog ProcessFile(string sourcePath)
         {
             var log = new FixLog { OriginalFilename = Path.GetFileName(sourcePath) };
+            TagLib.File tagFile = null;
             try
             {
                 // Read current tags
-                TagLib.File tagFile = TagLib.File.Create(sourcePath);
+                tagFile = TagLib.File.Create(sourcePath);
                 var tag = tagFile.Tag;
                 var id3 = (TagLib.Id3v2.Tag)tagFile.GetTag(TagLib.TagTypes.Id3v2, true);
 
@@ -276,6 +277,11 @@ namespace AudioManager
                 log.Detail = ex.Message;
                 skippedCount++;
                 return log;
+            }
+            finally
+            {
+                // Release the TagLib file handle (TagLib keeps it open until disposed)
+                tagFile?.Dispose();
             }
         }
 
