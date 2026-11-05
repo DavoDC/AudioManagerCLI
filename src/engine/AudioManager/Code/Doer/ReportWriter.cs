@@ -5,14 +5,14 @@ using System.IO;
 namespace AudioManager
 {
     /// <summary>
-    /// Saves the audio report to the reports folder in the repo root.
+    /// Saves the audio report to the reports folder (data/reports/).
     /// </summary>
     internal static class ReportWriter
     {
         /// <summary>
         /// Saves the given report content to a dated .txt file.
-        /// If LibChecker found issues, saves to reports\with-issues\ (gitignored).
-        /// If clean, saves to reports\{year}\ for records.
+        /// If LibChecker found issues, saves to data\reports\with-issues\ (gitignored).
+        /// If clean, saves to data\reports\{year}\ for records.
         /// Overwrites any existing report for today. Prepends a generated header.
         /// </summary>
         /// <param name="reportContent">The captured console output from the Analysis run.</param>
@@ -30,13 +30,13 @@ namespace AudioManager
                 // Clean library - save to permanent records
                 string year = now.Year.ToString();
                 folder = Path.Combine(Constants.ReportsPath, year);
-                displayPath = $"reports\\{year}\\{filename}";
+                displayPath = $"data\\reports\\{year}\\{filename}";
             }
             else
             {
                 // Issues found - save to gitignored folder to avoid cluttering diffs
                 folder = Path.Combine(Constants.ReportsPath, "with-issues");
-                displayPath = $"reports\\with-issues\\{filename}";
+                displayPath = $"data\\reports\\with-issues\\{filename}";
             }
 
             // Build and prepend header

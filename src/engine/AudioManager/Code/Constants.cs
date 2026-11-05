@@ -34,8 +34,8 @@ namespace AudioManager
         // Absolute path to mirror folder
         public static readonly string MirrorFolderPath = Path.Combine(MirrorRepoPath, MirrorFolderName);
 
-        // Path to the reports folder in the repo root
-        public static readonly string ReportsPath = Path.Combine(RepoRoot, "reports");
+        // Path to the reports folder (data/reports/, tracked except data/reports/with-issues/)
+        public static readonly string ReportsPath = Path.Combine(RepoRoot, "data", "reports");
 
         // Path to the LibChecker exceptions config file
         public static readonly string LibCheckerExceptionsPath = Path.Combine(RepoRoot, "config", "libchecker-exceptions.xml");

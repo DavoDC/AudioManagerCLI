@@ -73,7 +73,7 @@ patterns it defines rather than inventing new styling per tab.
 
 - Audio library: `<home>\Audio\`
 - New music staging: `<home>\Downloads\NewMusic\`
-- Reports output: `<repo-root>\reports\` (written by ReportWriter)
+- Reports output: `<repo-root>\data\reports\` (written by ReportWriter)
 - Mirror repo: sits next to this repo at `..\AudioMirror\`
 
 ## Data Safety - HIGHEST PRIORITY

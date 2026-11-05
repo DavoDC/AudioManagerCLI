@@ -350,7 +350,7 @@ MigrationBackup/
 .ionide/
 
 # AudioManager - generated reports
-reports/with-issues/
+data/reports/with-issues/
 
 # Aider AI files
 .aider*
