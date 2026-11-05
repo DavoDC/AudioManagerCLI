@@ -525,6 +525,29 @@ namespace AudioManager
             }
         }
 
+        // Pins the auto-delete path: the instrumental must be gone after ProcessFile, even though
+        // TagLib opened the file for tag reads (the handle must be released before File.Delete).
+        public static void ProcessFile_AkiraInstrumental_DeletesFileWhileTagsOpen()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "Akira The Don - Track (Instrumental).mp3",
+                    "Track (Instrumental)", "Album", "Akira The Don");
+
+                var fixer = TagFixer.ForTesting(dryRun: false);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("skipped", log.Status, "instrumental should take the auto-delete branch");
+                Assert.True(!System.IO.File.Exists(fixturePath), "instrumental must be deleted from disk, not left behind by a locked handle");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
         public static void ProcessFile_SetsCompilationFlagOnSave()
         {
             string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
