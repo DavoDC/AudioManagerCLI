@@ -197,6 +197,9 @@ namespace AudioManager
                             noInput = false;
                         }
 
+                        // Restore any replace interrupted by a previous crash before scanning the library
+                        if (!dryRun) ReplaceGuard.SweepOrphans(Constants.AudioFolderPath);
+
                         // Gate passed - proceed with integration
                         MusicIntegrator mi = new MusicIntegrator(dryRun, noInput, jsonOutput, manifest);
 
