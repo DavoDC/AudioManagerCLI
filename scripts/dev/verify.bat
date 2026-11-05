@@ -10,7 +10,7 @@ set VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe
 set PREREQ_MSG=
 if not exist "%VSWHERE%" set PREREQ_MSG=MSBuild missing: vswhere.exe not found. Install Visual Studio with the .NET desktop workload.
 if not defined PREREQ_MSG where python >nul 2>&1 || set PREREQ_MSG=python missing: not on PATH.
-if not defined PREREQ_MSG python -c "import pytest" >nul 2>&1 || set PREREQ_MSG=pytest missing: run python -m pip install -r ui\requirements.txt
+if not defined PREREQ_MSG python -c "import pytest" >nul 2>&1 || set PREREQ_MSG=pytest missing: run python -m pip install -r consumer\requirements.txt
 if defined PREREQ_MSG (
     echo [PREREQ] %PREREQ_MSG%
     echo [PREREQ] This is a missing tool, not a test failure.
@@ -37,6 +37,7 @@ set VERIFY_EXIT=%ERRORLEVEL%
 
 echo [step] UI tests + UI check + capture (python -m a verify tool)
 pushd "%REPO_ROOT%"
+set "PYTHONPATH=%REPO_ROOT%\src"
 python -m a verify tool
 set PYTEST_EXIT=%ERRORLEVEL%
 popd
