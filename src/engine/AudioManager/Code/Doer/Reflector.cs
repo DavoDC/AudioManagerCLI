@@ -220,13 +220,13 @@ namespace AudioManager
             if (!File.Exists(fullMirrorPath))
             {
                 // XML doesn't exist: create it containing the real path
-                File.WriteAllText(fullMirrorPath, realFilePath);
+                AtomicFile.WriteAllText(fullMirrorPath, realFilePath, new UTF8Encoding(false));
             }
             else if (IsStaleMirrorXml(realFilePath, fullMirrorPath))
             {
                 // MP3 was modified after the XML was written (e.g., tag edit in Mp3tag):
                 // overwrite with the real path so this run re-reads fresh tag data
-                File.WriteAllText(fullMirrorPath, realFilePath);
+                AtomicFile.WriteAllText(fullMirrorPath, realFilePath, new UTF8Encoding(false));
                 refreshed = true;
             }
 

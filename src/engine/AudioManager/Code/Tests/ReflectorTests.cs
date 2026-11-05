@@ -98,6 +98,81 @@ namespace AudioManager
             finally { Directory.Delete(tmp, true); }
         }
 
+        // ---- CreateFile stub writes (full incremental build via the test seam) ----
+
+        private static string NewStubRoot()
+        {
+            return Path.Combine(Path.GetTempPath(), "am_stub_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        }
+
+        private static bool HasUtf8Bom(byte[] bytes)
+        {
+            return bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+        }
+
+        private static int CountTmpFiles(string folder)
+        {
+            return Directory.GetFiles(folder, "*.tmp", SearchOption.AllDirectories).Length;
+        }
+
+        public static void Reflector_NewStub_ContentIsExactPathNoBomNoTmp()
+        {
+            // New-file case: the stub is written by CreateFile. Content must be the real MP3 path,
+            // no BOM, and no *.tmp left in the mirror folder.
+            string root = NewStubRoot();
+            bool saved = AgeChecker.RegenMirror;
+            try
+            {
+                string audio = Path.Combine(root, "Audio");
+                string mp3 = Path.Combine(audio, "Artist", "a.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(mp3));
+                File.WriteAllText(mp3, "x");
+                string mirror = Path.Combine(root, "AUDIO_MIRROR");
+                Directory.CreateDirectory(mirror);
+                AgeChecker.RegenMirror = false;
+
+                new Reflector(audio, mirror, Path.GetFullPath(root) + Path.DirectorySeparatorChar,
+                    Path.Combine(root, "LastRunInfo.txt"));
+
+                string xml = Path.Combine(mirror, "Artist", "a.xml");
+                Assert.True(File.Exists(xml), "new stub XML is created");
+                Assert.True(!HasUtf8Bom(File.ReadAllBytes(xml)), "new stub must have no UTF-8 BOM");
+                Assert.Equal(mp3, File.ReadAllText(xml), "new stub content is exactly the real MP3 path");
+                Assert.True(CountTmpFiles(mirror) == 0, "no *.tmp left in the mirror folder after a new stub write");
+            }
+            finally { AgeChecker.RegenMirror = saved; if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        public static void Reflector_StaleStub_RefreshedContentIsExactPathNoBomNoTmp()
+        {
+            // Stale-refresh case: an XML older than its MP3 is overwritten by CreateFile.
+            // Content must be the real MP3 path, no BOM, and no *.tmp left in the mirror folder.
+            string root = NewStubRoot();
+            bool saved = AgeChecker.RegenMirror;
+            try
+            {
+                string audio = Path.Combine(root, "Audio");
+                string mp3 = Path.Combine(audio, "Artist", "a.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(mp3));
+                File.WriteAllText(mp3, "x");
+                File.SetLastWriteTimeUtc(mp3, DateTime.UtcNow);
+                string mirror = Path.Combine(root, "AUDIO_MIRROR");
+                string xml = Path.Combine(mirror, "Artist", "a.xml");
+                Directory.CreateDirectory(Path.GetDirectoryName(xml));
+                File.WriteAllText(xml, "old cached tag data");
+                File.SetLastWriteTimeUtc(xml, DateTime.UtcNow.AddMinutes(-5));
+                AgeChecker.RegenMirror = false;
+
+                new Reflector(audio, mirror, Path.GetFullPath(root) + Path.DirectorySeparatorChar,
+                    Path.Combine(root, "LastRunInfo.txt"));
+
+                Assert.True(!HasUtf8Bom(File.ReadAllBytes(xml)), "refreshed stub must have no UTF-8 BOM");
+                Assert.Equal(mp3, File.ReadAllText(xml), "refreshed stub content is exactly the real MP3 path");
+                Assert.True(CountTmpFiles(mirror) == 0, "no *.tmp left in the mirror folder after a stale refresh");
+            }
+            finally { AgeChecker.RegenMirror = saved; if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
         // ---- PruneOrphanedXmls ----
 
         public static void PruneOrphanedXmls_DeletesOrphanedXml()
