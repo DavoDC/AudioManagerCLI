@@ -61,5 +61,48 @@ namespace AudioManager
                 Console.WriteLine($"  [WARN] Could not restore {libPath} from {bakPath}: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Startup sweep: finds every "*.replaced.bak" under libraryRoot. A bak whose library sibling
+        /// is missing is an interrupted replace, so it is moved back. A bak whose sibling exists is
+        /// left in place with a WARN. Never overwrites or deletes. Returns the number restored.
+        /// </summary>
+        internal static int SweepOrphans(string libraryRoot)
+        {
+            if (string.IsNullOrEmpty(libraryRoot) || !Directory.Exists(libraryRoot)) return 0;
+
+            int restored = 0;
+            string[] baks;
+            try
+            {
+                baks = Directory.GetFiles(libraryRoot, "*" + BakSuffix, SearchOption.AllDirectories);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [WARN] Could not scan for staged backups under {libraryRoot}: {ex.Message}");
+                return 0;
+            }
+
+            foreach (string bakPath in baks)
+            {
+                try
+                {
+                    string libPath = bakPath.Substring(0, bakPath.Length - BakSuffix.Length);
+                    if (File.Exists(libPath))
+                    {
+                        Console.WriteLine($"  [WARN] Orphaned staged backup kept (library copy exists): {bakPath}");
+                        continue;
+                    }
+                    File.Move(bakPath, libPath);
+                    Console.WriteLine($"  [SWEEP] Restored interrupted replace: {libPath}");
+                    restored++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"  [WARN] Could not sweep staged backup {bakPath}: {ex.Message}");
+                }
+            }
+            return restored;
+        }
     }
 }
