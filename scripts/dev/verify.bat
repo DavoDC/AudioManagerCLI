@@ -26,7 +26,7 @@ if errorlevel 1 (
 )
 if not exist "%TESTEXE%" (
     echo [PREREQ] Built test exe missing: %TESTEXE%
-    echo [PREREQ] The build reported success but produced no test host; check logs\build.log.
+    echo [PREREQ] The build reported success but produced no test host; check data\logs\build.log.
     if not "%1"=="--no-pause" cmd /k
     exit /b 3
 )

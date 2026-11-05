@@ -3,7 +3,7 @@
 Why post-integration LibChecker warnings are often false, and how to make
 "a clean integration leaves a clean library" a reliable, testable property.
 
-Case study: real integration run on 2026-06-28 (`logs/REAL_INTEGRATION_Sun_28.txt`).
+Case study: real integration run on 2026-06-28 (`data/logs/REAL_INTEGRATION_Sun_28.txt`).
 
 **This is reference only - mechanism, proof, and design rationale.** Every
 actionable item (fixes, investigations) is tracked in the backlog

@@ -20,7 +20,7 @@ Split from `DevContext.md` (doc maintenance pass). Stage 3 integration architect
 2. **Integration (routing phase):** Routes cleaned files to library destinations:
    - Applies rules from Music-Library-Rules.md (Artists folder, Compilations, Musivation, Motivation, Sources, Miscellaneous)
    - Respects 3-song threshold scan-ahead for album subfolder creation
-   - All console output captured to `logs/run-YYYYMMDD-HHmmss.log` with `[HH:mm:ss]` timestamps (via TeeWriter in Program.cs)
+   - All console output captured to `data/logs/run-YYYYMMDD-HHmmss.log` with `[HH:mm:ss]` timestamps (via TeeWriter in Program.cs)
    - Dry-run mode: previews all fixes + routing without moving files
    - Post-integration: auto-runs LibChecker to validate library clean
 
@@ -37,7 +37,7 @@ MP3 files (ground truth - <home>\Audio\)
     ↓ Reflector refreshes (force regen = full rebuild; incremental = new files + stale XMLs refreshed)
 AudioMirror XMLs (Layer 1 - metadata snapshot, mtime updated on write)
     ↓ Parser reads
-ParseCache logs/parse-cache.txt (Layer 2 - parsed TrackTag objects, flat pipe-delimited file)
+ParseCache data/logs/parse-cache.txt (Layer 2 - parsed TrackTag objects, flat pipe-delimited file)
 ```
 
 **`IsMirrorStale(mirrorPath, cacheTime)` returns true (cache miss) when:**

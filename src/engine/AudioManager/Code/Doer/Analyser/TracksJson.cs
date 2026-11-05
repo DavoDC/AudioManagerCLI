@@ -27,7 +27,7 @@ namespace AudioManager
         public const string OutputFileName = "tracks.json";
 
         /// <summary>
-        /// Production entry point: builds the per-track JSON and writes it to logs/tracks.json.
+        /// Production entry point: builds the per-track JSON and writes it to data/logs/tracks.json.
         /// Returns the path written.
         /// </summary>
         public static string Write(TagList audioTags)

@@ -29,7 +29,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
-[Ll]ogs/
+/[Ll]ogs/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -364,3 +364,7 @@ reports/with-issues/
 
 # Headless capture output (the UI)
 data/captures/
+
+# Runtime logs (Constants.LogsPath, the UI LOGS_DIR). Only .gitkeep is tracked.
+data/logs/*
+!data/logs/.gitkeep

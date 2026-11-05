@@ -33,9 +33,9 @@ Rationale for the sensitive column: a wrong mapping in `_finish_execute` or a si
 
 - Reuse `BuildJson` for both. Do **not** invent a second serializer.
 - Extend the shape with four new top-level keys (`schemaVersion`, `recordType`, `dryRun`, `generatedAt`), one new per-file key (`detail`), and one new top-level block (`confidence`, null on dry runs).
-- **Distinct filenames.** Dry run keeps `logs/routing-{timestamp}.json`. A real run writes `logs/execution-{timestamp}.json`. Reason: `routing_path_from_output` falls back to "newest `routing-*.json` in `logs/`" when the marker line is missing, so sharing one filename pattern makes it possible for the UI to read a stale dry-run file as the real outcome - exactly the silent-wrong-account failure this work exists to remove. Relying on `status` values ("would-move" vs "moved") to tell them apart is not sufficient, because the failure mode is reading the *wrong file*, not misreading the right one. `recordType` + `dryRun` are belt-and-braces on top of the filename split.
+- **Distinct filenames.** Dry run keeps `data/logs/routing-{timestamp}.json`. A real run writes `data/logs/execution-{timestamp}.json`. Reason: `routing_path_from_output` falls back to "newest `routing-*.json` in `data/logs/`" when the marker line is missing, so sharing one filename pattern makes it possible for the UI to read a stale dry-run file as the real outcome - exactly the silent-wrong-account failure this work exists to remove. Relying on `status` values ("would-move" vs "moved") to tell them apart is not sufficient, because the failure mode is reading the *wrong file*, not misreading the right one. `recordType` + `dryRun` are belt-and-braces on top of the filename split.
 
-### 2.1 Literal shape (real run, `logs/execution-{timestamp}.json`)
+### 2.1 Literal shape (real run, `data/logs/execution-{timestamp}.json`)
 
 ```json
 {
@@ -193,7 +193,7 @@ Update the XML doc comment above `BuildJson` and `WriteJsonOutput` to describe t
 **Decision: hard-fail on missing or mismatched `schemaVersion`, and delete `_file_rows`'s bare-top-level-array acceptance entirely.** Once a version field exists, silently accepting an unversioned file is precisely the "silent mis-read" `data_loader`'s docstring already calls worse than a crash, and the review's "versioning is inverted relative to risk" finding is about this exact leniency.
 
 Concrete migration behaviour:
-- Old `routing-*.json` files already sitting in `logs/` become unreadable by the UI and raise `SchemaVersionError` with the existing clear message. **This is accepted and intended.** They are disposable per-run artifacts, not user data; the view always writes a fresh one at the start of a batch. No converter is written and no fallback path is added.
+- Old `routing-*.json` files already sitting in `data/logs/` become unreadable by the UI and raise `SchemaVersionError` with the existing clear message. **This is accepted and intended.** They are disposable per-run artifacts, not user data; the view always writes a fresh one at the start of a batch. No converter is written and no fallback path is added.
 - `_file_rows` becomes dict-only: return `raw["files"]` if it is a list, else `[]`. Delete the `isinstance(raw, list)` branch and the module-docstring paragraph describing it (lines 12-14).
 - Additionally tighten `routing_path_from_output`'s mtime fallback so a stale file cannot be picked up: it takes a new required `since: float` argument (a `time.time()` captured by the caller *before* the exe is launched) and the `glob` fallback only considers files with `st_mtime >= since`. Returns `None` when nothing qualifies. Update its one caller accordingly.
 

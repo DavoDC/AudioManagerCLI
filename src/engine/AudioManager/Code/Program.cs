@@ -255,7 +255,7 @@ namespace AudioManager
                     // Restore real console output and close file logger
                     teeWriter?.CloseLogFile();
                     Console.SetOut(teeWriter.ConsoleWriter);
-                    Console.WriteLine($"Log file saved: logs/{logPrefix}-{timestamp}.log");
+                    Console.WriteLine($"Log file saved: data/logs/{logPrefix}-{timestamp}.log");
                 }
             }
             catch (Exception ex)

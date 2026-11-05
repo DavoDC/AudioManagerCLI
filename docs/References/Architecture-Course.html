@@ -680,7 +680,7 @@ pre,code{white-space:pre-wrap;word-break:break-word;overflow-x:hidden;}
 
       <section class="screen animate-in">
         <h2 class="screen-heading">The Dual Output: TeeWriter</h2>
-        <p>Every run of AudioManager creates a log file automatically. You see output in the terminal AND it gets saved to <code style="font-family:var(--font-mono)">logs/</code> simultaneously. This is the TeeWriter.</p>
+        <p>Every run of AudioManager creates a log file automatically. You see output in the terminal AND it gets saved to <code style="font-family:var(--font-mono)">data/logs/</code> simultaneously. This is the TeeWriter.</p>
         <div class="callout callout-info">
           <div class="callout-icon">🔀</div>
           <div class="callout-content">
@@ -706,7 +706,7 @@ pre,code{white-space:pre-wrap;word-break:break-word;overflow-x:hidden;}
           <div class="translation-english">
             <span class="translation-label">PLAIN ENGLISH</span>
             <div class="translation-lines">
-              <p class="tl">Build the log file path: "logs/integrate-2026-06-30_143022.log"</p>
+              <p class="tl">Build the log file path: "data/logs/integrate-2026-06-30_143022.log"</p>
               <p class="tl">(timestamp makes every log file unique - no overwriting)</p>
               <p class="tl">Create a TeeWriter with three destinations: screen, log file, and an in-memory buffer</p>
               <p class="tl">(the in-memory buffer captures Analysis output for the report file)</p>
@@ -719,7 +719,7 @@ pre,code{white-space:pre-wrap;word-break:break-word;overflow-x:hidden;}
 
       <section class="screen animate-in">
         <h2 class="screen-heading">Reading the Logs</h2>
-        <p>When something goes wrong, the log file is your first stop. Log files live in <code style="font-family:var(--font-mono)">AudioManager/logs/</code> and are gitignored (they are ephemeral, not history).</p>
+        <p>When something goes wrong, the log file is your first stop. Log files live in <code style="font-family:var(--font-mono)">AudioManager/data/logs/</code> and are gitignored (they are ephemeral, not history).</p>
         <div class="pattern-cards stagger-children">
           <div class="pattern-card animate-in" style="border-top:3px solid var(--color-actor-2)">
             <div class="pattern-icon" style="background:var(--color-actor-2)">🔴</div>

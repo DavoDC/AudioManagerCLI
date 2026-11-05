@@ -31,7 +31,7 @@ namespace AudioManager
 
         /// <summary>
         /// Production entry point: walks the audio folder for the real on-disk size, builds the
-        /// JSON, and writes it to logs/analysis-stats.json. Returns the path written.
+        /// JSON, and writes it to data/logs/analysis-stats.json. Returns the path written.
         /// </summary>
         public static string Write(TagList audioTags)
         {

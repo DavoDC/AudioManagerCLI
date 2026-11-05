@@ -103,7 +103,7 @@ The C# console app lives in `src/engine/`, the external client in `the UI`, laun
 
 Analysis includes an incremental parse cache. On repeated runs where the library has not changed, the Parser reads a single flat cache file instead of thousands of XML files, cutting total analysis time from ~110s to ~4s on a 5600-track library.
 
-Cache is stored in `logs/` (gitignored). It is invalidated automatically whenever the AudioMirror gains new or modified XML files (e.g. after integration or force regen).
+Cache is stored in `data/logs/` (gitignored). It is invalidated automatically whenever the AudioMirror gains new or modified XML files (e.g. after integration or force regen).
 
 Incremental Reflector also refreshes individual XMLs when their underlying MP3 has been modified since last analysis (e.g. after a tag edit in Mp3tag), so fresh tags appear without needing a full force regen.
 

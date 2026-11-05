@@ -1,6 +1,6 @@
 # Analysis JSON Format (`analysis --json-output`)
 
-The UI's data contract. `AudioManager.exe analysis --json-output` writes **two** files to `logs/`
+The UI's data contract. `AudioManager.exe analysis --json-output` writes **two** files to `data/logs/`
 (fixed filenames, latest run wins):
 
 | File | Source | Contains | UI consumer |
@@ -94,7 +94,7 @@ was not built against, rather than silently mis-reading.
 ## Consumption notes for the UI
 
 - **Read this file; do not shell the exe per panel.** The UI runs `analysis --json-output` once at
-  startup / on manual refresh, then reads `logs/analysis-stats.json`. All Statistics panels and stat
+  startup / on manual refresh, then reads `data/logs/analysis-stats.json`. All Statistics panels and stat
   tiles map 1:1 to a field above.
 - **Per-track rows** (library viewle/grid) are NOT in this file - it is aggregate stats only.
   Per-track data comes from globbing the AudioMirror XML directly (see `AudioMirror-Format.md`).

@@ -20,8 +20,8 @@ namespace AudioManager
 
         public static void ExecutionJsonLine_CarriesMarkerAndPath()
         {
-            Assert.Equal("\n  EXECUTION JSON: C:/logs/execution-20260101-000000.json",
-                MusicIntegrator.FormatExecutionJsonLine("C:/logs/execution-20260101-000000.json"), "marker line format");
+            Assert.Equal("\n  EXECUTION JSON: C:/data/logs/execution-20260101-000000.json",
+                MusicIntegrator.FormatExecutionJsonLine("C:/data/logs/execution-20260101-000000.json"), "marker line format");
         }
     }
 }

@@ -163,7 +163,7 @@ namespace AudioManager
         /// </summary>
         /// <param name="dryRun">If true, print planned actions without executing any file moves.</param>
         /// <param name="noInput">If true, skip all interactive prompts and auto-accept recommended decisions.</param>
-        /// <param name="jsonOutput">If true, write routing decisions as JSON to logs/routing-{timestamp}.json after dry-run.</param>
+        /// <param name="jsonOutput">If true, write routing decisions as JSON to data/logs/routing-{timestamp}.json after dry-run.</param>
         /// <param name="manifest">If set, only NewMusic files matching the manifest are integrated;
         /// all other files are left untouched in NewMusic (selective integration).</param>
         public MusicIntegrator(bool dryRun = false, bool noInput = false, bool jsonOutput = false,
@@ -926,8 +926,8 @@ namespace AudioManager
 
         /// <summary>
         /// Writes routing/execution decisions as structured JSON. Dry runs write
-        /// logs/routing-{timestamp}.json; real runs additionally write
-        /// logs/execution-{timestamp}.json (WriteExecutionRecord) with recordType "execution",
+        /// data/logs/routing-{timestamp}.json; real runs additionally write
+        /// data/logs/execution-{timestamp}.json (WriteExecutionRecord) with recordType "execution",
         /// dryRun false, and a populated "confidence" block. Schema: {schemaVersion, recordType,
         /// dryRun, generatedAt, "summary": {routes, miscAutoMigrations, miscAutoMigrationTotal,
         /// compilationAlbums}, "confidence": null | {countCheck, sanityCheck, newFolders,
@@ -1105,7 +1105,7 @@ namespace AudioManager
         }
 
         /// <summary>
-        /// Writes a real run's execution record to logs/execution-{timestamp}.json - the durable,
+        /// Writes a real run's execution record to data/logs/execution-{timestamp}.json - the durable,
         /// structured account of what actually moved, distinct from the dry run's routing-*.json
         /// (see docs/References/Execution-Record-Contract-Design.md section 2). Unconditional on a
         /// real run, not gated on jsonOutput. A failed write must never fail an integration run that

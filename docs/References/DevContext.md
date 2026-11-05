@@ -13,7 +13,7 @@ AudioManager/
   .gitignore
   config/                      # libchecker-exceptions.xml (edit without recompiling)
   docs/                        # planning files, design docs
-  logs/                        # integration run logs (gitignored, written by MusicIntegrator)
+  data/logs/                       # integration run logs (gitignored, written by MusicIntegrator)
   scripts/                     # launchers and one-off utility scripts
   src/engine/                 # C# solution
     AudioManager.sln
@@ -93,7 +93,7 @@ Success output:
 
 **Tests are a separate project (ARCH-2).** Test code lives in `src\engine\AudioManager.Tests\` (the host, `TestHost.cs`) plus every file under `src\engine\AudioManager\Code\Tests\`, which that project compiles by wildcard. A new test file needs NO csproj entry and NO list entry: put it in `Code\Tests\`, name the static class `*Tests`, and `TestRunner` finds it by reflection. `TestRunnerTests` fails if a static class with test-shaped methods is not named `*Tests`. The shipped `AudioManager.exe` contains no test code and has no `--test` or `--verify` flags; run `scripts\dev\test.bat` or `scripts\dev\verify.bat` (which call `AudioManager.Tests.exe`). Only non-test source (`Code\Doer\`, `Code\Track\`) still needs a `<Compile Include>` in `AudioManager.csproj`.
 
-**If build fails generally:** check `logs\build.log` for full MSBuild output and error details.
+**If build fails generally:** check `data\logs\build.log` for full MSBuild output and error details.
 
 ---
 
@@ -279,7 +279,7 @@ This is exactly how the dry-run `[DRY RUN] Would route to:` line is computed for
 - **Temporarily disabled checks need tests commented out too.** When a LibChecker check is commented out, its unit tests must also be commented (not deleted) - both re-enable together. Leaving tests active causes false failures.
 - **AudioMirror commit policy:** never commit AudioMirror or push if LibChecker reported any hits. Fix all issues first, re-run to get a clean run, then commit and push.
 - **AudioMirror rebuild reliability:** Analysis (non-force regen) runs with `Recreated: False` (incremental mirror update) - NOT reliable for LibChecker pass claims or auto-commit. Only analysis (force regen) and integration produce a fully reliable mirror state. Auto-commit must only trigger on force regen or integration.
-- **Force regen = canonical fresh-data operation.** Incremental Reflector creates XMLs for new MP3s, refreshes XMLs when the MP3 is newer (tag edits in Mp3tag), and now also prunes XMLs for deleted MP3s. Force regen deletes the mirror entirely and rebuilds - use when you want a guaranteed clean state regardless of incremental history. ParseCache (logs/parse-cache.txt) serves data consistent with XMLs - see the three-layer cache architecture above.
+- **Force regen = canonical fresh-data operation.** Incremental Reflector creates XMLs for new MP3s, refreshes XMLs when the MP3 is newer (tag edits in Mp3tag), and now also prunes XMLs for deleted MP3s. Force regen deletes the mirror entirely and rebuilds - use when you want a guaranteed clean state regardless of incremental history. ParseCache (data/logs/parse-cache.txt) serves data consistent with XMLs - see the three-layer cache architecture above.
 - **Check library via filesystem:** check artist/folder existence by browsing `<home>\Audio\` directly - not by opening the AudioManager app.
 - **Tag editing tool: Mp3tag.** When a library file needs its tags fixed manually, advise the user to use Mp3tag. Do not suggest VLC or Windows file properties for tag editing.
 
