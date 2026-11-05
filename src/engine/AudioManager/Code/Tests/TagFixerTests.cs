@@ -731,5 +731,52 @@ namespace AudioManager
                 System.IO.Directory.Delete(tempDir, true);
             }
         }
+
+        // A successful fix must delete its .tagfix.bak backup, so no backup is left next to the MP3.
+        public static void ProcessFile_SuccessfulFix_LeavesNoTagfixBackup()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "messy filename.mp3",
+                    "Song Title (Explicit)", "Album Name", "Primary Artist");
+
+                var fixer = TagFixer.ForTesting(dryRun: false);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("fixed", log.Status, "fixture must take the real write path");
+                Assert.True(!System.IO.File.Exists(fixturePath + ".tagfix.bak"), "backup must be deleted after a successful save");
+                Assert.Equal("0", System.IO.Directory.GetFiles(tempDir, "*.tagfix.bak").Length.ToString(), "no .tagfix.bak may remain in the folder");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
+        // A stale .tagfix.bak left by an earlier crashed run must not block the fix, and must not survive it.
+        public static void ProcessFile_StaleBackupFromCrash_RunSucceedsAndLeavesNone()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "messy filename.mp3",
+                    "Song Title (Explicit)", "Album Name", "Primary Artist");
+                string staleBackup = fixturePath + ".tagfix.bak";
+                System.IO.File.WriteAllBytes(staleBackup, System.Text.Encoding.ASCII.GetBytes("stale backup from a crashed run"));
+
+                var fixer = TagFixer.ForTesting(dryRun: false);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("fixed", log.Status, "a stale backup from an earlier run must not block the fix");
+                Assert.Equal("0", System.IO.Directory.GetFiles(tempDir, "*.tagfix.bak").Length.ToString(), "stale backup must be replaced and then removed");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
     }
 }

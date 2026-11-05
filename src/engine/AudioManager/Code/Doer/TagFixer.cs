@@ -237,12 +237,40 @@ namespace AudioManager
                     if (tcmpNeeded) id3.IsCompilation = true;
                     if (genreChanged) tag.Genres = new[] { finalGenres };
 
-                    tagFile.Save();
+                    // Keep a copy of the original bytes so a failed or interrupted write can be undone.
+                    string backupPath = BackupBeforeWrite(sourcePath);
+                    try
+                    {
+                        tagFile.Save();
+                    }
+                    catch (Exception saveEx)
+                    {
+                        string name = Path.GetFileName(sourcePath);
+                        tagFile.Dispose();
+                        tagFile = null;
+                        try
+                        {
+                            RestoreFromBackup(backupPath, sourcePath);
+                            DeleteBackup(backupPath);
+                            Console.WriteLine($"  [WARN] Tag write failed for '{name}', original restored: {saveEx.Message}");
+                            log.Status = "error";
+                            log.Detail = saveEx.Message;
+                        }
+                        catch (Exception restoreEx)
+                        {
+                            // The backup is the only intact copy now, so it is kept on disk.
+                            Console.WriteLine($"  [WARN] Tag write failed for '{name}' and restore failed; original kept at '{backupPath}': {restoreEx.Message}");
+                            log.Status = "error";
+                            log.Detail = "restore failed: " + restoreEx.Message;
+                        }
+                        return log;
+                    }
 
                     // Release the TagLib handle before renaming (an open handle can block File.Move on Windows).
                     // Nulled so the finally does not dispose it twice.
                     tagFile.Dispose();
                     tagFile = null;
+                    DeleteBackup(backupPath);
 
                     // Rename file: {artists} - {title}.mp3
                     string sanitisedArtists = Reflector.SanitiseFilename(finalArtists);
@@ -322,6 +350,41 @@ namespace AudioManager
             {
                 // Release the TagLib file handle (TagLib keeps it open until disposed)
                 tagFile?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Copies sourcePath to sourcePath + ".tagfix.bak" before a tag write. Any stale backup from an
+        /// earlier crashed run is removed first. The .bak suffix keeps it out of the *.mp3 scan.
+        /// </summary>
+        private static string BackupBeforeWrite(string sourcePath)
+        {
+            string backupPath = sourcePath + ".tagfix.bak";
+            if (File.Exists(backupPath)) File.Delete(backupPath);
+            File.Copy(sourcePath, backupPath, false);
+            return backupPath;
+        }
+
+        /// <summary>
+        /// Puts the backed-up original bytes back over sourcePath after a failed tag write.
+        /// </summary>
+        private static void RestoreFromBackup(string backupPath, string sourcePath)
+        {
+            File.Copy(backupPath, sourcePath, true);
+        }
+
+        /// <summary>
+        /// Deletes the backup once the write is safe. A failure only warns: the file itself is not failed for it.
+        /// </summary>
+        private static void DeleteBackup(string backupPath)
+        {
+            try
+            {
+                if (File.Exists(backupPath)) File.Delete(backupPath);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [WARN] Could not delete tag backup '{Path.GetFileName(backupPath)}': {ex.Message}");
             }
         }
 
