@@ -62,10 +62,5 @@ namespace AudioManager.Code.Modules
             char selectedSeparator = separators.First(s => full.Contains(s));
             return full.Split(selectedSeparator).Select(a => a.Trim()).ToArray();
         }
-
-        public void PrintAllProperties()
-        {
-            Console.WriteLine(ToAllPropertiesString());
-        }
     }
 }

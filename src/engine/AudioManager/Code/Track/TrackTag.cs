@@ -78,8 +78,9 @@ namespace AudioManager.Code.Modules
                 AlbumCoverCount = (tag.Pictures?.Length ?? 0).ToString();
 
                 // Extract compilation info from ID3 tag (see https://id3.org/iTunes%20Compilation%20Flag)
-                ID3Tag id3tag = (ID3Tag) tagFile.GetTag(TagLib.TagTypes.Id3v2, true);
-                Compilation = id3tag.IsCompilation.ToString();
+                // No ID3v2 tag -> not flagged as a compilation (bool.Parse consumers need a bool string, not "Missing")
+                ID3Tag id3tag = tagFile.GetTag(TagLib.TagTypes.Id3v2, true) as ID3Tag;
+                Compilation = (id3tag != null ? id3tag.IsCompilation : false).ToString();
 
                 // Extract album art dimensions (pure byte parsing - no System.Drawing dependency)
                 var pics = tag.Pictures;

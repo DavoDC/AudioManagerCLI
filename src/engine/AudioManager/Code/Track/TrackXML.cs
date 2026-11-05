@@ -9,26 +9,40 @@ namespace AudioManager.Code.Modules
     {
         internal static void Read(string path, TrackTag t)
         {
+            // IO failures (missing file, locked file) propagate as IO exceptions; only XML problems are XmlException
+            XDocument doc;
             try
             {
-                var root = XDocument.Load(path).Root;
-                var cover        = root.Element("AlbumCover");
-                t.Title          = root.Element("Title").Value;
-                t.Artists        = root.Element("Artists").Value;
-                t.Album          = root.Element("Album").Value;
-                t.Year           = root.Element("Year").Value;
-                t.TrackNumber    = root.Element("TrackNumber").Value;
-                t.Genres         = root.Element("Genres").Value;
-                t.Length         = root.Element("Length").Value;
-                t.AlbumCoverCount = cover.Element("Count").Value;
-                t.CoverWidth     = cover.Element("Width").Value;
-                t.CoverHeight    = cover.Element("Height").Value;
-                t.Compilation    = root.Element("Compilation").Value;
+                doc = XDocument.Load(path);
             }
-            catch (Exception ex)
+            catch (XmlException ex)
             {
                 throw new XmlException($"Error reading XML: {path}", ex);
             }
+
+            XElement root = doc.Root ?? throw new XmlException($"Missing root element in XML: {path}");
+            XElement cover = RequiredElement(root, "AlbumCover", path);
+            t.Title          = RequiredElement(root, "Title", path).Value;
+            t.Artists        = RequiredElement(root, "Artists", path).Value;
+            t.Album          = RequiredElement(root, "Album", path).Value;
+            t.Year           = RequiredElement(root, "Year", path).Value;
+            t.TrackNumber    = RequiredElement(root, "TrackNumber", path).Value;
+            t.Genres         = RequiredElement(root, "Genres", path).Value;
+            t.Length         = RequiredElement(root, "Length", path).Value;
+            t.AlbumCoverCount = RequiredElement(cover, "Count", path).Value;
+            t.CoverWidth     = RequiredElement(cover, "Width", path).Value;
+            t.CoverHeight    = RequiredElement(cover, "Height", path).Value;
+            t.Compilation    = RequiredElement(root, "Compilation", path).Value;
+        }
+
+        private static XElement RequiredElement(XElement parent, string name, string path)
+        {
+            XElement element = parent.Element(name);
+            if (element == null)
+            {
+                throw new XmlException($"Missing required element '{name}' under '{parent.Name.LocalName}' in XML: {path}");
+            }
+            return element;
         }
 
         internal static void Write(string path, TrackTag t)
@@ -70,8 +84,24 @@ namespace AudioManager.Code.Modules
             }
             catch (Exception ex)
             {
-                try { if (File.Exists(tmpPath)) File.Delete(tmpPath); } catch { }
-                throw new XmlException($"Error writing XML: {path}", ex);
+                DeleteTempFile(tmpPath);
+                if (ex is XmlException)
+                {
+                    throw new XmlException($"Error writing XML: {path}", ex);
+                }
+                throw; // IO failures keep their IO-family type
+            }
+        }
+
+        private static void DeleteTempFile(string tmpPath)
+        {
+            try
+            {
+                if (File.Exists(tmpPath)) File.Delete(tmpPath);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($" - [!] Could not delete temp file {tmpPath}: {ex.Message}");
             }
         }
     }
