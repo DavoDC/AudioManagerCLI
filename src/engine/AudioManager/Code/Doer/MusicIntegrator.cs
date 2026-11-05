@@ -56,6 +56,11 @@ namespace AudioManager
         // Library paths deleted by L-decisions during real integration; used in RunMiscMigration
         // to distinguish "deleted by dup resolution" from "genuinely stale mirror".
         private HashSet<string> _lDeletedLibraryPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // L-decision stage-then-commit: library copies moved aside (not deleted) until the replacement
+        // lands. _lStaged: libPath -> bakPath. _lStagedBySource: replacement SourcePath -> libPath.
+        // Commit deletes the bak on success; rollback restores it on any skip; leftovers roll back at end.
+        private Dictionary<string, string> _lStaged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private Dictionary<string, string> _lStagedBySource = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
 
         /// <summary>Per-file integration result for the log and JSON output.</summary>
@@ -253,7 +258,15 @@ namespace AudioManager
                 //     above; real-mode L files and K files fall through to routing here.
                 // In dry-run: collect outputs and print sorted by destination path after the loop.
                 var routingStopwatch = System.Diagnostics.Stopwatch.StartNew();
-                var dryRunRoutingOutputs = RouteAllFiles(scannedFiles, newArtistFolders, logEntries, ref movedCount, ref skippedCount);
+                List<(string destPath, string block)> dryRunRoutingOutputs;
+                try
+                {
+                    dryRunRoutingOutputs = RouteAllFiles(scannedFiles, newArtistFolders, logEntries, ref movedCount, ref skippedCount);
+                }
+                finally
+                {
+                    RollbackAllStaged();
+                }
                 routingStopwatch.Stop();
 
                 // Print dry-run routing outputs sorted by destination path
@@ -343,7 +356,7 @@ namespace AudioManager
         /// Returns false if a Q decision slipped through (safety net; Step 2 already exits before this
         /// point in the normal case).
         /// </summary>
-        private bool ExecuteDuplicateDecisions(List<ScannedFile> scannedFiles, HashSet<string> newArtistFolders,
+        internal bool ExecuteDuplicateDecisions(List<ScannedFile> scannedFiles, HashSet<string> newArtistFolders,
             List<LogEntry> logEntries, ref int skippedCount)
         {
             foreach (var sf in scannedFiles.Where(sf2 => sf2.Duplicate != null))
@@ -403,13 +416,28 @@ namespace AudioManager
                     {
                         if (File.Exists(dup.LibraryFilePath))
                         {
-                            File.Delete(dup.LibraryFilePath);
-                            _lDeletedLibraryPaths.Add(dup.LibraryFilePath);
-                            Console.WriteLine($"  Deleted from library: {dup.RelLibraryPath}");
-                            Console.WriteLine($"  Integrating replacement: {dup.RelNewPath}");
-                            entry.Detail = "duplicate (library replaced)";
-                            Console.WriteLine();
-                            // SkipRouting stays false: new file is routed in 3b
+                            try
+                            {
+                                // Stage, never delete: the library copy is restored if routing the replacement fails
+                                string bakPath = ReplaceGuard.Stage(dup.LibraryFilePath);
+                                _lStaged[dup.LibraryFilePath] = bakPath;
+                                _lStagedBySource[sf.SourcePath] = dup.LibraryFilePath;
+                                _lDeletedLibraryPaths.Add(dup.LibraryFilePath);
+                                Console.WriteLine($"  Staged library copy for replacement: {dup.RelLibraryPath}");
+                                Console.WriteLine($"  Integrating replacement: {dup.RelNewPath}");
+                                entry.Detail = "duplicate (library replaced)";
+                                Console.WriteLine();
+                                // SkipRouting stays false: new file is routed in 3b
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"  [ERROR] Could not stage library copy {dup.RelLibraryPath}: {ex.Message}");
+                                entry.Status = "error";
+                                entry.Detail = "duplicate (library stage failed)";
+                                logEntries.Add(entry); skippedCount++;
+                                Console.WriteLine();
+                                dup.SkipRouting = true;
+                            }
                         }
                         else
                         {
@@ -425,6 +453,37 @@ namespace AudioManager
                 // K: no output in 3a; routed normally in 3b
             }
             return true;
+        }
+
+        /// <summary>Commits the L-staged library copy paired with this replacement once it has routed.</summary>
+        private void CommitIfStaged(ScannedFile sf)
+        {
+            if (!_lStagedBySource.TryGetValue(sf.SourcePath, out string libPath)) return;
+            if (_lStaged.TryGetValue(libPath, out string bakPath)) ReplaceGuard.Commit(bakPath);
+            _lStaged.Remove(libPath);
+            _lStagedBySource.Remove(sf.SourcePath);
+        }
+
+        /// <summary>Restores the L-staged library copy paired with this replacement when its routing is skipped.</summary>
+        private void RollbackIfStaged(ScannedFile sf)
+        {
+            if (!_lStagedBySource.TryGetValue(sf.SourcePath, out string libPath)) return;
+            if (_lStaged.TryGetValue(libPath, out string bakPath)) ReplaceGuard.Rollback(bakPath, libPath);
+            _lStaged.Remove(libPath);
+            _lStagedBySource.Remove(sf.SourcePath);
+            _lDeletedLibraryPaths.Remove(libPath);
+        }
+
+        /// <summary>Rolls back every L-staged library copy still pending at the end of routing.</summary>
+        private void RollbackAllStaged()
+        {
+            foreach (var kv in _lStaged.ToList())
+            {
+                ReplaceGuard.Rollback(kv.Value, kv.Key);
+                _lDeletedLibraryPaths.Remove(kv.Key);
+            }
+            _lStaged.Clear();
+            _lStagedBySource.Clear();
         }
 
         /// <summary>
@@ -453,6 +512,7 @@ namespace AudioManager
                     entry.Status = "error";
                     entry.Detail = $"unreadable: {sf.ReadError}";
                     logEntries.Add(entry); skippedCount++;
+                    RollbackIfStaged(sf);
                     continue;
                 }
 
@@ -470,6 +530,7 @@ namespace AudioManager
                         Console.WriteLine($"- Skipped '{Path.GetFileName(sf.SourcePath)}': missing required tag");
                         entry.Status = "skipped"; entry.Detail = "missing required tag";
                         logEntries.Add(entry); skippedCount++;
+                        RollbackIfStaged(sf);
                         continue;
                     }
 
@@ -516,6 +577,7 @@ namespace AudioManager
                         Console.WriteLine();
                         entry.Status = "skipped"; entry.Detail = "already exists at destination";
                         logEntries.Add(entry); skippedCount++;
+                        RollbackIfStaged(sf);
                     }
                     else if (dryRun)
                     {
@@ -539,6 +601,7 @@ namespace AudioManager
                             Console.WriteLine($"[WARN: IN-BATCH DUPLICATE] {Path.GetFileName(sf.SourcePath)}");
                         Directory.CreateDirectory(destDir);
                         File.Move(sf.SourcePath, destPath);
+                        CommitIfStaged(sf);
                         movedCount++;
                         Console.WriteLine(FormatAutoLine(track.Artists, track.Title, albumSuffix));
                         foreach (var change in entry.TagChanges)
@@ -563,6 +626,7 @@ namespace AudioManager
                     entry.Status = "error";
                     entry.Detail = $"routing failed: {ex.Message}";
                     logEntries.Add(entry); skippedCount++;
+                    RollbackIfStaged(sf);
                 }
             }
             return dryRunRoutingOutputs;
