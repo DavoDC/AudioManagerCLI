@@ -771,7 +771,10 @@ namespace AudioManager
                             miscFilesByArtist[primary] = new List<string>();
                         miscFilesByArtist[primary].Add(xmlFile);
                     }
-                    catch { /* skip malformed XML */ }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"\n  [WARN] Skipped malformed XML '{Path.GetFileName(xmlFile)}': {ex.Message}");
+                    }
                 }
             }
 
@@ -796,7 +799,10 @@ namespace AudioManager
                         if (string.IsNullOrEmpty(primary)) continue;
                         sourcesCounts[primary] = sourcesCounts.ContainsKey(primary) ? sourcesCounts[primary] + 1 : 1;
                     }
-                    catch { /* skip malformed XML */ }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"\n  [WARN] Skipped malformed XML '{Path.GetFileName(xmlFile)}': {ex.Message}");
+                    }
                 }
             }
             Console.WriteLine(" done.");
@@ -1492,7 +1498,11 @@ namespace AudioManager
                         aliases[from] = to;
                 }
             }
-            catch { /* ignore parse errors - duplicate detection degrades gracefully */ }
+            catch (Exception ex)
+            {
+                // Duplicate detection degrades gracefully (keeps any aliases parsed before the failure), but say why.
+                Console.WriteLine($"  [WARN] Could not read artist aliases '{filePath}': {ex.Message}");
+            }
             return aliases;
         }
 
@@ -1580,7 +1590,11 @@ namespace AudioManager
                     foreach (var key in GetAliasExpandedKeys(primary, title, aliases, reverseAliases))
                         concurrentIndex.TryAdd(key, xmlFile);
                 }
-                catch { /* skip malformed XML */ }
+                catch (Exception ex)
+                {
+                    // Best-effort index: the malformed file is left out of duplicate detection, so say so.
+                    Console.WriteLine($"\n  [WARN] Skipped malformed XML '{Path.GetFileName(xmlFile)}': {ex.Message}");
+                }
             });
 
             Console.WriteLine(" done.");
@@ -1722,7 +1736,11 @@ namespace AudioManager
                                 distinctArtists.Add(trimmed);
                         }
                     }
-                    catch { /* skip malformed XML */ }
+                    catch (Exception ex)
+                    {
+                        // Compilation check only: an unreadable sibling is left out of the distinct-artist count, so say so.
+                        Console.WriteLine($"  [WARN] Skipped malformed XML '{Path.GetFileName(f)}': {ex.Message}");
+                    }
                 }
 
                 return RulesEngine.IsCompilation(distinctArtists.Count);
@@ -2298,9 +2316,10 @@ namespace AudioManager
                             }
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Skip files that can't be read
+                        // Unreadable files are left out of the count; logged so a short count can be explained.
+                        Console.WriteLine($"  [WARN] Skipped unreadable file '{Path.GetFileName(filePath)}': {ex.Message}");
                     }
                 }
             }
@@ -2331,9 +2350,10 @@ namespace AudioManager
                             }
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Skip files that can't be read
+                        // Unreadable files are left out of the count; logged so a short count can be explained.
+                        Console.WriteLine($"  [WARN] Skipped unreadable file '{Path.GetFileName(filePath)}': {ex.Message}");
                     }
                 }
             }
@@ -2381,7 +2401,11 @@ namespace AudioManager
                             }
                         }
                     }
-                    catch { /* skip unreadable files */ }
+                    catch (Exception ex)
+                    {
+                        // Unreadable files are left out of the count; logged so a short count can be explained.
+                        Console.WriteLine($"  [WARN] Skipped unreadable file '{Path.GetFileName(filePath)}': {ex.Message}");
+                    }
                 }
             }
 

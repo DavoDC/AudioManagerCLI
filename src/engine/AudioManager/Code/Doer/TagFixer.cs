@@ -366,30 +366,43 @@ namespace AudioManager
         /// </summary>
         private static Dictionary<string, string> GetArtistOverrides()
         {
-            if (_artistOverrides != null) return _artistOverrides;
-            _artistOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _artistOverrides = LoadArtistOverrides(Constants.ArtistOverridesPath);
+            return _artistOverrides;
+        }
+
+        /// <summary>
+        /// Parses an artist overrides file. A missing file yields an empty map silently; a malformed
+        /// file logs a [WARN] with the path and returns whatever parsed before the failure.
+        /// </summary>
+        internal static Dictionary<string, string> LoadArtistOverrides(string path)
+        {
+            var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                if (!File.Exists(Constants.ArtistOverridesPath)) return _artistOverrides;
+                if (!File.Exists(path)) return overrides;
                 var doc = new XmlDocument();
-                doc.Load(Constants.ArtistOverridesPath);
+                doc.Load(path);
                 foreach (XmlElement el in doc.SelectNodes("//Artist").OfType<XmlElement>())
                 {
                     string canonical = el.GetAttribute("canonical");
                     if (!string.IsNullOrEmpty(canonical))
                     {
-                        _artistOverrides[canonical] = canonical;
+                        overrides[canonical] = canonical;
                         // Optional variant attribute maps stylized/Unicode-variant names to the canonical form.
                         // Needed when Unicode diacritics (e.g. JAŸ-Z) differ from the canonical ASCII form (Jay-Z)
                         // and OrdinalIgnoreCase can't match them as equal.
                         string variant = el.GetAttribute("variant");
                         if (!string.IsNullOrEmpty(variant))
-                            _artistOverrides[variant] = canonical;
+                            overrides[variant] = canonical;
                     }
                 }
             }
-            catch { /* fallback: apply no overrides */ }
-            return _artistOverrides;
+            catch (Exception ex)
+            {
+                // Best-effort: names fall back to plain title-casing, but the user must see why overrides were skipped.
+                Console.WriteLine($"  [WARN] Could not read artist overrides '{path}': {ex.Message}");
+            }
+            return overrides;
         }
 
         /// <summary>
@@ -460,7 +473,7 @@ namespace AudioManager
                 {
                     if (overrides.TryGetValue(a, out string canonical)) return canonical;
                     bool isMixedCase = a.Any(char.IsUpper) && a.Any(char.IsLower);
-                    return textInfo.ToTitleCase(isMixedCase ? a : a.ToLower());
+                    return textInfo.ToTitleCase(isMixedCase ? a : a.ToLowerInvariant());
                 })
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
