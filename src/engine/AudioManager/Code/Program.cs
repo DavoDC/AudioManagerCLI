@@ -90,6 +90,14 @@ namespace AudioManager
                     }
                 }
 
+                // Analysis has no dry-run path: --dry-run there would regen the mirror and auto-commit.
+                if (AnalysisRejectsDryRun(mode, dryRun))
+                {
+                    Console.WriteLine(" - ERROR: --dry-run is not supported in analysis mode.");
+                    Environment.Exit(1);
+                    return;
+                }
+
                 // Set up file logging for all modes (console output tee'd to file + console simultaneously)
                 string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss", CultureInfo.InvariantCulture);
                 string modeLabel = (mode == 1) ? "analysis" : (mode == 2) ? "integrate" : "tagfix";
@@ -274,6 +282,13 @@ namespace AudioManager
                 Environment.Exit(123);
             }
         }
+
+        /// <summary>
+        /// True when the parsed mode is analysis (mode 1) and --dry-run was given. Analysis has no dry path.
+        /// </summary>
+        /// <param name="mode">Parsed mode: 1 = analysis, 2 = integrate, 3 = tagfix.</param>
+        /// <param name="dryRun">Whether --dry-run was passed.</param>
+        internal static bool AnalysisRejectsDryRun(int mode, bool dryRun) => mode == 1 && dryRun;
 
         /// <summary>
         /// Pre-integration validation gate: ensures AudioMirror is fresh and LibChecker is clean.
