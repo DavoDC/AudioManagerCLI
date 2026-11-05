@@ -65,7 +65,7 @@ namespace AudioManager
             }
 
             // Check if there are uncommitted changes
-            string statusOutput = RunGit(repoPath, "status --porcelain");
+            string statusOutput = RunGit(repoPath, "-c core.quotepath=false status --porcelain");
             if (string.IsNullOrWhiteSpace(statusOutput))
             {
                 Console.WriteLine(" - Clean (no changes to commit).");
@@ -74,16 +74,33 @@ namespace AudioManager
 
             // Build commit message with artist breakdown
             string commitTitle = DateTime.Now.ToString("MMM d") + " Update";
-            string commitBody = BuildCommitBody(repoPath);
+            string commitBody = BuildCommitBody(
+                RunGit(repoPath, "-c core.quotepath=false status --porcelain=v1 -u all"),
+                GetTrackedArtists(repoPath));
             string fullMessage = string.IsNullOrWhiteSpace(commitBody)
                 ? commitTitle
                 : commitTitle + "\n" + commitBody;
 
             // Stage AUDIO_MIRROR folder + LastRunInfo.txt (audit metadata at repo root)
             RunGit(repoPath, "add AUDIO_MIRROR/ LastRunInfo.txt");
-            string commitResult = RunGit(repoPath, $"commit -m \"{fullMessage.Replace("\"", "\\\"")}\"");
+            GitRunResult commit = RunGitDetailed(repoPath, $"commit -m \"{fullMessage.Replace("\"", "\\\"")}\"");
+            string commitResult = commit.Stdout + commit.Stderr;
 
-            if (string.IsNullOrWhiteSpace(commitResult) || commitResult.Contains("nothing to commit"))
+            if (IsNothingToCommit(commitResult))
+            {
+                Console.WriteLine(" - Nothing staged to commit.");
+                return;
+            }
+
+            if (IsCommitFailure(commit.ExitCode, commitResult))
+            {
+                string firstLine = commitResult.Trim().Split('\n')[0].Trim();
+                Console.WriteLine($" - FAILED: git commit exited {commit.ExitCode}. {firstLine}");
+                Console.WriteLine(" - Nothing was committed. Fix the git error above, then re-run.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(commitResult))
             {
                 Console.WriteLine(" - Nothing staged to commit.");
                 return;
@@ -100,15 +117,12 @@ namespace AudioManager
         /// Only counts untracked (new) files - modified files are regen noise.
         /// Sections: New artists / Existing artists / Musivation / Misc.
         /// </summary>
-        private static string BuildCommitBody(string repoPath)
+        /// <param name="statusOutput">Output of 'git status --porcelain=v1 -u all' (run with core.quotepath=false).</param>
+        /// <param name="trackedArtists">Artist dirs already tracked in HEAD, to tell new artists from existing ones.</param>
+        internal static string BuildCommitBody(string statusOutput, HashSet<string> trackedArtists)
         {
-            // Use -u all to get individual files, not just directory stubs
-            string statusOutput = RunGit(repoPath, "status --porcelain=v1 -u all");
             if (string.IsNullOrWhiteSpace(statusOutput))
                 return string.Empty;
-
-            // Get artist dirs already tracked in HEAD to distinguish new vs existing
-            var trackedArtists = GetTrackedArtists(repoPath);
 
             // Buckets
             var newArtistAlbums    = new Dictionary<string, SortedSet<string>>(StringComparer.OrdinalIgnoreCase);
@@ -122,6 +136,10 @@ namespace AudioManager
 
                 // Path starts after "?? ", normalize separators
                 string path = line.Substring(3).Trim().Replace('\\', '/');
+
+                // git quotes paths with special characters even when quotepath is off; drop the quotes
+                if (path.Length >= 2 && path[0] == '"' && path[path.Length - 1] == '"')
+                    path = path.Substring(1, path.Length - 2);
 
                 // Strip leading AUDIO_MIRROR/ prefix
                 const string prefix = "AUDIO_MIRROR/";
@@ -240,6 +258,16 @@ namespace AudioManager
         /// </summary>
         internal static string RunGit(string workingDir, string args)
         {
+            GitRunResult result = RunGitDetailed(workingDir, args);
+            return result.Stdout + result.Stderr;
+        }
+
+        /// <summary>
+        /// Runs a git command and returns stdout, stderr and the exit code separately.
+        /// Exit code -1 means git could not be started; Stderr then holds the error message.
+        /// </summary>
+        internal static GitRunResult RunGitDetailed(string workingDir, string args)
+        {
             try
             {
                 var psi = new ProcessStartInfo("git", args)
@@ -258,13 +286,45 @@ namespace AudioManager
                     string stdout = proc.StandardOutput.ReadToEnd();
                     string stderr = stderrTask.Result;
                     proc.WaitForExit();
-                    return stdout + stderr;
+                    return new GitRunResult { ExitCode = proc.ExitCode, Stdout = stdout, Stderr = stderr };
                 }
             }
             catch (Exception ex)
             {
-                return $"error: {ex.Message}";
+                return new GitRunResult { ExitCode = -1, Stdout = string.Empty, Stderr = $"error: {ex.Message}" };
             }
+        }
+
+        /// <summary>
+        /// True when a git commit did not complete: a non-zero exit, or output starting fatal: or error:.
+        /// Pure function - no I/O. Extracted for testability.
+        /// </summary>
+        internal static bool IsCommitFailure(int exitCode, string output)
+        {
+            if (exitCode != 0) return true;
+            string text = (output ?? string.Empty).TrimStart();
+            return text.StartsWith("fatal:", StringComparison.Ordinal)
+                || text.StartsWith("error:", StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// True when git reports there was nothing to commit (not a failure).
+        /// </summary>
+        private static bool IsNothingToCommit(string output)
+        {
+            return output.Contains("nothing to commit")
+                || output.Contains("nothing added to commit")
+                || output.Contains("no changes added to commit");
+        }
+
+        /// <summary>
+        /// Result of a git subprocess: exit code plus stdout and stderr kept apart.
+        /// </summary>
+        internal sealed class GitRunResult
+        {
+            public int ExitCode;
+            public string Stdout;
+            public string Stderr;
         }
     }
 }

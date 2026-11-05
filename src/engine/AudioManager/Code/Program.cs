@@ -36,7 +36,7 @@ namespace AudioManager
                 string manifestPath = null;
                 if (args.Length > 0)
                 {
-                    string modeArg = args[0].ToLower();
+                    string modeArg = args[0].ToLowerInvariant();
                     bool forceRegen = args.Any(a => a.Equals("--force-regen", StringComparison.OrdinalIgnoreCase));
                     dryRun = args.Any(a => a.Equals("--dry-run", StringComparison.OrdinalIgnoreCase));
                     noInput = args.Any(a => a.Equals("--no-input", StringComparison.OrdinalIgnoreCase));
@@ -168,6 +168,7 @@ namespace AudioManager
                             if (manifest == null)
                             {
                                 Console.WriteLine($" - ERROR: {manifestError}");
+                                teeWriter.CloseLogFile(); // Exit skips finally, so close the log first
                                 Environment.Exit(1);
                             }
                             Console.WriteLine($"Manifest: {manifest.Entries.Count} accepted track(s) from {Path.GetFileName(manifestPath)}");
@@ -177,6 +178,7 @@ namespace AudioManager
                         if (!RunPreIntegrationGate(mirrorPath))
                         {
                             Console.WriteLine("\nFix library issues before adding new songs.\n");
+                            teeWriter.CloseLogFile(); // Exit skips finally, so close the log first
                             Environment.Exit(1);
                         }
 
@@ -339,31 +341,14 @@ namespace AudioManager
         }
 
         /// <summary>
-        /// Runs 'git status --porcelain' and returns the output.
+        /// Runs 'git status --porcelain' and returns stdout. Returns "error" when git cannot run or
+        /// exits non-zero (not a repo, dubious ownership), so the gate fails closed instead of reading
+        /// empty output as a fresh mirror.
         /// </summary>
-        private static string RunGitStatus(string repoPath)
+        internal static string RunGitStatus(string repoPath)
         {
-            try
-            {
-                var psi = new System.Diagnostics.ProcessStartInfo("git", "status --porcelain")
-                {
-                    WorkingDirectory = repoPath,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                using (var proc = System.Diagnostics.Process.Start(psi))
-                {
-                    string output = proc.StandardOutput.ReadToEnd();
-                    proc.WaitForExit();
-                    return output;
-                }
-            }
-            catch (Exception)
-            {
-                return "error";
-            }
+            var result = AudioMirrorCommitter.RunGitDetailed(repoPath, "-c core.quotepath=false status --porcelain");
+            return result.ExitCode == 0 ? result.Stdout : "error";
         }
 
         /// <summary>
