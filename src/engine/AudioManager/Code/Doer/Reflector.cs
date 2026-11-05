@@ -404,5 +404,76 @@ namespace AudioManager
             if (string.IsNullOrEmpty(directory)) return sanitisedName;
             return Path.Combine(directory, sanitisedName);
         }
+
+        /// <summary>
+        /// Replaces target with a fully built staging folder. The old target is parked at target + ".old"
+        /// and moved back if the final move fails; the backup is deleted only after the swap succeeds.
+        /// </summary>
+        internal static void SwapDirectory(string staging, string target)
+        {
+            string old = target + ".old";
+            bool parked = false;
+            if (Directory.Exists(target))
+            {
+                Directory.Move(target, old);
+                parked = true;
+            }
+            try
+            {
+                Directory.Move(staging, target);
+            }
+            catch (Exception)
+            {
+                if (parked && !Directory.Exists(target) && Directory.Exists(old))
+                {
+                    Directory.Move(old, target);
+                }
+                throw;
+            }
+            if (!parked) return;
+            try
+            {
+                Directory.Delete(old, true);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [WARN] Could not delete previous mirror '{old}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Clears leftovers from an interrupted swap: a .staging folder is always disposable, and an
+        /// orphaned .old is moved back to target when target is missing, otherwise deleted.
+        /// </summary>
+        internal static void RecoverLeftovers(string target)
+        {
+            string staging = target + ".staging";
+            string old = target + ".old";
+            try
+            {
+                if (Directory.Exists(staging)) Directory.Delete(staging, true);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [WARN] Could not delete stale staging '{staging}': {ex.Message}");
+            }
+            try
+            {
+                if (!Directory.Exists(old)) return;
+                if (!Directory.Exists(target))
+                {
+                    Directory.Move(old, target);
+                    Console.WriteLine("  [SWEEP] Restored previous mirror");
+                }
+                else
+                {
+                    Directory.Delete(old, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [WARN] Could not recover previous mirror '{old}': {ex.Message}");
+            }
+        }
     }
 }
