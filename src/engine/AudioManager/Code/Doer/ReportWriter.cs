@@ -86,12 +86,14 @@ namespace AudioManager
                     CreateNoWindow = true,
                     WorkingDirectory = Constants.ReportsPath
                 };
-                using (Process proc = Process.Start(psi))
+                int pid;
+                AudioMirrorCommitter.GitRunResult result = AudioMirrorCommitter.RunProcessBounded(psi, Constants.GitTimeoutMs, out pid);
+                if (result.TimedOut)
                 {
-                    string hash = proc.StandardOutput.ReadToEnd().Trim();
-                    proc.WaitForExit();
-                    return string.IsNullOrEmpty(hash) ? null : hash;
+                    Console.WriteLine($"git rev-parse timed out after {Constants.GitTimeoutMs} ms; report commit shown as unavailable.");
                 }
+                string hash = result.Stdout.Trim();
+                return string.IsNullOrEmpty(hash) ? null : hash;
             }
             catch
             {

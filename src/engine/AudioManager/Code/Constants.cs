@@ -52,6 +52,9 @@ namespace AudioManager
         // Path to the parser result cache (gitignored, in data/logs/)
         public static readonly string ParseCachePath = Path.Combine(LogsPath, "parse-cache.txt");
 
+        // Max time a git subprocess may run before it is killed (bounded waits in AudioMirrorCommitter and ReportWriter)
+        public const int GitTimeoutMs = 30000;
+
         /// <summary>
         /// Library folder names
         /// </summary>

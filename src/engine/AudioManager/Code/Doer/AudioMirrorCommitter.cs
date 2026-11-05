@@ -269,31 +269,70 @@ namespace AudioManager
         /// </summary>
         internal static GitRunResult RunGitDetailed(string workingDir, string args)
         {
+            var psi = new ProcessStartInfo("git", args)
+            {
+                WorkingDirectory = workingDir,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            int pid;
+            return RunProcessBounded(psi, Constants.GitTimeoutMs, out pid);
+        }
+
+        /// <summary>
+        /// Starts a process and waits at most timeoutMs for it to exit. Redirected stdout and stderr are
+        /// read on background tasks so the pipes always drain (a full pipe buffer cannot stall git).
+        /// If the process is still running at the timeout it is killed and the result has TimedOut set,
+        /// ExitCode -1 and a one-line Stderr message naming the timeout. Other failures return ExitCode -1
+        /// with the exception message in Stderr. processId is the started process id (0 if it never started).
+        /// </summary>
+        internal static GitRunResult RunProcessBounded(ProcessStartInfo psi, int timeoutMs, out int processId)
+        {
+            processId = 0;
             try
             {
-                var psi = new ProcessStartInfo("git", args)
-                {
-                    WorkingDirectory = workingDir,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
                 using (var proc = Process.Start(psi))
                 {
-                    // Read stderr on a background thread - prevents deadlock when git writes
-                    // enough to stderr to fill the pipe buffer (e.g. CRLF warnings for many files).
-                    var stderrTask = System.Threading.Tasks.Task.Run(() => proc.StandardError.ReadToEnd());
-                    string stdout = proc.StandardOutput.ReadToEnd();
-                    string stderr = stderrTask.Result;
-                    proc.WaitForExit();
-                    return new GitRunResult { ExitCode = proc.ExitCode, Stdout = stdout, Stderr = stderr };
+                    processId = proc.Id;
+                    var stdoutTask = psi.RedirectStandardOutput
+                        ? System.Threading.Tasks.Task.Run(() => proc.StandardOutput.ReadToEnd())
+                        : System.Threading.Tasks.Task.FromResult(string.Empty);
+                    var stderrTask = psi.RedirectStandardError
+                        ? System.Threading.Tasks.Task.Run(() => proc.StandardError.ReadToEnd())
+                        : System.Threading.Tasks.Task.FromResult(string.Empty);
+
+                    var clock = Stopwatch.StartNew();
+                    bool finished = proc.WaitForExit(timeoutMs)
+                        && System.Threading.Tasks.Task.WaitAll(
+                            new System.Threading.Tasks.Task[] { stdoutTask, stderrTask },
+                            Math.Max(0, timeoutMs - (int)clock.ElapsedMilliseconds));
+                    if (!finished)
+                    {
+                        KillQuietly(proc);
+                        return new GitRunResult
+                        {
+                            ExitCode = -1,
+                            Stdout = string.Empty,
+                            Stderr = $"error: git timed out after {timeoutMs} ms and was killed",
+                            TimedOut = true
+                        };
+                    }
+                    return new GitRunResult { ExitCode = proc.ExitCode, Stdout = stdoutTask.Result, Stderr = stderrTask.Result };
                 }
             }
             catch (Exception ex)
             {
                 return new GitRunResult { ExitCode = -1, Stdout = string.Empty, Stderr = $"error: {ex.Message}" };
             }
+        }
+
+        // Kill is best effort: it throws when the process has already exited, which is fine here.
+        private static void KillQuietly(Process proc)
+        {
+            try { proc.Kill(); }
+            catch (Exception) { }
         }
 
         /// <summary>
@@ -326,6 +365,7 @@ namespace AudioManager
             public int ExitCode;
             public string Stdout;
             public string Stderr;
+            public bool TimedOut;
         }
     }
 }
