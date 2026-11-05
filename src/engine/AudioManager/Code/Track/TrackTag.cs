@@ -1,4 +1,5 @@
 ﻿using AudioManager;
+using System;
 using TagLib;
 using File = System.IO.File;
 using ID3Tag = TagLib.Id3v2.Tag;
@@ -38,7 +39,11 @@ namespace AudioManager.Code.Modules
         public TrackTag(string mirrorFilePath)
         {
             // Always initialise relative path
-            int relStartPos = mirrorFilePath.LastIndexOf(Constants.MirrorFolderName);
+            int relStartPos = mirrorFilePath.LastIndexOf(Constants.MirrorFolderName, StringComparison.Ordinal);
+            if (relStartPos < 0)
+            {
+                throw new ArgumentException("Path is not inside the mirror folder: " + mirrorFilePath, nameof(mirrorFilePath));
+            }
             RelPath = mirrorFilePath.Remove(0, relStartPos + Constants.MirrorFolderName.Length);
 
             // Get file contents of mirror file (should be a file path)

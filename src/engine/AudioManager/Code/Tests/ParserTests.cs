@@ -11,7 +11,7 @@ namespace AudioManager
     internal static class ParserTests
     {
         private static string TempDir() =>
-            Path.Combine(Path.GetTempPath(), $"am_parser_{Guid.NewGuid():N}");
+            Path.Combine(Path.GetTempPath(), $"am_parser_{Guid.NewGuid():N}", Constants.MirrorFolderName);
 
         private static void WriteXml(string dir, string filename, TrackTag tag)
         {
@@ -44,7 +44,7 @@ namespace AudioManager
             }
             finally
             {
-                if (Directory.Exists(mirrorDir)) Directory.Delete(mirrorDir, recursive: true);
+                if (Directory.Exists(mirrorDir)) Directory.Delete(Directory.GetParent(mirrorDir).FullName, recursive: true);
                 if (File.Exists(cacheFile)) File.Delete(cacheFile);
             }
         }
@@ -68,7 +68,7 @@ namespace AudioManager
             }
             finally
             {
-                if (Directory.Exists(mirrorDir)) Directory.Delete(mirrorDir, recursive: true);
+                if (Directory.Exists(mirrorDir)) Directory.Delete(Directory.GetParent(mirrorDir).FullName, recursive: true);
                 if (File.Exists(cacheFile)) File.Delete(cacheFile);
             }
         }
@@ -90,7 +90,7 @@ namespace AudioManager
             }
             finally
             {
-                if (Directory.Exists(mirrorDir)) Directory.Delete(mirrorDir, recursive: true);
+                if (Directory.Exists(mirrorDir)) Directory.Delete(Directory.GetParent(mirrorDir).FullName, recursive: true);
                 if (File.Exists(cacheFile)) File.Delete(cacheFile);
             }
         }
@@ -122,7 +122,7 @@ namespace AudioManager
             }
             finally
             {
-                if (Directory.Exists(mirrorDir)) Directory.Delete(mirrorDir, recursive: true);
+                if (Directory.Exists(mirrorDir)) Directory.Delete(Directory.GetParent(mirrorDir).FullName, recursive: true);
                 if (File.Exists(cacheFile)) File.Delete(cacheFile);
             }
         }
