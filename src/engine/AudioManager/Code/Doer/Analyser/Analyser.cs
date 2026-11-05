@@ -1,5 +1,6 @@
-﻿using AudioManager.Code.Modules;
+using AudioManager.Code.Modules;
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -73,7 +74,7 @@ namespace AudioManager
         {
             Console.WriteLine($"\n# General Statistics");
 
-            double totalDuration = audioTags.Sum(tag => TimeSpan.Parse(tag.Length).TotalSeconds);
+            double totalDuration = audioTags.Sum(tag => TimeSpan.Parse(tag.Length, CultureInfo.InvariantCulture).TotalSeconds);
             double totalHours = Math.Round(totalDuration / 3600.0, 1);
             double days = Math.Round(totalHours / 24.0, 1);
             Console.WriteLine($" - Total playback hours: {totalHours} hours (≈{days} days)");
@@ -81,7 +82,7 @@ namespace AudioManager
             TimeSpan avgLength = TimeSpan.FromSeconds(totalDuration / audioTags.Count);
             Console.WriteLine($" - Average song length: {(int)avgLength.TotalMinutes}m{avgLength.Seconds:D2}s");
 
-            var durations = audioTags.Select(t => TimeSpan.Parse(t.Length).TotalSeconds).OrderBy(x => x).ToArray();
+            var durations = audioTags.Select(t => TimeSpan.Parse(t.Length, CultureInfo.InvariantCulture).TotalSeconds).OrderBy(x => x).ToArray();
             double medianSeconds = durations.Length % 2 == 1
                 ? durations[durations.Length / 2]
                 : (durations[durations.Length / 2 - 1] + durations[durations.Length / 2]) / 2;
@@ -124,16 +125,16 @@ namespace AudioManager
             // Summary: sub-800px, non-square, top dimensions on one line
             int subMin = audioTags.Count(t =>
             {
-                if (!int.TryParse(t.CoverWidth, out int w) || !int.TryParse(t.CoverHeight, out int h)) return false;
+                if (!int.TryParse(t.CoverWidth, NumberStyles.Integer, CultureInfo.InvariantCulture, out int w) || !int.TryParse(t.CoverHeight, NumberStyles.Integer, CultureInfo.InvariantCulture, out int h)) return false;
                 return w > 0 && h > 0 && Math.Min(w, h) < 800;
             });
             int nonSquare = audioTags.Count(t =>
             {
-                if (!int.TryParse(t.CoverWidth, out int w) || !int.TryParse(t.CoverHeight, out int h)) return false;
+                if (!int.TryParse(t.CoverWidth, NumberStyles.Integer, CultureInfo.InvariantCulture, out int w) || !int.TryParse(t.CoverHeight, NumberStyles.Integer, CultureInfo.InvariantCulture, out int h)) return false;
                 return w > 0 && h > 0 && w != h;
             });
             var topDims = audioTags
-                .Where(t => int.TryParse(t.CoverWidth, out int w) && int.TryParse(t.CoverHeight, out int h) && w > 0 && h > 0)
+                .Where(t => int.TryParse(t.CoverWidth, NumberStyles.Integer, CultureInfo.InvariantCulture, out int w) && int.TryParse(t.CoverHeight, NumberStyles.Integer, CultureInfo.InvariantCulture, out int h) && w > 0 && h > 0)
                 .GroupBy(t => $"{t.CoverWidth}x{t.CoverHeight}")
                 .OrderByDescending(g => g.Count())
                 .Take(5)
@@ -150,8 +151,8 @@ namespace AudioManager
             Console.WriteLine($"\n# Age Statistics");
             int currentYear = DateTime.Now.Year;
             int[] ages = audioTags
-                .Where(t => int.TryParse(t.Year, out _))
-                .Select(t => currentYear - int.Parse(t.Year))
+                .Where(t => int.TryParse(t.Year, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+                .Select(t => currentYear - int.Parse(t.Year, CultureInfo.InvariantCulture))
                 .OrderBy(a => a)
                 .ToArray();
 

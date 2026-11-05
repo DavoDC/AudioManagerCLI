@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -148,7 +148,7 @@ namespace AudioManager
                 string relativePath = GetRelativePath(audioRoot, realFilePath);
 
                 // For non-MP3 files, add to list and skip
-                if (Path.GetExtension(realFilePath)?.ToLower() != ".mp3")
+                if (Path.GetExtension(realFilePath)?.ToLowerInvariant() != ".mp3")
                 {
                     nonMP3Files.Add(relativePath);
                     continue;

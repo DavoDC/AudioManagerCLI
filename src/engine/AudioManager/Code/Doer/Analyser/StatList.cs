@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
 using StringIntFreqDist = System.Linq.IOrderedEnumerable<System.Collections.Generic.KeyValuePair<string, int>>;
@@ -159,7 +160,7 @@ namespace AudioManager.Code.Modules
         private static string GetDecade(string year)
         {
             // If year parsing successful
-            if (int.TryParse(year, out int yearNum))
+            if (int.TryParse(year, NumberStyles.Integer, CultureInfo.InvariantCulture, out int yearNum))
             {
                 // Return decade with "s" on the end
                 return $"{(yearNum / 10) * 10}s";

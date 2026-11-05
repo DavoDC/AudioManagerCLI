@@ -79,8 +79,8 @@ namespace AudioManager
                 sb.AppendLine($"      \"lengthSeconds\": {(seconds.HasValue ? Num(seconds.Value) : "null")},");
                 sb.AppendLine($"      \"length\": {JStr(FormatLength(seconds))},");
                 sb.AppendLine($"      \"compilation\": {(IsTrue(t.Compilation) ? "true" : "false")},");
-                sb.AppendLine($"      \"coverWidth\": {(hasArt ? w.ToString() : "null")},");
-                sb.AppendLine($"      \"coverHeight\": {(hasArt ? h.ToString() : "null")},");
+                sb.AppendLine($"      \"coverWidth\": {(hasArt ? w.ToString(CultureInfo.InvariantCulture) : "null")},");
+                sb.AppendLine($"      \"coverHeight\": {(hasArt ? h.ToString(CultureInfo.InvariantCulture) : "null")},");
                 sb.AppendLine($"      \"hasArt\": {(hasArt ? "true" : "false")},");
                 sb.AppendLine($"      \"hiResArt\": {(hiRes ? "true" : "false")},");
                 sb.AppendLine($"      \"addedDate\": {(addedDate == null ? "null" : JStr(addedDate))},");
@@ -127,7 +127,7 @@ namespace AudioManager
 
         /// <summary>Decade label from a year string ("2020s"), or null if the year isn't parseable.</summary>
         private static string Decade(string year) =>
-            int.TryParse(year, out int y) ? $"{(y / 10) * 10}s" : null;
+            int.TryParse(year, NumberStyles.Integer, CultureInfo.InvariantCulture, out int y) ?$"{(y / 10) * 10}s" : null;
 
         /// <summary>First genre of a "; "-separated Genres field.</summary>
         private static string PrimaryGenre(string genres)
@@ -142,7 +142,7 @@ namespace AudioManager
         private static bool KnownDim(TrackTag t, out int w, out int h)
         {
             w = 0; h = 0;
-            if (!int.TryParse(t.CoverWidth, out w) || !int.TryParse(t.CoverHeight, out h)) return false;
+            if (!int.TryParse(t.CoverWidth, NumberStyles.Integer, CultureInfo.InvariantCulture, out w) || !int.TryParse(t.CoverHeight, NumberStyles.Integer, CultureInfo.InvariantCulture, out h)) return false;
             return w > 0 && h > 0;
         }
 

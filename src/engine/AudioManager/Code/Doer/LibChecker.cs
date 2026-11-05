@@ -1,4 +1,4 @@
-﻿using AudioManager.Code.Modules;
+using AudioManager.Code.Modules;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -282,7 +282,7 @@ namespace AudioManager
             if (tag.AlbumCoverCount == "0") return 0;
             if (tag.CoverWidth == "Unknown" || tag.CoverHeight == "Unknown") return 0;
 
-            if (int.TryParse(tag.CoverWidth, out int w) && int.TryParse(tag.CoverHeight, out int h))
+            if (int.TryParse(tag.CoverWidth, NumberStyles.Integer, CultureInfo.InvariantCulture, out int w) && int.TryParse(tag.CoverHeight, NumberStyles.Integer, CultureInfo.InvariantCulture, out int h))
             {
                 if (w > 0 && h > 0 && Math.Min(w, h) < 800)
                 {

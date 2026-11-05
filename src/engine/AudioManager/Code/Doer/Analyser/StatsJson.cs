@@ -80,8 +80,8 @@ namespace AudioManager
             // ---- Age ----
             int currentYear = DateTime.Now.Year;
             int[] ages = audioTags
-                .Where(t => int.TryParse(t.Year, out _))
-                .Select(t => currentYear - int.Parse(t.Year))
+                .Where(t => int.TryParse(t.Year, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+                .Select(t => currentYear - int.Parse(t.Year, CultureInfo.InvariantCulture))
                 .OrderBy(a => a)
                 .ToArray();
             bool hasAges = ages.Length > 0;
@@ -137,8 +137,8 @@ namespace AudioManager
             sb.AppendLine("  \"ageStats\": {");
             sb.AppendLine($"    \"averageYears\": {(hasAges ? Num(Math.Round(ages.Average(), 1)) : "null")},");
             sb.AppendLine($"    \"medianYears\": {(hasAges ? Num(Math.Round(Median(ages.Select(a => (double)a).ToArray()), 1)) : "null")},");
-            sb.AppendLine($"    \"newestYears\": {(hasAges ? ages.First().ToString() : "null")},");
-            sb.AppendLine($"    \"oldestYears\": {(hasAges ? ages.Last().ToString() : "null")}");
+            sb.AppendLine($"    \"newestYears\": {(hasAges ? ages.First().ToString(CultureInfo.InvariantCulture) : "null")},");
+            sb.AppendLine($"    \"oldestYears\": {(hasAges ? ages.Last().ToString(CultureInfo.InvariantCulture) : "null")}");
             sb.AppendLine("  },");
 
             // Age distribution buckets (aligns with the mockup's Track Age Distribution chart).
@@ -202,7 +202,7 @@ namespace AudioManager
         private static bool KnownDim(TrackTag t, out int w, out int h)
         {
             w = 0; h = 0;
-            if (!int.TryParse(t.CoverWidth, out w) || !int.TryParse(t.CoverHeight, out h)) return false;
+            if (!int.TryParse(t.CoverWidth, NumberStyles.Integer, CultureInfo.InvariantCulture, out w) || !int.TryParse(t.CoverHeight, NumberStyles.Integer, CultureInfo.InvariantCulture, out h)) return false;
             return w > 0 && h > 0;
         }
 
