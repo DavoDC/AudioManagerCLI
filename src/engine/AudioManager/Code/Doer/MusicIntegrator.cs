@@ -319,6 +319,14 @@ namespace AudioManager
             this.dryRun = dryRun;
         }
 
+        /// <summary>Test-only constructor for duplicate-review tests: dry-run and noInput/manifest together. No pipeline.</summary>
+        internal MusicIntegrator(string testLibraryPath, bool dryRun, bool noInput, IntegrationManifest manifest) : this(testLibraryPath)
+        {
+            this.dryRun = dryRun;
+            this.noInput = noInput;
+            this._manifest = manifest;
+        }
+
         /// <summary>
         /// Test-only constructor that accepts pre-built batch album counts.
         /// Allows routing tests to verify album subfolder routing without real TagLib MP3 files.
