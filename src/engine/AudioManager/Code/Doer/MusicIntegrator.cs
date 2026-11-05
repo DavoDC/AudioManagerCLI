@@ -1018,12 +1018,15 @@ namespace AudioManager
         /// Only removes a directory if it contains zero files. If any files remain, warns and skips.
         /// No-op if NewMusic doesn't exist or has no subdirectories to clean.
         /// </summary>
-        private void CleanupNewMusicFolder()
+        private void CleanupNewMusicFolder() => CleanupNewMusicFolder(Constants.NewMusicPath);
+
+        /// <summary>Path seam for CleanupNewMusicFolder: same behaviour, operating on newMusicPath.</summary>
+        internal void CleanupNewMusicFolder(string newMusicPath)
         {
-            if (!Directory.Exists(Constants.NewMusicPath)) return;
+            if (!Directory.Exists(newMusicPath)) return;
 
             // Gate: abort if any files remain (integration may have skipped some)
-            var remainingFiles = Directory.GetFiles(Constants.NewMusicPath, "*", SearchOption.AllDirectories);
+            var remainingFiles = Directory.GetFiles(newMusicPath, "*", SearchOption.AllDirectories);
             if (remainingFiles.Length > 0)
             {
                 Console.WriteLine($"\n[INFO] NewMusic cleanup skipped: {remainingFiles.Length} file(s) still remain. Review manually.");
@@ -1031,7 +1034,7 @@ namespace AudioManager
             }
 
             // Collect empty subdirectories, deepest first so parents are empty by the time we reach them
-            var emptyDirs = Directory.GetDirectories(Constants.NewMusicPath, "*", SearchOption.AllDirectories)
+            var emptyDirs = Directory.GetDirectories(newMusicPath, "*", SearchOption.AllDirectories)
                 .OrderByDescending(d => d.Length)
                 .ToList();
 
@@ -1044,8 +1047,8 @@ namespace AudioManager
             int cleanedCount = 0;
             foreach (var dir in emptyDirs)
             {
-                string relDir = dir.StartsWith(Constants.NewMusicPath, StringComparison.OrdinalIgnoreCase)
-                    ? dir.Substring(Constants.NewMusicPath.Length).TrimStart('\\', '/')
+                string relDir = dir.StartsWith(newMusicPath, StringComparison.OrdinalIgnoreCase)
+                    ? dir.Substring(newMusicPath.Length).TrimStart('\\', '/')
                     : dir;
 
                 if (dryRun)
