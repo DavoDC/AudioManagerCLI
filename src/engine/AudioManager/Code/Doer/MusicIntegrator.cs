@@ -72,7 +72,7 @@ namespace AudioManager
             public string Album;
             public string Destination;
             public List<string> TagChanges = new List<string>();
-            public string Status; // "moved", "would-move", "skipped", "error"
+            public string Status; // "moved", "would-move", "skipped", "would-skip", "error"
             public string Detail; // reason or error message
             public string Reason;
             public bool IsNewFolder;
@@ -313,6 +313,12 @@ namespace AudioManager
             this._manifest = manifest;
         }
 
+        /// <summary>Test-only constructor for dry-run parity tests. Routes against testLibraryPath, no pipeline.</summary>
+        internal MusicIntegrator(string testLibraryPath, bool dryRun) : this(testLibraryPath)
+        {
+            this.dryRun = dryRun;
+        }
+
         /// <summary>
         /// Test-only constructor that accepts pre-built batch album counts.
         /// Allows routing tests to verify album subfolder routing without real TagLib MP3 files.
@@ -395,7 +401,16 @@ namespace AudioManager
                 }
                 else if (decision == 'L')
                 {
-                    if (dryRun)
+                    if (dryRun && !File.Exists(dup.LibraryFilePath))
+                    {
+                        Console.WriteLine($"  [WARN] Library file not found: {dup.RelLibraryPath}");
+                        entry.Status = "error";
+                        entry.Detail = "duplicate (library file not found)";
+                        logEntries.Add(entry); skippedCount++;
+                        Console.WriteLine();
+                        dup.SkipRouting = true;
+                    }
+                    else if (dryRun)
                     {
                         Console.WriteLine($"[DRY RUN] Would delete from library: {dup.RelLibraryPath}");
                         Console.WriteLine($"[DRY RUN] Would keep new file: {dup.DisplayNewFilename}");
@@ -487,6 +502,19 @@ namespace AudioManager
         }
 
         /// <summary>
+        /// Destination check shared by real and dry runs. Blocked when a file already sits at destPath
+        /// (unless it is the library copy being replaced) or when plannedDests already holds destPath.
+        /// A null libraryPathBeingReplaced means no exemption; a null plannedDests skips the batch check.
+        /// plannedDests must be OrdinalIgnoreCase for case-insensitive batch matching.
+        /// </summary>
+        internal static bool IsDestBlocked(string destPath, string libraryPathBeingReplaced, HashSet<string> plannedDests)
+        {
+            bool exempt = libraryPathBeingReplaced != null && destPath.Equals(libraryPathBeingReplaced, StringComparison.OrdinalIgnoreCase);
+            if (File.Exists(destPath) && !exempt) return true;
+            return plannedDests != null && plannedDests.Contains(destPath);
+        }
+
+        /// <summary>
         /// Step 3b: routes all files. D-decided and dry-run L-decided duplicates were already handled
         /// in ExecuteDuplicateDecisions (3a); real-mode L files and K files fall through to routing here.
         /// In dry-run mode, routing output blocks are collected and returned for the caller to print
@@ -496,6 +524,7 @@ namespace AudioManager
             HashSet<string> newArtistFolders, List<LogEntry> logEntries, ref int movedCount, ref int skippedCount)
         {
             var dryRunRoutingOutputs = dryRun ? new List<(string destPath, string block)>() : null;
+            var plannedDests = dryRun ? new HashSet<string>(StringComparer.OrdinalIgnoreCase) : null;
             foreach (var sf in scannedFiles)
             {
                 var entry = sf.LogEntry;
@@ -571,11 +600,11 @@ namespace AudioManager
                         ? $" [{track.Album}]" : "";
                     string routeNewNote = isNewFolder ? " *" : "";
 
-                    if (!dryRun && File.Exists(destPath))
+                    if (IsDestBlocked(destPath, null, plannedDests))
                     {
                         Console.WriteLine(FormatSkipLine(track.Artists, track.Title));
                         Console.WriteLine();
-                        entry.Status = "skipped"; entry.Detail = "already exists at destination";
+                        entry.Status = dryRun ? "would-skip" : "skipped"; entry.Detail = "already exists at destination";
                         logEntries.Add(entry); skippedCount++;
                         RollbackIfStaged(sf);
                     }
@@ -592,6 +621,7 @@ namespace AudioManager
                         sb.AppendLine($" Path: {relativeDest.Replace('\\', '/')}");
                         sb.AppendLine();
                         dryRunRoutingOutputs.Add((relativeDest, sb.ToString()));
+                        plannedDests.Add(destPath);
                         entry.Status = "would-move";
                         logEntries.Add(entry); movedCount++;
                     }
