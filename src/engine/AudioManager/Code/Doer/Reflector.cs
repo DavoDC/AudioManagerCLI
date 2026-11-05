@@ -39,12 +39,27 @@ namespace AudioManager
 
 
         /// <summary>
+        /// True only when the path, once normalised (no .. segments), sits strictly under the mirror repo.
+        /// Guards the recursive delete in CreateFolders.
+        /// </summary>
+        internal static bool IsInsideMirrorRepo(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            string full;
+            try { full = Path.GetFullPath(path); }
+            catch (Exception) { return false; }
+            if (!full.EndsWith(Path.DirectorySeparatorChar.ToString())) full += Path.DirectorySeparatorChar;
+            return full.Length > Constants.MirrorRepoPath.Length
+                && full.StartsWith(Constants.MirrorRepoPath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// Set up folder structure mirroring the actual folder
         /// </summary>
         public void CreateFolders()
         {
             // If mirror path is outside of repo
-            if (!mirrorPath.Contains("<home>\\GitHubRepos\\AudioMirror"))
+            if (!IsInsideMirrorRepo(mirrorPath))
             {
                 // Throw exception and notify
                 string msg = $"\nMirror path was incorrect, outside the repo:\n{mirrorPath}\n";
