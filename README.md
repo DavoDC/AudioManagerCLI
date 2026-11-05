@@ -119,6 +119,8 @@ Incremental Reflector also refreshes individual XMLs when their underlying MP3 h
 
 **Developed:** November 2023 · **Status:** Actively maintained
 
+First build restores NuGet packages (taglib-sharp) and needs network access.
+
 ## Dependencies
 
 - [TagLib#](https://github.com/mono/taglib-sharp)
