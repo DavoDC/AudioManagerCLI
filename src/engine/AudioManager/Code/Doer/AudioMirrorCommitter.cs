@@ -41,15 +41,23 @@ namespace AudioManager
         /// <param name="trigger">What triggered this commit attempt.</param>
         public static void TryCommit(bool libCheckerClean, CommitTrigger trigger)
         {
+            string repoPath = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, Constants.MirrorRepoPath));
+            TryCommitAt(repoPath, libCheckerClean, trigger);
+        }
+
+        /// <summary>
+        /// TryCommit against an explicit repo path. TryCommit resolves the real mirror path and calls this;
+        /// tests pass a throwaway repo here.
+        /// </summary>
+        internal static void TryCommitAt(string repoPath, bool libCheckerClean, CommitTrigger trigger)
+        {
             // Incremental analysis produces an unreliable mirror state - skip
             if (trigger == CommitTrigger.AnalysisIncremental)
             {
                 Console.WriteLine("\nAudioMirror: skipping auto-commit (incremental mirror - run force regen for auto-commit).");
                 return;
             }
-
-            string repoPath = Path.GetFullPath(Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory, Constants.MirrorRepoPath));
 
             Console.WriteLine("\nAudioMirror auto-commit:");
 
@@ -76,11 +84,11 @@ namespace AudioManager
             // Build commit message with artist breakdown
             string commitTitle = DateTime.Now.ToString("MMM d", CultureInfo.InvariantCulture) + " Update";
             string commitBody = BuildCommitBody(
-                RunGit(repoPath, "-c core.quotepath=false status --porcelain=v1 -u all"),
+                RunGit(repoPath, "-c core.quotepath=false status --porcelain=v1 -uall"),
                 GetTrackedArtists(repoPath));
             string fullMessage = string.IsNullOrWhiteSpace(commitBody)
                 ? commitTitle
-                : commitTitle + "\n" + commitBody;
+                : commitTitle + "\n\n" + commitBody; // blank line: git treats a single newline as part of the subject
 
             // Stage AUDIO_MIRROR folder + LastRunInfo.txt (audit metadata at repo root)
             RunGit(repoPath, "add AUDIO_MIRROR/ LastRunInfo.txt");
@@ -118,7 +126,7 @@ namespace AudioManager
         /// Only counts untracked (new) files - modified files are regen noise.
         /// Sections: New artists / Existing artists / Musivation / Misc.
         /// </summary>
-        /// <param name="statusOutput">Output of 'git status --porcelain=v1 -u all' (run with core.quotepath=false).</param>
+        /// <param name="statusOutput">Output of 'git status --porcelain=v1 -uall' (run with core.quotepath=false).</param>
         /// <param name="trackedArtists">Artist dirs already tracked in HEAD, to tell new artists from existing ones.</param>
         internal static string BuildCommitBody(string statusOutput, HashSet<string> trackedArtists)
         {
@@ -233,17 +241,18 @@ namespace AudioManager
         /// <summary>
         /// Returns artist directory names already tracked in HEAD (i.e. not new this run).
         /// </summary>
-        private static HashSet<string> GetTrackedArtists(string repoPath)
+        internal static HashSet<string> GetTrackedArtists(string repoPath)
         {
             string output = RunGit(repoPath, $"ls-tree --name-only HEAD AUDIO_MIRROR/{Constants.ArtistsDir}/");
             return new HashSet<string>(
                 output.Split('\n')
-                      .Select(l => l.Trim())
-                      .Where(l => !string.IsNullOrEmpty(l)),
+                      .Select(l => l.Trim().Replace('\\', '/'))
+                      .Where(l => !string.IsNullOrEmpty(l))
+                      .Select(l => l.Substring(l.LastIndexOf('/') + 1)),
                 StringComparer.OrdinalIgnoreCase);
         }
 
-        private static void AddAlbum(Dictionary<string, SortedSet<string>> dict, string artist, string album)
+        internal static void AddAlbum(Dictionary<string, SortedSet<string>> dict, string artist, string album)
         {
             if (!dict.TryGetValue(artist, out var albums))
             {
@@ -350,7 +359,7 @@ namespace AudioManager
         /// <summary>
         /// True when git reports there was nothing to commit (not a failure).
         /// </summary>
-        private static bool IsNothingToCommit(string output)
+        internal static bool IsNothingToCommit(string output)
         {
             return output.Contains("nothing to commit")
                 || output.Contains("nothing added to commit")

@@ -305,55 +305,89 @@ namespace AudioManager
                 string mirrorRepoPath = Path.GetFullPath(Path.Combine(
                     AppDomain.CurrentDomain.BaseDirectory, Constants.MirrorRepoPath));
 
-                if (!Directory.Exists(mirrorRepoPath))
+                // The steps run lazily inside DecidePreIntegrationGate, in the same order as before:
+                // repo check, then regen + status, then LibChecker only when the mirror is fresh.
+                Parser p = null;
+                PreIntegrationGateResult result = DecidePreIntegrationGate(
+                    Directory.Exists(mirrorRepoPath),
+                    () =>
+                    {
+                        // Step 1: Regenerate AudioMirror XMLs
+                        Console.WriteLine(" - Regenerating AudioMirror XMLs...");
+                        Reflector r = new Reflector(mirrorPath);
+                        p = new Parser(mirrorPath);
+
+                        // Step 2: Check if AudioMirror XMLs changed (is it fresh?)
+                        Console.WriteLine(" - Checking if AudioMirror is fresh...");
+                        return RunGitStatus(mirrorRepoPath);
+                    },
+                    () =>
+                    {
+                        // Step 3: Verify LibChecker is clean
+                        Console.WriteLine(" - Running library validation...");
+                        LibChecker lc = new LibChecker(p.audioTags);
+                        return lc.IsClean;
+                    });
+
+                switch (result)
                 {
-                    Console.WriteLine(" - ERROR: AudioMirror repo not found. Cannot validate library state.");
-                    return false;
+                    case PreIntegrationGateResult.MirrorRepoMissing:
+                        Console.WriteLine(" - ERROR: AudioMirror repo not found. Cannot validate library state.");
+                        return false;
+                    case PreIntegrationGateResult.MirrorStale:
+                        Console.WriteLine(" - ERROR: AudioMirror is out of sync with the library.");
+                        Console.WriteLine("   AudioMirror is the source of truth for all library validation.");
+                        Console.WriteLine("   Commit the mirror changes (git commit in AudioMirror/) before integrating new songs.");
+                        return false;
+                    case PreIntegrationGateResult.LibCheckerDirty:
+                        Console.WriteLine(" - ERROR: LibChecker found issues in the library.");
+                        return false;
+                    default:
+                        Console.WriteLine(" - Pre-integration validation passed.\n");
+                        return true;
                 }
-
-                // Step 1: Regenerate AudioMirror XMLs
-                Console.WriteLine(" - Regenerating AudioMirror XMLs...");
-                Reflector r = new Reflector(mirrorPath);
-                Parser p = new Parser(mirrorPath);
-
-                // Step 2: Check if AudioMirror XMLs changed (is it fresh?)
-                Console.WriteLine(" - Checking if AudioMirror is fresh...");
-                string mirrorStatusOutput = RunGitStatus(mirrorRepoPath);
-
-                // Ignore LastRunInfo.txt (just a timestamp) - only care about XML changes
-                var changedFiles = mirrorStatusOutput
-                    .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-                    .Where(line => !line.Contains("LastRunInfo.txt"))
-                    .ToList();
-
-                bool mirrorIsStale = changedFiles.Count > 0;
-
-                if (mirrorIsStale)
-                {
-                    Console.WriteLine(" - ERROR: AudioMirror is out of sync with the library.");
-                    Console.WriteLine("   AudioMirror is the source of truth for all library validation.");
-                    Console.WriteLine("   Commit the mirror changes (git commit in AudioMirror/) before integrating new songs.");
-                    return false;
-                }
-
-                // Step 3: Verify LibChecker is clean
-                Console.WriteLine(" - Running library validation...");
-                LibChecker lc = new LibChecker(p.audioTags);
-
-                if (!lc.IsClean)
-                {
-                    Console.WriteLine(" - ERROR: LibChecker found issues in the library.");
-                    return false;
-                }
-
-                Console.WriteLine(" - Pre-integration validation passed.\n");
-                return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($" - ERROR during pre-integration validation: {ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Outcome of the pre-integration gate. Checks run in this order: repo exists, mirror fresh, LibChecker clean.
+        /// </summary>
+        internal enum PreIntegrationGateResult
+        {
+            Passed,
+            MirrorRepoMissing,
+            MirrorStale,
+            LibCheckerDirty,
+        }
+
+        /// <summary>
+        /// Pure decision for the pre-integration gate. mirrorStatus and libCheckerClean are only invoked
+        /// when the earlier checks have not already decided the outcome.
+        /// </summary>
+        internal static PreIntegrationGateResult DecidePreIntegrationGate(
+            bool mirrorRepoExists, Func<string> mirrorStatus, Func<bool> libCheckerClean)
+        {
+            if (!mirrorRepoExists) return PreIntegrationGateResult.MirrorRepoMissing;
+            if (IsMirrorStale(mirrorStatus())) return PreIntegrationGateResult.MirrorStale;
+            if (!libCheckerClean()) return PreIntegrationGateResult.LibCheckerDirty;
+            return PreIntegrationGateResult.Passed;
+        }
+
+        /// <summary>
+        /// True when 'git status --porcelain' output lists any change other than LastRunInfo.txt.
+        /// The "error" sentinel from RunGitStatus is not a porcelain line, so it counts as stale (fails closed).
+        /// </summary>
+        internal static bool IsMirrorStale(string mirrorStatusOutput)
+        {
+            // Ignore LastRunInfo.txt (just a timestamp) - only care about XML changes
+            return mirrorStatusOutput
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+                .Any(line => !line.Contains("LastRunInfo.txt"));
         }
 
         /// <summary>
