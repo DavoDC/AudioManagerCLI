@@ -91,16 +91,22 @@ namespace AudioManager
         /// ProcessFile() directly against a fixture path without touching the real inbox.
         /// Pass customRulesPath to load custom rules from a fixture file instead of the repo config.
         /// </summary>
-        internal static TagFixer ForTesting(bool dryRun, string customRulesPath = null)
+        internal static TagFixer ForTesting(bool dryRun, string customRulesPath = null, string quarantineRoot = null)
         {
-            return new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath);
+            return new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot);
         }
 
-        private TagFixer(bool dryRun, bool skipScan, string customRulesPath = null)
+        private TagFixer(bool dryRun, bool skipScan, string customRulesPath = null, string quarantineRoot = null)
         {
             this.dryRun = dryRun;
             this.customRules = TagFixCustomRuleSet.Load(customRulesPath);
+            this.quarantineRoot = quarantineRoot ?? Constants.QuarantinePath;
         }
+
+        /// <summary>
+        /// Folder that Akira The Don instrumentals are moved into (never deleted). Constants.QuarantinePath unless a test overrides it.
+        /// </summary>
+        private readonly string quarantineRoot;
 
         /// <summary>
         /// Reads, cleans, and (if not dry-run) writes ID3 tags for a single MP3 file, renaming
@@ -122,24 +128,39 @@ namespace AudioManager
                 string album = tag.Album ?? "";
                 string genres = tag.JoinedGenres ?? "";
 
-                // AUTO-DELETE: Akira The Don instrumentals (Rule from STAGE_3B)
-                // Delete if: artist = "Akira The Don" AND title contains/ends with "Instrumental"
+                // QUARANTINE: Akira The Don instrumentals (Rule from STAGE_3B). Never deleted; moved to quarantineRoot.
+                // Match if: artist = "Akira The Don" AND title contains/ends with "Instrumental"
                 if (artists.IndexOf("Akira The Don", StringComparison.OrdinalIgnoreCase) >= 0 &&
                     (title.IndexOf("Instrumental", StringComparison.OrdinalIgnoreCase) >= 0 ||
                      title.EndsWith("(Instrumental)", StringComparison.OrdinalIgnoreCase)))
                 {
-                    if (!dryRun && File.Exists(sourcePath))
-                    {
-                        File.Delete(sourcePath);
-                        Console.WriteLine($"  [AUTO-DELETED] {Path.GetFileName(sourcePath)} (Akira The Don instrumental)");
-                    }
-                    else if (dryRun)
-                    {
-                        Console.WriteLine($"  [WOULD AUTO-DELETE] {Path.GetFileName(sourcePath)} (Akira The Don instrumental)");
-                    }
+                    string fileName = Path.GetFileName(sourcePath);
                     skippedCount++;
                     log.Status = "skipped";
-                    log.Detail = "auto-deleted instrumental";
+                    if (dryRun)
+                    {
+                        Console.WriteLine($"  [WOULD QUARANTINE] {fileName} (Akira The Don instrumental)");
+                        log.Detail = "would quarantine instrumental";
+                        return log;
+                    }
+
+                    // Release the TagLib handle before moving; nulled so the finally does not dispose it twice.
+                    tagFile.Dispose();
+                    tagFile = null;
+                    try
+                    {
+                        Directory.CreateDirectory(quarantineRoot);
+                        string dest = NextFreeQuarantinePath(fileName);
+                        File.Move(sourcePath, dest);
+                        Console.WriteLine($"  [QUARANTINED] {fileName} -> {dest} (Akira The Don instrumental)");
+                        log.Detail = "quarantined instrumental: " + dest;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"  [WARN] Could not quarantine '{fileName}', left in place: {ex.Message}");
+                        log.Status = "error";
+                        log.Detail = ex.Message;
+                    }
                     return log;
                 }
 
@@ -282,6 +303,28 @@ namespace AudioManager
             {
                 // Release the TagLib file handle (TagLib keeps it open until disposed)
                 tagFile?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Returns a path in quarantineRoot that does not exist yet: the original name first, then a
+        /// timestamp suffix, then a counter. Never returns an existing file, so nothing is overwritten.
+        /// </summary>
+        private string NextFreeQuarantinePath(string fileName)
+        {
+            string direct = Path.Combine(quarantineRoot, fileName);
+            if (!File.Exists(direct)) return direct;
+
+            string stem = Path.GetFileNameWithoutExtension(fileName);
+            string ext = Path.GetExtension(fileName);
+            string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            string stamped = Path.Combine(quarantineRoot, $"{stem} ({stamp}){ext}");
+            if (!File.Exists(stamped)) return stamped;
+
+            for (int n = 2; ; n++)
+            {
+                string candidate = Path.Combine(quarantineRoot, $"{stem} ({stamp}) {n}{ext}");
+                if (!File.Exists(candidate)) return candidate;
             }
         }
 

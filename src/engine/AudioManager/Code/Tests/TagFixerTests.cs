@@ -525,9 +525,9 @@ namespace AudioManager
             }
         }
 
-        // Pins the auto-delete path: the instrumental must be gone after ProcessFile, even though
-        // TagLib opened the file for tag reads (the handle must be released before File.Delete).
-        public static void ProcessFile_AkiraInstrumental_DeletesFileWhileTagsOpen()
+        // Pins the quarantine path: the instrumental must leave its original location after ProcessFile, even
+        // though TagLib opened the file for tag reads (the handle must be released before File.Move).
+        public static void ProcessFile_AkiraInstrumental_QuarantinesFileWhileTagsOpen()
         {
             string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
             System.IO.Directory.CreateDirectory(tempDir);
@@ -536,11 +536,117 @@ namespace AudioManager
                 string fixturePath = CreateSilentMp3Fixture(tempDir, "Akira The Don - Track (Instrumental).mp3",
                     "Track (Instrumental)", "Album", "Akira The Don");
 
-                var fixer = TagFixer.ForTesting(dryRun: false);
+                var fixer = TagFixer.ForTesting(dryRun: false, quarantineRoot: System.IO.Path.Combine(tempDir, "NewMusic-Quarantine"));
                 var log = fixer.ProcessFile(fixturePath);
 
-                Assert.Equal("skipped", log.Status, "instrumental should take the auto-delete branch");
-                Assert.True(!System.IO.File.Exists(fixturePath), "instrumental must be deleted from disk, not left behind by a locked handle");
+                Assert.Equal("skipped", log.Status, "instrumental should take the quarantine branch");
+                Assert.True(!System.IO.File.Exists(fixturePath), "instrumental must leave its original location, not stay locked in place");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
+        public static void ProcessFile_AkiraInstrumental_LiveRunMovesFileToQuarantine()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string quarantineDir = System.IO.Path.Combine(tempDir, "NewMusic-Quarantine");
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "Akira The Don - Track (Instrumental).mp3",
+                    "Track (Instrumental)", "Album", "Akira The Don");
+
+                var fixer = TagFixer.ForTesting(dryRun: false, quarantineRoot: quarantineDir);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("skipped", log.Status, "instrumental should take the quarantine branch");
+                Assert.True(!System.IO.File.Exists(fixturePath), "instrumental must leave its original location");
+                string movedPath = System.IO.Path.Combine(quarantineDir, "Akira The Don - Track (Instrumental).mp3");
+                Assert.True(System.IO.File.Exists(movedPath), "instrumental must be moved into the quarantine folder");
+                Assert.True(log.Detail.StartsWith("quarantined instrumental: ", StringComparison.Ordinal), "detail must record the quarantine destination");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
+        public static void ProcessFile_AkiraInstrumental_NameCollisionKeepsBothFiles()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string quarantineDir = System.IO.Path.Combine(tempDir, "NewMusic-Quarantine");
+                System.IO.Directory.CreateDirectory(quarantineDir);
+                string occupantPath = System.IO.Path.Combine(quarantineDir, "Akira The Don - Track (Instrumental).mp3");
+                byte[] occupantBytes = System.Text.Encoding.ASCII.GetBytes("earlier quarantined file");
+                System.IO.File.WriteAllBytes(occupantPath, occupantBytes);
+
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "Akira The Don - Track (Instrumental).mp3",
+                    "Track (Instrumental)", "Album", "Akira The Don");
+                byte[] incomingBytes = System.IO.File.ReadAllBytes(fixturePath);
+
+                var fixer = TagFixer.ForTesting(dryRun: false, quarantineRoot: quarantineDir);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("skipped", log.Status, "collision must still take the quarantine branch");
+                Assert.True(!System.IO.File.Exists(fixturePath), "incoming instrumental must leave its original location");
+                Assert.True(occupantBytes.SequenceEqual(System.IO.File.ReadAllBytes(occupantPath)), "existing quarantined file must keep its original bytes");
+                string[] others = System.IO.Directory.GetFiles(quarantineDir).Where(f => f != occupantPath).ToArray();
+                Assert.Equal("1", others.Length.ToString(), "incoming instrumental must land under a new, non-clashing name");
+                Assert.True(incomingBytes.SequenceEqual(System.IO.File.ReadAllBytes(others[0])), "moved file must keep the incoming bytes");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
+        public static void ProcessFile_AkiraInstrumental_DryRunTouchesNothing()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string quarantineDir = System.IO.Path.Combine(tempDir, "NewMusic-Quarantine");
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "Akira The Don - Track (Instrumental).mp3",
+                    "Track (Instrumental)", "Album", "Akira The Don");
+                byte[] before = System.IO.File.ReadAllBytes(fixturePath);
+
+                var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: quarantineDir);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("skipped", log.Status, "dry run should report the instrumental as skipped");
+                Assert.True(System.IO.File.Exists(fixturePath), "dry run must leave the instrumental in place");
+                Assert.True(before.SequenceEqual(System.IO.File.ReadAllBytes(fixturePath)), "dry run must not change the file bytes");
+                Assert.True(!System.IO.Directory.Exists(quarantineDir), "dry run must not create the quarantine folder");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
+        public static void ProcessFile_NonAkiraInstrumental_NeverQuarantined()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string quarantineDir = System.IO.Path.Combine(tempDir, "NewMusic-Quarantine");
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "Other Artist - Track (Instrumental).mp3",
+                    "Track (Instrumental)", "Album", "Other Artist");
+
+                var fixer = TagFixer.ForTesting(dryRun: false, quarantineRoot: quarantineDir);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.True(System.IO.File.Exists(fixturePath), "non-Akira instrumental must stay in place");
+                Assert.True(!System.IO.Directory.Exists(quarantineDir) || System.IO.Directory.GetFiles(quarantineDir).Length == 0,
+                    "non-Akira instrumental must never be moved to quarantine");
+                Assert.True(log.Detail == null || !log.Detail.StartsWith("quarantined", StringComparison.Ordinal), "non-Akira log must not record a quarantine");
             }
             finally
             {

@@ -18,6 +18,10 @@ namespace AudioManager
         // The path to the new music folder (e.g. <home>\Downloads\NewMusic\)
         public static readonly string NewMusicPath = Path.Combine(UserBasePath, "Downloads", "NewMusic");
 
+        // Quarantine sibling of NewMusic (e.g. <home>\Downloads\NewMusic-Quarantine\). Deliberately outside
+        // NewMusicPath because TagFixer scans NewMusicPath recursively.
+        public static readonly string QuarantinePath = Path.Combine(Path.GetDirectoryName(NewMusicPath), "NewMusic-Quarantine");
+
         // Absolute path to the repo root (discovered by walking up from exe directory)
         public static readonly string RepoRoot = FindRepoRoot();
 

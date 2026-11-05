@@ -37,7 +37,7 @@ var files = Directory.Exists(Constants.NewMusicPath)
 - Extract and fix featured artists (TPE1 tag)
 - Set TCMP = 1 (compilation flag)
 - Auto-fix genre for Musivation/Motivation tracks
-- Auto-delete Akira The Don instrumentals
+- Quarantine (move, never delete) Akira The Don instrumentals to NewMusic-Quarantine
 - Rename files to match naming convention (Artist - Title.mp3)
 
 **Library impact: NONE.** TagFixer never touches the Audio library files.
