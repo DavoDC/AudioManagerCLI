@@ -13,9 +13,9 @@ namespace AudioManager.Code.Modules
         {
             get
             {
-                if (string.IsNullOrEmpty(Artists)) return null;
+                if (string.IsNullOrEmpty(Artists)) return string.Empty;
                 string[] artists = Track.ProcessProperty(Artists);
-                return artists.Length > 0 ? artists[0] : null;
+                return artists.Length > 0 ? artists[0] : string.Empty;
             }
         }
 
