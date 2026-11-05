@@ -121,7 +121,7 @@ Moved to `Integration-and-ParseCache-Architecture.md` (same folder). Read it whe
 
 ## Code Invariants
 
-- **`audioTags` list order is non-deterministic** (Parser uses `Parallel.ForEach` + `ConcurrentBag` since 2026-06-27). LibChecker, Analyser, and ParseCache all consume it without order dependency - safe. If any new consumer needs ordered output, sort explicitly after `parser.audioTags` is returned. (Moved from CLAUDE.md 2026-09-06.)
+- **`audioTags` is built in parallel but sorted before use.** Parser fills it via `Parallel.ForEach` + `ConcurrentBag` (since 2026-06-27), then sorts ordinally by `RelPath` (Parser.cs:87), so the order is deterministic. LibChecker, Analyser, and ParseCache all consume it without order dependency - safe. If any new consumer needs a different order, sort explicitly after `parser.audioTags` is returned. (Moved from CLAUDE.md 2026-09-06.)
 
 - **Routing-LibChecker threshold parity.** When a new routing destination is added to `GetDestDir()` (e.g. Compilations/ with "3+ distinct artists" threshold), the LibChecker rule that validates that destination MUST use the same detection threshold. Mismatch = routing<->LibChecker divergence: tracks correctly routed get falsely flagged. Discovered 2026-06-03: `CheckCompilationsFolder` was flagging genuine compilations because it lacked the 3+ distinct artist check that `RunScanAhead` uses.
 
@@ -149,7 +149,7 @@ Moved to `Integration-and-ParseCache-Architecture.md` (same folder). Read it whe
 
 - **RunScanAhead counts batch + Misc + Sources/ for artist folder threshold.** Sources/ tracks are scanned via `Path.Combine(Constants.MirrorFolderPath, Constants.SourcesDir)` with `SearchOption.AllDirectories` - same XML parsing as Misc. Sources tracks count toward the 3-song threshold but are NOT added to `_miscMigrationCandidates` - they stay in Sources/ regardless of whether the artist gets promoted. (Fix 2026-05-26: without Sources/, Common with 1 Sources/Films song + 2 batch songs still routed to Misc.)
 
-- **Dry-run "Skipped" count is not the real-mode "Skipped" count.** In dry-run, L-decided duplicates have `SkipRouting = true` (MusicIntegrator.cs ~line 200) and count as Skipped - they cannot be routed because the library copy hasn't been deleted yet. In real mode, `SkipRouting` stays false for L decisions, so those files ARE routed in step 3b. Never treat dry-run "Skipped: N" as a data loss signal without checking which decision type caused it.
+- **Dry-run "Skipped" count is not the real-mode "Skipped" count.** In dry-run, L-decided duplicates have `SkipRouting = true` (MusicIntegrator.cs ~line 200) and count as Skipped - they cannot be routed because dry run stages nothing, so the library copy is still in place when the replacement would be routed. In real mode, `SkipRouting` stays false for L decisions, so those files ARE routed in step 3b. Never treat dry-run "Skipped: N" as a data loss signal without checking which decision type caused it.
 
 - **`SanitiseFilename` uses Cyrillic encoding best-fit to map diacritics to ASCII** (Reflector.cs line 289: `Encoding.ASCII.GetString(Encoding.GetEncoding("Cyrillic").GetBytes(...))`). Example: `ÿ` (U+00FF) -> `y`. Any artist tag with diacritics that survives `ExtractAndFixArtists` unchanged will produce a tag/filename mismatch and trigger LibChecker `CheckFilenamesCasingsMatchArtistTags`. Solution: add the diacritic form as a `variant` in artist-name-overrides.xml so it normalizes to canonical before dedup.
 
@@ -184,7 +184,7 @@ Moved to `Integration-and-ParseCache-Architecture.md` (same folder). Read it whe
 
 - **Deferred LibChecker check pattern:** When a new LibChecker check would block integration due to pre-existing library violations, keep the code as a commented-out block in `CheckFilename()` with a clear pointer to the remediation task in the backlog. The `_IsDirty` test goes private (`_DEFERRED`); the `_IsClean` tests stay active. Re-enable both together once remediation is complete. Current deferred check: multi-artist semicolon delimiter validation (~436 files pending Mp3tag bulk-rename - the backlog TIER 1).
 
-- **Parser parallel reads: order of `audioTags` list is non-deterministic** (2026-06-27). `Parallel.ForEach` into `ConcurrentBag` gives no ordering guarantee. All consumers (LibChecker, Analyser, ParseCache) iterate the full list without order dependency - this is fine. Do NOT add any code that relies on `audioTags` order matching mirror folder traversal order.
+- **Parser parallel reads: `audioTags` is sorted by `RelPath`, not by read order** (2026-06-27). `Parallel.ForEach` into `ConcurrentBag` gives no ordering guarantee, so Parser.cs:87 applies an ordinal sort after the reads. All consumers (LibChecker, Analyser, ParseCache) iterate the full list without order dependency - this is fine. Do NOT add any code that relies on `audioTags` order matching mirror folder traversal order.
 
 - **Prefer atomic/per-item handling over all-or-nothing invalidation when partial data can be safely trusted** (2026-09-06, David's call). A parse failure or unrecognized value in one item of a collection (a JSON array element, a per-file record row) should flag or skip only that item, not discard everything else that parsed/validated fine - see `_finish_execute`'s per-row "unverified" status in `the UI` for the pattern. Only fall back to whole-document distrust when there's a specific safety reason the entire document must be treated as untrustworthy (e.g. a version mismatch that could mean the whole shape changed).
 
@@ -194,7 +194,7 @@ Moved to `Integration-and-ParseCache-Architecture.md` (same folder). Read it whe
 
 - **TrackXML : Track is known design debt (TIER 2 in the backlog).** Do not model new serialization code on this inheritance. Any new XML field should wait for the XML refactor item. The target design is `internal static class TrackXML` with `Read(path, TrackTag)` and `Write(path, TrackTag)` using `XDocument` (System.Xml.Linq). `XDocument` is strictly cleaner: `r.Element("Title")?.Value ?? ""` vs XPath strings, and the write path is one `new XDocument(new XElement("Track", ...))` expression.
 
-- **ParseCache Extract() pattern (TIER 2 prerequisite).** When the XML refactor ships, replace `private const int FieldCount = 12` with a static `string[] Extract(TrackTag t)` method returning all fields in order. `FieldCount` becomes `Extract(null).Length`. Save uses `string.Join(Sep, Extract(t))`. Deserialize validates `parts.Length == FieldCount`. One edit to add a field, no sync risk.
+- **ParseCache Extract() pattern (TIER 2 prerequisite, now in place).** ParseCache.cs:22 has a static `string[] Extract(TrackTag t)` returning all cache fields in order. `FieldCount` is `Extract(null).Length` (ParseCache.cs:18). Save uses `string.Join(Sep, Extract(t))` (ParseCache.cs:70). Deserialize validates `parts.Length != FieldCount` (ParseCache.cs:94). Adding a field means editing `Extract` and the `new string[12]` length in `Extract(null)` (ParseCache.cs:21) together.
 
 - **artist-name-overrides.xml is loaded at runtime** (XmlDocument.Load at first call, cached per process). No rebuild needed when adding entries - changes take effect on next exe run.
 
@@ -266,7 +266,7 @@ This is exactly how the dry-run `[DRY RUN] Would route to:` line is computed for
 
 ## RunMiscMigration: L-Delete Ambiguity
 
-**`RunMiscMigration`'s `!File.Exists(libPath)` check has two distinct causes:** (1) genuinely stale mirror entry (MP3 deleted from library before this run) or (2) L-decision deleted the file earlier in this same run. The `_lDeletedLibraryPaths` HashSet (populated in Step 3a when `File.Delete(dup.LibraryFilePath)` fires) disambiguates these. Check it before printing WARN: if path is in set, print `[INFO] Already deleted by duplicate resolution` instead. Reuse this pattern if other post-routing cleanup passes face the same ambiguity.
+**`RunMiscMigration`'s `!File.Exists(libPath)` check has two distinct causes:** (1) genuinely stale mirror entry (MP3 deleted from library before this run) or (2) L-decision deleted the file earlier in this same run. The `_lDeletedLibraryPaths` HashSet (populated in Step 3a when `ReplaceGuard.Stage(dup.LibraryFilePath)` stages the library copy, MusicIntegrator.cs:450-453; removed again on rollback, MusicIntegrator.cs:502 and :511) disambiguates these. Check it before printing WARN: if path is in set, print `[INFO] Already deleted by duplicate resolution` instead. Reuse this pattern if other post-routing cleanup passes face the same ambiguity.
 
 ## Workflow Rules (moved from CLAUDE.md 2026-07-02)
 
