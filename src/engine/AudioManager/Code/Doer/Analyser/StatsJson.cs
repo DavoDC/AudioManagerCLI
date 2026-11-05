@@ -19,7 +19,7 @@ namespace AudioManager
     /// report uses, so the JSON and the report can never disagree.
     ///
     /// Data contract: see docs/References/AnalysisJson-Format.md and the "analysis --json-output"
-    /// section of docs/Development/design Bump SchemaVersion on any breaking change.
+    /// section of the UI design notes. Bump SchemaVersion on any breaking change.
     /// </summary>
     internal static class StatsJson
     {

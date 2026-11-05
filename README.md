@@ -31,9 +31,8 @@ album-art wall of the entire library with search, filters and pagination.
 
 ## CLI Usage
 
-Run via the launcher or CLI:
+Run via the CLI:
 
-- **Launcher:** `scripts/launch.bat` - builds via MSBuild, then presents a menu (analysis, analysis with force regen, integration dry run, integration real)
 - **CLI:** `AudioManager.exe analysis [--force-regen]` | `AudioManager.exe tagfix [--dry-run]` | `AudioManager.exe integrate [--dry-run]`
 - **Dry run:** always run with `--dry-run` first - prints every planned action without modifying files
 

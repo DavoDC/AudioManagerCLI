@@ -1,7 +1,7 @@
 @echo off
 :: Build + unit tests + routing manifest + UI tests. Human mode: no args (window stays open). Claude mode: --no-pause (clean exit).
 set TESTEXE=%~dp0..\..\src\engine\AudioManager.Tests\bin\Release\AudioManager.Tests.exe
-set MANIFEST=%~dp0..\..\tests\fixtures\routing-manifest.json
+set MANIFEST=%~dp0..\..\src\engine\fixtures\routing-manifest.json
 set REPO_ROOT=%~dp0..\..
 set START_TIME=%TIME%
 

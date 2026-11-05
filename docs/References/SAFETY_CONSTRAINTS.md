@@ -172,11 +172,11 @@ TagFixer modifies tags in NewMusic with no library rollback plan:
 ## Required Constraints (from CLAUDE.md)
 
 **From CLAUDE.md ("Critical Safety Rule", current wording as of 2026-10-12):**
-> Only the user (David) runs real integration. Real integration moves files from NewMusic into the library - user must manually trigger via `launch.bat` for data safety and auditability.
+> Only the user (David) runs real integration. Real integration moves files from NewMusic into the library - user must manually trigger it from the UI (`scripts\the launcher`, view) for data safety and auditability.
 
 **Status: ✅ ENFORCED IN CODE**
 
-MusicIntegrator is only invoked from Program.Main when user selects menu option or via CLI args. No automatic execution. User must manually trigger via `launch.bat`.
+MusicIntegrator is only invoked from Program.Main when user selects menu option or via CLI args. No automatic execution. Real integration is triggered only by David from the UI (`scripts\the launcher`).
 
 ---
 

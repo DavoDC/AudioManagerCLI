@@ -20,9 +20,9 @@ See "Project Structure" in `docs/References/DevContext.md` for the full tree.
 
 ## Build and Run
 
-### User Workflow (launch.bat)
+### User Workflow (the launcher)
 
-**Primary:** run `.\scripts\launch.bat` (builds internally; menu: Analysis, Analysis (Force Regen), Integrate with a dry run first, then "Proceed with real integration? [y/N]").
+**Primary:** run `.\scripts\the launcher` (windowless; opens the UI in your browser). The UI view dry-runs first, then real integration runs only after you explicitly confirm there. The UI is the only front door.
 
 ### Claude: Building the Program
 
@@ -103,7 +103,7 @@ For LibChecker-warning triage, post-integration validation mechanics, AudioMirro
 
 ## Critical Safety Rule
 
-**Only the user (David) runs real integration.** Real integration moves files from NewMusic into the library - user must manually trigger via `launch.bat` for data safety and auditability.
+**Only the user (David) runs real integration.** Real integration moves files from NewMusic into the library - user must manually trigger it from the UI (`scripts\the launcher`, view) for data safety and auditability.
 
 **Claude CAN run (read-only, no file moves):**
 - `analysis` (and `analysis --force-regen`) - reads library, generates report, no writes except AudioMirror XML regen
@@ -118,7 +118,7 @@ After the run: check `git -C AudioMirror diff HEAD`, confirm the diff looks corr
 **Claude CANNOT run:**
 - `integrate` (real) - moves files, irreversible
 
-**User workflow for real integration:** `.\scripts\launch.bat`, option 3 (Integration); it dry-runs first and prompts "Proceed with real integration? [y/N]".
+**User workflow for real integration:** `.\scripts\the launcher`, UI view; it dry-runs first, then runs real integration only after David explicitly confirms.
 
 **Claude dev workflow for verifying fixes:** build, then run `integrate --dry-run --no-input` (skips interactive prompts) to see real output without blocking - see "Claude dev verify workflow" in `docs/References/DevContext.md` for the exact commands.
 
