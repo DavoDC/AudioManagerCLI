@@ -390,7 +390,20 @@ namespace AudioManager
                     }
                     else
                     {
-                        File.Delete(sf.SourcePath);
+                        try
+                        {
+                            File.Delete(sf.SourcePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"  [ERROR] Could not delete from NewMusic {dup.RelNewPath}: {ex.Message}");
+                            entry.Status = "error";
+                            entry.Detail = "duplicate (delete failed: " + ex.GetType().Name + ")";
+                            logEntries.Add(entry); skippedCount++;
+                            Console.WriteLine();
+                            dup.SkipRouting = true;
+                            continue;
+                        }
                         Console.WriteLine($"  Deleted from NewMusic: {dup.RelNewPath}");
                         entry.Status = "deleted";
                         entry.Detail = "duplicate (deleted)";
