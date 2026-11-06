@@ -90,6 +90,7 @@ namespace AudioManager
                 ProcessStartInfo psi = new ProcessStartInfo("git", "rev-parse HEAD")
                 {
                     RedirectStandardOutput = true,
+                    RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     WorkingDirectory = effectiveRoot

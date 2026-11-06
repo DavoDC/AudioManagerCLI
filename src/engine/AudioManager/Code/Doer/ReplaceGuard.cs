@@ -40,7 +40,7 @@ namespace AudioManager
         /// </summary>
         internal static void MarkLanding(string libPath, string destPath)
         {
-            File.WriteAllText(libPath + MarkerSuffix, destPath);
+            AtomicFile.WriteAllText(libPath + MarkerSuffix, destPath, new System.Text.UTF8Encoding(false));
         }
 
         /// <summary>

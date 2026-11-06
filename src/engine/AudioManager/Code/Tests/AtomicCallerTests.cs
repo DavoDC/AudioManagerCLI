@@ -85,5 +85,24 @@ namespace AudioManager
                 catch (Exception) { }
             }
         }
+
+        public static void MarkLanding_RewrittenWithShorterPath_MarkerHoldsOnlySecondPathWithNoTmp()
+        {
+            string dir = NewDir();
+            try
+            {
+                string libPath = Path.Combine(dir, "Track.mp3");
+                string longDest = Path.Combine(dir, "a_much_longer_destination_folder_name", "Track - renamed copy.mp3");
+                string shortDest = Path.Combine(dir, "d", "T.mp3");
+
+                ReplaceGuard.MarkLanding(libPath, longDest);
+                ReplaceGuard.MarkLanding(libPath, shortDest);
+
+                string markerPath = libPath + ".replaced.dest";
+                Assert.Equal(shortDest, File.ReadAllText(markerPath, Encoding.UTF8), "marker must hold exactly the second destination, with no tail of the first");
+                Assert.True(!File.Exists(markerPath + ".tmp"), "marker write should leave no .tmp");
+            }
+            finally { Cleanup(dir); }
+        }
     }
 }
