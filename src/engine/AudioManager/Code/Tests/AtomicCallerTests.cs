@@ -63,5 +63,27 @@ namespace AudioManager
             }
             finally { Cleanup(dir); }
         }
+
+        public static void Save_TempRootOutsideAnyRepo_HeaderCommitIsUnavailable()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "am_report_root_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                DateTime now = DateTime.Now;
+                string filename = now.ToString("yyyy-MM-dd") + " - AudioReport.md";
+                string fullPath = Path.Combine(root, now.Year.ToString(), filename);
+
+                ReportWriter.Save("UNIQUE_REPORT_ROOT_MARKER", true, root);
+
+                Assert.True(File.Exists(fullPath), "clean report should be saved under the temp root/{year}");
+                string text = File.ReadAllText(fullPath, Encoding.UTF8);
+                Assert.True(text.Contains("**Commit:** unavailable"), "temp root outside any repo should give an unavailable commit, not the real repo hash");
+            }
+            finally
+            {
+                try { if (Directory.Exists(root)) Directory.Delete(root, true); }
+                catch (Exception) { }
+            }
+        }
     }
 }

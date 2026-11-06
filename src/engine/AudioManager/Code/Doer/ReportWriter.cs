@@ -19,7 +19,7 @@ namespace AudioManager
         /// </summary>
         /// <param name="reportContent">The captured console output from the Analysis run.</param>
         /// <param name="libCheckerClean">Whether LibChecker reported zero issues.</param>
-        /// <param name="reportsRoot">Override reports root folder. Null uses Constants.ReportsPath (production default).</param>
+        /// <param name="reportsRoot">Override reports root folder. Null uses Constants.ReportsPath (production default). The header commit hash is read from this root.</param>
         public static void Save(string reportContent, bool libCheckerClean, string reportsRoot = null)
         {
             string effectiveRoot = reportsRoot ?? Constants.ReportsPath;
@@ -44,7 +44,7 @@ namespace AudioManager
             }
 
             // Build and prepend header
-            string header = BuildHeader(now);
+            string header = BuildHeader(now, effectiveRoot);
 
             // Save to file (overwrite same-day report if it exists)
             Directory.CreateDirectory(folder);
@@ -56,11 +56,14 @@ namespace AudioManager
 
         /// <summary>
         /// Builds the report file header with date, git commit hash and link in markdown format.
+        /// The commit hash is read from the effective reports root.
         /// </summary>
-        private static string BuildHeader(DateTime now)
+        /// <param name="now">The report timestamp.</param>
+        /// <param name="effectiveRoot">The reports root whose git repo supplies the commit hash.</param>
+        private static string BuildHeader(DateTime now, string effectiveRoot)
         {
             string date = now.ToString("dddd d MMMM yyyy, HH:mm", CultureInfo.InvariantCulture);
-            string commitHash = GetGitCommitHash();
+            string commitHash = GetGitCommitHash(effectiveRoot);
             string commitLink = string.IsNullOrEmpty(commitHash)
                 ? "unavailable"
                 : $"[{commitHash}](https://github.com/DavoDC/AudioManager/commit/{commitHash})";
@@ -72,19 +75,24 @@ namespace AudioManager
         }
 
         /// <summary>
-        /// Runs 'git rev-parse HEAD' and returns the full commit hash.
-        /// Returns null if git is unavailable or the command fails.
+        /// Runs 'git rev-parse HEAD' in the effective reports root and returns the full commit hash.
+        /// Returns null if the root does not exist, git is unavailable or the command fails.
         /// </summary>
-        private static string GetGitCommitHash()
+        /// <param name="effectiveRoot">The reports root to run git in (the working directory).</param>
+        private static string GetGitCommitHash(string effectiveRoot)
         {
             try
             {
+                if (!Directory.Exists(effectiveRoot))
+                {
+                    return null;
+                }
                 ProcessStartInfo psi = new ProcessStartInfo("git", "rev-parse HEAD")
                 {
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    WorkingDirectory = Constants.ReportsPath
+                    WorkingDirectory = effectiveRoot
                 };
                 int pid;
                 AudioMirrorCommitter.GitRunResult result = AudioMirrorCommitter.RunProcessBounded(psi, Constants.GitTimeoutMs, out pid);
