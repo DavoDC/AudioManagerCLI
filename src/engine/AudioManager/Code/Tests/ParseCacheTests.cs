@@ -269,6 +269,96 @@ namespace AudioManager
             }
         }
 
+        public static void TryLoad_UnchangedMirror_ReturnsSameTags()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), $"am_mirror_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(dir);
+            string cache = TempCachePath();
+            try
+            {
+                foreach (var name in new[] { "a.xml", "b.xml" })
+                {
+                    string xml = Path.Combine(dir, name);
+                    File.WriteAllText(xml, "<x/>");
+                    File.SetLastWriteTime(xml, DateTime.Now.AddHours(-1));
+                }
+                ParseCache.Save(cache, new List<TrackTag> { MakeSample("A"), MakeSample("B") });
+                bool hit = ParseCache.TryLoad(cache, dir, out var tags);
+                Assert.True(hit, "unchanged mirror with matching XML count should hit");
+                Assert.Equal("2", tags.Count.ToString(), "count");
+                Assert.Equal("Title A", tags[0].Title, "first title");
+                Assert.Equal("Title B", tags[1].Title, "second title");
+                Assert.Equal("Artists/X/testB.xml", tags[1].RelPath, "second relpath");
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+                if (File.Exists(cache)) File.Delete(cache);
+            }
+        }
+
+        public static void TryLoad_XmlTouchedNewerThanCache_ReturnsFalse()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), $"am_mirror_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(dir);
+            string cache = TempCachePath();
+            try
+            {
+                foreach (var name in new[] { "a.xml", "b.xml" })
+                {
+                    string xml = Path.Combine(dir, name);
+                    File.WriteAllText(xml, "<x/>");
+                    File.SetLastWriteTime(xml, DateTime.Now.AddHours(-1));
+                }
+                ParseCache.Save(cache, new List<TrackTag> { MakeSample("A"), MakeSample("B") });
+                // Touch one XML after the cache was written; count is unchanged, so only mtime can catch it
+                File.SetLastWriteTime(Path.Combine(dir, "b.xml"), DateTime.Now.AddMinutes(1));
+                Assert.True(!ParseCache.TryLoad(cache, dir, out var tags), "XML newer than cache should miss");
+                Assert.True(tags == null, "stale miss must yield null tags");
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+                if (File.Exists(cache)) File.Delete(cache);
+            }
+        }
+
+        public static void TryLoad_EmptyMirror_ReturnsFalse()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), $"am_mirror_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(dir);
+            string cache = TempCachePath();
+            try
+            {
+                ParseCache.Save(cache, new List<TrackTag> { MakeSample("A") });
+                // Mirror has no XMLs at all (Reflector crash mid-regen) - must miss
+                Assert.True(!ParseCache.TryLoad(cache, dir, out var tags), "empty mirror should miss");
+                Assert.True(tags == null, "empty mirror miss must yield null tags");
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+                if (File.Exists(cache)) File.Delete(cache);
+            }
+        }
+
+        public static void TryLoad_MissingMirrorDir_ReturnsFalse()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), $"am_mirror_{Guid.NewGuid():N}");
+            string cache = TempCachePath();
+            try
+            {
+                ParseCache.Save(cache, new List<TrackTag> { MakeSample("A") });
+                // Mirror directory was never created - the enumeration error must degrade to a miss
+                Assert.True(!ParseCache.TryLoad(cache, dir, out var tags), "missing mirror dir should miss");
+                Assert.True(tags == null, "missing mirror dir miss must yield null tags");
+            }
+            finally
+            {
+                if (File.Exists(cache)) File.Delete(cache);
+            }
+        }
+
         // ---- Extract() ----
 
         public static void Extract_NullArg_Returns12Elements()

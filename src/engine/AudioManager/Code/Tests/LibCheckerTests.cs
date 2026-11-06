@@ -184,6 +184,20 @@ namespace AudioManager
             Assert.True(!checker.IsClean, "Artist with folder but song in Misc should be dirty");
         }
 
+        public static void LibChecker_ArtistFolderNameDiffersByCase_MiscSongNotFlagged_IsClean()
+        {
+            // The Artists/ folder is "Artist Alpha"; the Misc song's artist is "ARTIST ALPHA".
+            // Name matching is case-sensitive, so these are different artists and the Misc song is not flagged.
+            var artistTag = new TrackTag("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A.xml",
+                "Song A", "Artist Alpha", "Test Album", "2020", "1", "Hip-Hop",
+                "00:03:00.0000000", "1", "True", "1200", "1200");
+            var miscTag = new TrackTag("\\Miscellaneous Songs\\ARTIST ALPHA - Song B.xml",
+                "Song B", "ARTIST ALPHA", "Test Album", "2020", "1", "Hip-Hop",
+                "00:03:00.0000000", "1", "True", "1200", "1200");
+            var checker = new LibChecker(new List<TrackTag> { artistTag, miscTag });
+            Assert.True(checker.IsClean, "\"ARTIST ALPHA\" must not match the \"Artist Alpha\" folder (case-sensitive)");
+        }
+
         // ---- CheckSourcesFolder ----
 
         public static void LibChecker_SourcesFolderMovieAlbumWithoutOST_IsDirty()

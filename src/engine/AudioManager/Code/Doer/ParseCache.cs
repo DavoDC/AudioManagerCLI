@@ -36,21 +36,19 @@ namespace AudioManager
         {
             tags = null;
             if (!File.Exists(cachePath)) return false;
+            FileInfo[] xmls;
             try
             {
                 DateTime cacheTime = new FileInfo(cachePath).LastWriteTime;
-                // IsMirrorStale: miss if mirror is empty (Reflector crash mid-regen) or any XML is newer
-                if (IsMirrorStale(mirrorPath, cacheTime)) return false;
+                // One enumeration serves both the staleness check and the count below
+                xmls = new DirectoryInfo(mirrorPath).GetFiles("*.xml", SearchOption.AllDirectories);
+                // IsStale: miss if mirror is empty (Reflector crash mid-regen) or any XML is newer
+                if (IsStale(xmls, cacheTime)) return false;
             }
             catch { return false; } // mirror path error -> degrade to miss
             if (!TryDeserialize(cachePath, out tags)) return false;
             // A deleted XML leaves no newer mtime behind; one cached row per XML, so a count change is a miss
-            try
-            {
-                int xmlCount = Directory.GetFiles(mirrorPath, "*.xml", SearchOption.AllDirectories).Length;
-                if (xmlCount == tags.Count) return true;
-            }
-            catch { }
+            if (xmls.Length == tags.Count) return true;
             tags = null;
             return false;
         }
@@ -166,10 +164,14 @@ namespace AudioManager
         /// Uses DirectoryInfo.GetFiles so mtime comes from the directory enumeration, no extra stats.
         /// Exposed internal for tests.
         /// </summary>
-        internal static bool IsMirrorStale(string mirrorPath, DateTime cacheTime)
+        internal static bool IsMirrorStale(string mirrorPath, DateTime cacheTime) =>
+            IsStale(new DirectoryInfo(mirrorPath).GetFiles("*.xml", SearchOption.AllDirectories), cacheTime);
+
+        /// <summary>
+        /// Staleness decision over an already-enumerated list of mirror XMLs (see IsMirrorStale).
+        /// </summary>
+        internal static bool IsStale(FileInfo[] xmlFiles, DateTime cacheTime)
         {
-            var xmlFiles = new DirectoryInfo(mirrorPath)
-                .GetFiles("*.xml", SearchOption.AllDirectories);
             // Empty mirror = Reflector crash or missing - treat as stale so Parser re-populates
             if (!xmlFiles.Any()) return true;
             return xmlFiles.Any(f => f.LastWriteTime > cacheTime);

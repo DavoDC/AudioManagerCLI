@@ -86,15 +86,17 @@ namespace AudioManager
 
             // Check Artists folder
             List<string> artistsWithAudioFolder = CheckArtistFolder();
+            // Hash set for O(1) Contains in the Misc and Compilations checks (default comparer, same matching as List.Contains)
+            var artistsWithAudioFolderSet = new HashSet<string>(artistsWithAudioFolder);
 
             // Check album subfolder rule (2+ songs -> album folder; 1 song -> Singles/)
             CheckAlbumSubfolderRule();
 
             // Check Miscellaneous Songs folder
-            CheckMiscFolder(artistsWithAudioFolder);
+            CheckMiscFolder(artistsWithAudioFolderSet);
 
             // Check Compilations folder
-            CheckCompilationsFolder(artistsWithAudioFolder);
+            CheckCompilationsFolder(artistsWithAudioFolderSet);
 
             // Check Musivation and Motivation folders
             CheckMainFolderForGenre(Constants.MusivDir, Constants.MusivDir);
@@ -495,7 +497,7 @@ namespace AudioManager
         /// <summary>
         /// Do various checks on the Miscellaneous folder
         /// </summary>
-        private void CheckMiscFolder(List<string> artistsWithAudioFolder)
+        private void CheckMiscFolder(HashSet<string> artistsWithAudioFolder)
         {
             Console.WriteLine($" - Checking {Constants.MiscDir} folder...");
 
@@ -541,7 +543,7 @@ namespace AudioManager
         /// UNLESS the album is a genuine various-artist compilation (3+ distinct primary artists
         /// in that album folder). Genuine compilations are correctly placed in Compilations/.
         /// </summary>
-        private void CheckCompilationsFolder(List<string> artistsWithAudioFolder)
+        private void CheckCompilationsFolder(HashSet<string> artistsWithAudioFolder)
         {
             Console.WriteLine($" - Checking {Constants.CompilationsDir} folder...");
 
