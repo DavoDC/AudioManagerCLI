@@ -50,7 +50,7 @@ While `scripts\the launcher` runs, touch `a trigger file` instead of killing the
 
 ### Claude: driving and checking the UI
 
-Run block (`python -m tools` from `src/`, or with `PYTHONPATH=src`): `scripts\the launcher` (launch), `python -m the UI entry point --check|--status|--preflight|--stop|--launch` (every non-GET request needs the per-launch auth header header), `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. State endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/contracts/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI. The UI is desktop-only: no phone-width support or checks (David, 2026-10-23).
+Run block (`python -m tools` from `src/`, or with `PYTHONPATH=src`): `scripts\the launcher` (launch), `python -m the UI entry point --check|--status|--preflight|--stop|--launch` (every non-GET request needs the per-launch auth header header), `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. State endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/contracts/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI. The UI must work on a phone too (David, 2026-11-06, replaces desktop-only), reached over VPN by David only: plan `docs/References/architecture/Remote-Access-Plan.md`; check 390px as well as desktop.
 
 **Verification ladder, cheapest first:** (1) unit test `python -m pytest the UI -q`; (2) `python -m a verify tool --fast` (pytest + UI check, about 20s); (3) `python -m the state command` for the DOM-state read (`/state.json`); (4) `python -m capture` for screenshots; (5) Chrome browser tool only for real interaction.
 
