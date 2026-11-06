@@ -300,9 +300,16 @@ namespace AudioManager
                                 log.Detail = "rename failed: " + ex.Message;
                             }
                         }
-                        else
+                        else if (newPath.Equals(sourcePath, StringComparison.OrdinalIgnoreCase))
                         {
                             log.Filename = newFilename;
+                        }
+                        else
+                        {
+                            // A different file holds the target name: keep the original name so tag changes are not attributed to it.
+                            log.Changes.Add($"[WARN] Rename skipped: '{newFilename}' already exists");
+                            Console.WriteLine($"  [WARN] Rename skipped: '{newFilename}' already exists, kept '{log.OriginalFilename}'");
+                            log.Filename = log.OriginalFilename;
                         }
                     }
                     log.Status = "fixed";

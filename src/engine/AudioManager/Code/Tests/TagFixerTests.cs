@@ -531,6 +531,58 @@ namespace AudioManager
             }
         }
 
+        // A fix whose target name is already held by a different file must skip the rename and report the original
+        // name, so the tag changes are not attributed to the file that owns the target name. Both files stay put.
+        public static void ProcessFile_RenameBlockedByDifferentFile_KeepsOriginalNameAndBothFiles()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string blockerPath = System.IO.Path.Combine(tempDir, "Primary Artist - Song Title.mp3");
+                byte[] blockerBytes = System.Text.Encoding.ASCII.GetBytes("different file holding the target name");
+                System.IO.File.WriteAllBytes(blockerPath, blockerBytes);
+
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "messy filename.mp3",
+                    "Song Title", "Album Name", "Primary Artist");
+
+                var fixer = TagFixer.ForTesting(dryRun: false);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("fixed", log.Status, "a blocked rename must not mark the file as an error");
+                Assert.Equal("messy filename.mp3", log.Filename, "a blocked rename must report the original name, not the name owned by another file");
+                Assert.True(System.IO.File.Exists(fixturePath), "file must stay at its original path when another file holds the target name");
+                Assert.True(blockerBytes.SequenceEqual(System.IO.File.ReadAllBytes(blockerPath)), "the blocking file must keep its original bytes");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
+        // A file already at its target name must keep reporting that name after a tag-only fix (no rename happens).
+        public static void ProcessFile_AlreadyCorrectlyNamed_ReportsOwnNameAfterTagFix()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "Primary Artist - Song Title.mp3",
+                    "Song Title", "Album Name", "primary artist");
+
+                var fixer = TagFixer.ForTesting(dryRun: false);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("fixed", log.Status, "an artist tag needing title case must be fixed");
+                Assert.Equal("Primary Artist - Song Title.mp3", log.Filename, "a file already at its target name must report that name");
+                Assert.True(System.IO.File.Exists(fixturePath), "file must stay at its path when no rename is needed");
+            }
+            finally
+            {
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
         public static void ProcessFile_CleanTags_SkipsWithNoChanges()
         {
             string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
