@@ -664,6 +664,8 @@ namespace AudioManager
                         if (sf.InBatchDuplicate)
                             Console.WriteLine($"[WARN: IN-BATCH DUPLICATE] {Path.GetFileName(sf.SourcePath)}");
                         Directory.CreateDirectory(destDir);
+                        if (_lStagedBySource.TryGetValue(sf.SourcePath, out string landingLibPath))
+                            ReplaceGuard.MarkLanding(landingLibPath, destPath);
                         File.Move(sf.SourcePath, destPath);
                         CommitIfStaged(sf);
                         movedCount++;
