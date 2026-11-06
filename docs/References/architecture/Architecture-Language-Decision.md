@@ -1,39 +1,7 @@
-# Architecture & Language Decision: Stay Polyglot
+# Architecture: Language Decision
 
-**Status: Decided 2026-09-06. Do not relitigate without a new trigger event (see below).**
+Decided 2026-09-06, do not relitigate: the engine is C# only.
 
-This closes the decision gate parked in the project history ("Settled / Not Doing" -> "DECISION GATE: Python Rewrite vs .NET 8 Migration"). That entry listed "confirm Python libs cover TagLib# use cases" as the open factor blocking a decision. This document answers it with evidence and settles the gate.
+Reasoning: TagLib# covers every tagging use case the engine needs (MP3/ID3v2), the library and routing logic live in one language with one test host, and the stable contract for outside callers is the engine's versioned output, not its internals.
 
-## Bottom line
-
-**Keep the C#/Python split. Do not port to a single language.** The split is a sound division of responsibility, not accumulated accretion. The actual weak point is the contract at the C#/Python boundary, not the choice of two languages - see "What to fix instead" below.
-
-## Why the split is sound
-
-- **C# owns everything that writes to the library.** Integration, tag-fixing, and mirror commits are all C#-only (`Program.cs`). External consumers are read-only against library data and read the JSON outputs; they never parse the AudioMirror XML or reimplement C# logic.
-- **No logic is duplicated across the language boundary.** The one real case of duplicated logic in the program (`MusicIntegrator.GetDestDir` vs `LibChecker` independently encoding routing rules) is *within* C#, not across languages.
-
-## Why TagLib# is not a constraint on porting
-
-This was the open question. Answer: **it is not a real constraint**, for a specific, checkable reason - the program never uses the part of TagLib# that Python would struggle to match.
-
-- The program is **MP3/ID3v2-only end to end**. Every file-enumeration site in the C# core globs `*.mp3` only (`Analyser.cs`, `MusicIntegrator.cs`, `TagFixer.cs`, `Reflector.cs`, `TracksJson.cs`), and destination filenames are hardcoded `.mp3`. TagLib# handles "ID3, Vorbis, APE, FLAC tags" in general, but that is not a capability this program exercises anywhere.
-- The actual TagLib# surface used is small: `Title`, `JoinedPerformers`/`Performers`, `Album`, `Year`, `Track`, `JoinedGenres`/`Genres`, `Pictures`, and the ID3v2 TCMP (compilation) flag. That's the whole read+write surface (`TrackTag.cs`, `TagFixer.cs`).
-
-So the one thing that looked like it might be load-bearing turns out not to be. That said, a port would still be a **careful migration, not a mechanical translation** if it were ever done - three specific write-side risks would need verification first (not blockers, just due diligence for whoever picks this up):
-
-1. **ID3 version on save.** TagLib# and mutagen don't necessarily default to the same ID3v2 minor version; changing this on ~5,700 already-tagged files could change how other tools read them. Verify with a round-trip diff on a copied sample before trusting it.
-2. **TCMP (compilation flag).** TagLib#'s `IsCompilation` is a convenience over the non-standard iTunes `TCMP` frame; mutagen would need an explicit frame write instead. Verify iTunes/Mp3tag still read it correctly after a round trip.
-3. **Multi-artist join separator.** `TagLib#.JoinedPerformers` uses `"; "`; `TagFixer.cs` currently joins with `";"` (no space) - already a documented live divergence risk. Any reimplementation must match whatever the existing ~5,700-track library was actually written with, not the "correct" one.
-
-## What would actually justify revisiting this
-
-Not a calendar date. The trigger: **the next time a single user-visible feature genuinely requires a code change in both languages** (not a C#-side feature with a thin Python front-end, which has happened before and does not count). If and when a port is ever justified, the direction is **Python**, not C# - the growth is on that side, and the format constraint (MP3/ID3v2 only) is one mutagen already covers.
-
-## What to fix instead
-
-The real problem this review surfaced is that the C#/Python contract is versioned in inverse proportion to risk: the read-only statistics JSON has a schema version and fails loudly on mismatch, while the path that permanently moves files has external consumers inferring what happened by pattern-matching human-readable console text. That - not the language split - is where the fragility actually lives. This document only settles the language question.
-
-## Separate, cheaper, and NOT the same decision
-
-The .NET Framework 4.8 legacy-csproj question (hand-registered `<Compile Include>` list, which has already caused a real build failure) is a real and much cheaper decision than the language question, and the referenced TagLib# assembly is already `netstandard2.0`-compatible. It should not be held hostage by the language decision above - filed as its own backlog item.
+Consequence: no other language is added to this repo, and no external caller writes to the library, reimplements engine logic, or parses AudioMirror XML. Callers go through the engine's executable and its versioned JSON.

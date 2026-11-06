@@ -9,7 +9,7 @@ Long-form reference material for AudioManager, grouped by folder. Start with Dev
 ## architecture/
 
 - [architecture/Integration-and-ParseCache-Architecture.md](architecture/Integration-and-ParseCache-Architecture.md) - stage 3 integration and ParseCache internals for developers.
-- [architecture/Architecture-Language-Decision.md](architecture/Architecture-Language-Decision.md) - the decided polyglot split between C# and Python and why it stays.
+- [architecture/Architecture-Language-Decision.md](architecture/Architecture-Language-Decision.md) - the decided engine language (C# only) and why.
 - [architecture/Architecture-Course.html](architecture/Architecture-Course.html) - a standalone course page on the architecture.
 
 ## contracts/
