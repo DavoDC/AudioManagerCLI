@@ -1276,7 +1276,7 @@ namespace AudioManager
         /// already moved files, so failures are caught and warned, never thrown.
         ///
         /// On a write failure, attempts exactly one retry to an alternate "-retry" filename before
-        /// giving up (docs/References/design/Execution-Record-Fallback-Removal-Design.md section 4.9) - the
+        /// giving up - the
         /// dominant real-world cause of the primary write failing is transient (antivirus/indexer
         /// holding the just-created file), and a retry to a different filename costs nothing on the
         /// success path. A retry success prints the SAME "EXECUTION JSON:" marker a client matches on,

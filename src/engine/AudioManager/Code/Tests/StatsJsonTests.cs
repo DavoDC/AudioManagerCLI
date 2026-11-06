@@ -8,7 +8,7 @@ namespace AudioManager
     /// <summary>
     /// Tests for the analysis --json-output data contract (StatsJson). Assertions are substring-based
     /// (the repo has no JSON parser dependency), which is enough to lock the field names and values
-    /// the UI depends on.
+    /// external consumers depend on.
     /// </summary>
     internal static class StatsJsonTests
     {

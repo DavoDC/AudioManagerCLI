@@ -7,7 +7,7 @@ using System.Threading;
 namespace AudioManager
 {
     /// <summary>
-    /// Tests for the per-track data contract (TracksJson) the UI's library view consumes.
+    /// Tests for the per-track data contract (TracksJson) external consumers read.
     /// Substring/regex-based (the repo has no JSON parser dependency).
     /// </summary>
     internal static class TracksJsonTests
