@@ -125,7 +125,8 @@ namespace AudioManager.Code.Modules
         /// Reads pixel dimensions from raw JPEG or PNG album art bytes.
         /// Returns (0, 0) for unsupported/unreadable formats.
         /// </summary>
-        private static (int width, int height) GetCoverDimensions(byte[] data)
+        // internal for tests
+        internal static (int width, int height) GetCoverDimensions(byte[] data)
         {
             if (data == null || data.Length < 8) return (0, 0);
 
