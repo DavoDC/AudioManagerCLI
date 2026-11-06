@@ -869,5 +869,75 @@ namespace AudioManager
                 System.IO.Directory.Delete(tempDir, true);
             }
         }
+
+        // A save that throws after half-writing the file must put the original bytes back, report the
+        // exception message as the error, and leave no backup. The seam releases the handle and writes junk
+        // first, so the test only passes if RestoreFromBackup actually runs.
+        public static void ProcessFile_SaveFails_RestoresOriginalFileAndReportsError()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            var originalSaver = TagFixer.Saver;
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "messy filename.mp3",
+                    "Song Title (Explicit)", "Album Name", "Primary Artist");
+                byte[] originalBytes = System.IO.File.ReadAllBytes(fixturePath);
+                byte[] junk = System.Text.Encoding.ASCII.GetBytes("half written tag junk");
+                TagFixer.Saver = f =>
+                {
+                    f.Dispose();
+                    System.IO.File.WriteAllBytes(fixturePath, junk);
+                    throw new System.IO.IOException("simulated save failure");
+                };
+
+                var fixer = TagFixer.ForTesting(dryRun: false);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("error", log.Status, "a failed save must report error");
+                Assert.True(log.Detail != null && log.Detail.Contains("simulated save failure"), "detail must carry the save exception message");
+                Assert.True(System.IO.File.Exists(fixturePath), "original file must still exist at its source path");
+                byte[] restoredBytes = System.IO.File.ReadAllBytes(fixturePath);
+                Assert.True(restoredBytes.SequenceEqual(originalBytes), "source file must hold its original bytes after the restore");
+                Assert.Equal("0", System.IO.Directory.GetFiles(tempDir, "*.tagfix.bak").Length.ToString(), "no .tagfix.bak may remain after a successful restore");
+            }
+            finally
+            {
+                TagFixer.Saver = originalSaver;
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
+        // When the save fails and the restore also fails, the backup is the only intact copy and must stay on disk.
+        public static void ProcessFile_SaveAndRestoreFail_KeepsBackupAndReportsRestoreFailed()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            var originalSaver = TagFixer.Saver;
+            var originalRestorer = TagFixer.Restorer;
+            string backupPath = null;
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "messy filename.mp3",
+                    "Song Title (Explicit)", "Album Name", "Primary Artist");
+                backupPath = fixturePath + ".tagfix.bak";
+                TagFixer.Saver = f => throw new System.IO.IOException("simulated save failure");
+                TagFixer.Restorer = (bak, src) => throw new System.IO.IOException("simulated restore failure");
+
+                var fixer = TagFixer.ForTesting(dryRun: false);
+                var log = fixer.ProcessFile(fixturePath);
+
+                Assert.Equal("error", log.Status, "a save that cannot be restored must report error");
+                Assert.True(log.Detail != null && log.Detail.StartsWith("restore failed", StringComparison.Ordinal), "detail must start with 'restore failed'");
+                Assert.True(System.IO.File.Exists(backupPath), "backup must be kept on disk when the restore fails");
+            }
+            finally
+            {
+                TagFixer.Saver = originalSaver;
+                TagFixer.Restorer = originalRestorer;
+                if (backupPath != null && System.IO.File.Exists(backupPath)) System.IO.File.Delete(backupPath);
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
     }
 }

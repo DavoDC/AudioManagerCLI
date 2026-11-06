@@ -22,6 +22,10 @@ namespace AudioManager
         private int fixedCount = 0;
         private int skippedCount = 0;
 
+        // shortcut: static test seams, restore the originals in a finally; upgrade to injection if a second caller needs different behaviour.
+        internal static Action<TagLib.File> Saver = f => f.Save();
+        internal static Action<string, string> Restorer = (bak, src) => File.Copy(bak, src, true);
+
         /// <summary>
         /// User-defined rules from config/tagfix-custom-rules.xml, applied as an additive pass
         /// AFTER the built-in hardcoded fixes. Empty when the file is missing or malformed.
@@ -241,7 +245,7 @@ namespace AudioManager
                     string backupPath = BackupBeforeWrite(sourcePath);
                     try
                     {
-                        tagFile.Save();
+                        Saver(tagFile);
                     }
                     catch (Exception saveEx)
                     {
@@ -377,7 +381,7 @@ namespace AudioManager
         /// </summary>
         private static void RestoreFromBackup(string backupPath, string sourcePath)
         {
-            File.Copy(backupPath, sourcePath, true);
+            Restorer(backupPath, sourcePath);
         }
 
         /// <summary>
