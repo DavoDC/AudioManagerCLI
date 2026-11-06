@@ -590,7 +590,7 @@ namespace AudioManager
                     string primaryArtist = track.PrimaryArtist;
 
                     // Skip if un-routable (tags are already clean from TagFixer)
-                    if (track.Title.Equals("Missing") || track.Artists.Equals("Missing") || primaryArtist.Equals("Missing"))
+                    if (track.Title.Equals(Constants.MissingTag) || track.Artists.Equals(Constants.MissingTag) || primaryArtist.Equals(Constants.MissingTag))
                     {
                         Console.WriteLine($"- Skipped '{Path.GetFileName(sf.SourcePath)}': missing required tag");
                         entry.Status = "skipped"; entry.Detail = "missing required tag";
@@ -632,7 +632,7 @@ namespace AudioManager
                     string routeSummary = GetRouteSummary(relativeDest);
 
                     // Album suffix shown on header line for quick context. New-folder flag shown on Route line.
-                    string albumSuffix = (!string.IsNullOrEmpty(track.Album) && !track.Album.Equals("Missing"))
+                    string albumSuffix = (!string.IsNullOrEmpty(track.Album) && !track.Album.Equals(Constants.MissingTag))
                         ? $" [{track.Album}]" : "";
                     string routeNewNote = isNewFolder ? " *" : "";
 
@@ -737,7 +737,7 @@ namespace AudioManager
                         if (string.IsNullOrEmpty(primary)) continue;
                         batchCounts[primary] = batchCounts.ContainsKey(primary) ? batchCounts[primary] + 1 : 1;
                         string album = tf.Tag.Album;
-                        if (!string.IsNullOrEmpty(album) && !album.Equals("Missing", StringComparison.OrdinalIgnoreCase))
+                        if (!string.IsNullOrEmpty(album) && !album.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase))
                         {
                             // Normalize album to match how PreScanFiles cleans tags before routing.
                             // Without this, "The Blueprint (Explicit Version)" and "The Blueprint" are
@@ -1619,9 +1619,9 @@ namespace AudioManager
         private string FindDuplicateInMirror(Track track, Dictionary<string, string> mirrorIndex)
         {
             string primaryArtist = track.PrimaryArtist;
-            if (string.IsNullOrEmpty(primaryArtist) || primaryArtist.Equals("Missing")) return null;
+            if (string.IsNullOrEmpty(primaryArtist) || primaryArtist.Equals(Constants.MissingTag)) return null;
             string title = track.Title;
-            if (string.IsNullOrEmpty(title) || title.Equals("Missing")) return null;
+            if (string.IsNullOrEmpty(title) || title.Equals(Constants.MissingTag)) return null;
             string normTitle = NormaliseTitleForDedup(title).ToLowerInvariant();
             string key = primaryArtist.ToLowerInvariant() + "\0" + normTitle;
             return mirrorIndex.TryGetValue(key, out string xmlPath) ? xmlPath : null;
@@ -1800,29 +1800,29 @@ namespace AudioManager
                     if (_batchTagCache != null && _batchTagCache.TryGetValue(sourcePath, out var cached))
                     {
                         // Use cached tags from RunScanAhead - avoids a second TagLib read per file
-                        track.Title   = string.IsNullOrEmpty(cached.title)   ? "Missing" : cached.title;
-                        track.Artists = string.IsNullOrEmpty(cached.artists) ? "Missing" : cached.artists;
-                        track.Album   = string.IsNullOrEmpty(cached.album)   ? "Missing" : cached.album;
-                        track.Genres  = string.IsNullOrEmpty(cached.genres)  ? "Missing" : cached.genres;
-                        track.Year    = (cached.year == 0)                   ? "Missing" : cached.year.ToString();
+                        track.Title   = string.IsNullOrEmpty(cached.title)   ? Constants.MissingTag : cached.title;
+                        track.Artists = string.IsNullOrEmpty(cached.artists) ? Constants.MissingTag : cached.artists;
+                        track.Album   = string.IsNullOrEmpty(cached.album)   ? Constants.MissingTag : cached.album;
+                        track.Genres  = string.IsNullOrEmpty(cached.genres)  ? Constants.MissingTag : cached.genres;
+                        track.Year    = (cached.year == 0)                   ? Constants.MissingTag : cached.year.ToString();
                     }
                     else
                     {
                         using (TagLib.File tagFile = TagLib.File.Create(sourcePath))
                         {
                             Tag tag = tagFile.Tag;
-                            track.Title   = string.IsNullOrEmpty(tag.Title)           ? "Missing" : tag.Title;
-                            track.Artists = string.IsNullOrEmpty(tag.JoinedPerformers) ? "Missing" : tag.JoinedPerformers;
-                            track.Album   = string.IsNullOrEmpty(tag.Album)           ? "Missing" : tag.Album;
-                            track.Genres  = string.IsNullOrEmpty(tag.JoinedGenres)    ? "Missing" : tag.JoinedGenres;
-                            track.Year    = (tag.Year == 0)                           ? "Missing" : tag.Year.ToString();
+                            track.Title   = string.IsNullOrEmpty(tag.Title)           ? Constants.MissingTag : tag.Title;
+                            track.Artists = string.IsNullOrEmpty(tag.JoinedPerformers) ? Constants.MissingTag : tag.JoinedPerformers;
+                            track.Album   = string.IsNullOrEmpty(tag.Album)           ? Constants.MissingTag : tag.Album;
+                            track.Genres  = string.IsNullOrEmpty(tag.JoinedGenres)    ? Constants.MissingTag : tag.JoinedGenres;
+                            track.Year    = (tag.Year == 0)                           ? Constants.MissingTag : tag.Year.ToString();
                         }
                     }
 
                     // Inherit album from immediate subfolder name when tag is missing.
                     // Files grouped under an album folder in NewMusic but lacking the album tag
                     // would otherwise all route to Singles regardless of batch count.
-                    if (track.Album.Equals("Missing", StringComparison.OrdinalIgnoreCase)
+                    if (track.Album.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase)
                         && sourcePath.StartsWith(Constants.NewMusicPath, StringComparison.OrdinalIgnoreCase))
                     {
                         string relPath = sourcePath.Substring(Constants.NewMusicPath.Length).TrimStart(Path.DirectorySeparatorChar);
@@ -1831,13 +1831,13 @@ namespace AudioManager
                             track.Album = relPath.Substring(0, sep);
                     }
 
-                    if (dryRun && !track.Title.Equals("Missing") && !track.Artists.Equals("Missing"))
+                    if (dryRun && !track.Title.Equals(Constants.MissingTag) && !track.Artists.Equals(Constants.MissingTag))
                     {
                         string rawTitle = track.Title;
                         var simArtistList = TagFixer.ExtractAndFixArtists(rawTitle, track.Artists);
                         track.Title = TagFixer.RemoveParentheticals(rawTitle);
                         track.Artists = string.Join("; ", simArtistList);
-                        if (!track.Album.Equals("Missing"))
+                        if (!track.Album.Equals(Constants.MissingTag))
                             track.Album = RulesEngine.NormalizeAlbum(track.Album);
                         if (TagFixer.ShouldFixGenre(track.Artists, track.Genres))
                             track.Genres = TagFixer.DetermineGenre(track.Artists);
@@ -1903,7 +1903,7 @@ namespace AudioManager
                                      || relMirrorPath.StartsWith("Compilations/", StringComparison.OrdinalIgnoreCase)
                                      || IsAlbumFolderCompilation(duplicatePath);
             bool newIsAlbum = !string.IsNullOrEmpty(track.Album)
-                           && !track.Album.Equals("Missing", StringComparison.OrdinalIgnoreCase)
+                           && !track.Album.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase)
                            && !track.Album.Equals(track.Title, StringComparison.OrdinalIgnoreCase);
 
             string libraryAlbum = Path.GetFileName(Path.GetDirectoryName(duplicatePath));
@@ -2118,7 +2118,7 @@ namespace AudioManager
                         string peopleFolder = Path.Combine(peopleParent, SanitiseFolderName(sampledPerson));
 
                         // Within People/{person}/, apply same album-vs-singles rule as Artists/ routing
-                        if (!track.Album.Equals("Missing") && !track.Album.Equals(primaryArtist, StringComparison.OrdinalIgnoreCase))
+                        if (!track.Album.Equals(Constants.MissingTag) && !track.Album.Equals(primaryArtist, StringComparison.OrdinalIgnoreCase))
                         {
                             int albumCount = CountAkiraTheDonPersonAlbumSongs(sampledPerson, track.Album, _libraryPath);
                             if (RulesEngine.UsesAlbumSubfolder(albumCount))
@@ -2160,14 +2160,14 @@ namespace AudioManager
             }
 
             // Genres-based rules (after artist checks)
-            if (!track.Genres.Equals("Missing") && track.Genres.IndexOf(Constants.MusivDir, StringComparison.OrdinalIgnoreCase) >= 0)
+            if (!track.Genres.Equals(Constants.MissingTag) && track.Genres.IndexOf(Constants.MusivDir, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 reason = "Genre is Musivation";
                 isNewFolder = false;
                 return Path.Combine(_libraryPath, Constants.MusivDir);
             }
 
-            if (!track.Genres.Equals("Missing") && track.Genres.IndexOf(Constants.MotivDir, StringComparison.OrdinalIgnoreCase) >= 0)
+            if (!track.Genres.Equals(Constants.MissingTag) && track.Genres.IndexOf(Constants.MotivDir, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 reason = "Genre is Motivation";
                 isNewFolder = false;
@@ -2185,7 +2185,7 @@ namespace AudioManager
             {
                 string scanNote = scanAheadNewFolder ? " [new via scan-ahead]" : "";
 
-                if (!track.Album.Equals("Missing"))
+                if (!track.Album.Equals(Constants.MissingTag))
                 {
                     // Count songs from this album (holistic: library + batch combined).
                     // Self-titled albums (album == artist name) are treated as real albums; the
@@ -2220,7 +2220,7 @@ namespace AudioManager
             // Compilation album: 3+ distinct primary artists on same album in batch -> Compilations/{album}/
             if (compilationAlbums != null &&
                 !string.IsNullOrEmpty(track.Album) &&
-                !track.Album.Equals("Missing", StringComparison.OrdinalIgnoreCase) &&
+                !track.Album.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase) &&
                 compilationAlbums.Contains(track.Album))
             {
                 reason = $"Compilation album (3+ distinct artists in batch); no artist folder -> Compilations/{track.Album}/";
@@ -2514,7 +2514,7 @@ namespace AudioManager
                 if (sf.Duplicate?.Decision == 'D') continue; // deleted from NewMusic, library unchanged
 
                 Track track = sf.Track;
-                if (track.Title.Equals("Missing") || track.Artists.Equals("Missing")) continue;
+                if (track.Title.Equals(Constants.MissingTag) || track.Artists.Equals(Constants.MissingTag)) continue;
 
                 string destDir = GetDestDir(track, newArtistFolders, _compilationAlbums, out _, out _);
                 string sanitisedArtists = Reflector.SanitiseFilename(track.Artists);
@@ -2529,9 +2529,9 @@ namespace AudioManager
 
                 var synthesized = new TrackTag(relPath,
                     track.Title, track.Artists, track.Album,
-                    track.Year ?? "Missing",
+                    track.Year ?? Constants.MissingTag,
                     track.TrackNumber ?? "0",
-                    track.Genres ?? "Missing",
+                    track.Genres ?? Constants.MissingTag,
                     track.Length ?? "00:00:00.0000000",
                     "1",     // AlbumCoverCount: assume art present
                     "True",  // Compilation: TagFixer sets TCMP=1

@@ -163,7 +163,7 @@ namespace AudioManager
             subStr = StandardiseStr(subStr);
 
             // If the expected value is "Missing" (null), then skip this check.
-            if(subStr.Equals("Missing"))
+            if(subStr.Equals(Constants.MissingTag))
             {
                 return 0;
             }
@@ -225,7 +225,7 @@ namespace AudioManager
         /// <returns>1 if the field was missing, 0 otherwise.</returns>
         private int CheckFieldMissing(string fieldValue, string fieldName, string filePath)
         {
-            if (fieldValue.Equals("Missing"))
+            if (fieldValue.Equals(Constants.MissingTag))
             {
                 Console.WriteLine($"  - '{filePath}' has no {fieldName} set!");
                 return 1;
@@ -282,7 +282,7 @@ namespace AudioManager
         private int CheckAlbumCoverDimensions(TrackTag tag)
         {
             if (tag.AlbumCoverCount == "0") return 0;
-            if (tag.CoverWidth == "Unknown" || tag.CoverHeight == "Unknown") return 0;
+            if (tag.CoverWidth == Constants.UnknownCover || tag.CoverHeight == Constants.UnknownCover) return 0;
 
             if (int.TryParse(tag.CoverWidth, NumberStyles.Integer, CultureInfo.InvariantCulture, out int w) && int.TryParse(tag.CoverHeight, NumberStyles.Integer, CultureInfo.InvariantCulture, out int h))
             {
@@ -620,7 +620,7 @@ namespace AudioManager
 
             // Group by (primaryArtist, album), skip tracks with missing album
             var albumGroups = artistAudioTags
-                .Where(t => !t.Album.Equals("Missing"))
+                .Where(t => !t.Album.Equals(Constants.MissingTag))
                 .GroupBy(t => new { t.PrimaryArtist, t.Album });
 
             foreach (var group in albumGroups)

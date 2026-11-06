@@ -68,12 +68,12 @@ namespace AudioManager.Code.Modules
 
                 // Extract info from generic tag
                 Tag tag = tagFile.Tag;
-                Title = string.IsNullOrEmpty(tag.Title) ? "Missing" : tag.Title;
-                Artists = string.IsNullOrEmpty(tag.JoinedPerformers) ? "Missing" : tag.JoinedPerformers;
-                Album = string.IsNullOrEmpty(tag.Album) ? "Missing" : tag.Album;
-                Year = (tag.Year == 0) ? "Missing" : tag.Year.ToString();
+                Title = string.IsNullOrEmpty(tag.Title) ? Constants.MissingTag : tag.Title;
+                Artists = string.IsNullOrEmpty(tag.JoinedPerformers) ? Constants.MissingTag : tag.JoinedPerformers;
+                Album = string.IsNullOrEmpty(tag.Album) ? Constants.MissingTag : tag.Album;
+                Year = (tag.Year == 0) ? Constants.MissingTag : tag.Year.ToString();
                 TrackNumber = tag.Track.ToString();
-                Genres = string.IsNullOrEmpty(tag.JoinedGenres) ? "Missing" : tag.JoinedGenres;
+                Genres = string.IsNullOrEmpty(tag.JoinedGenres) ? Constants.MissingTag : tag.JoinedGenres;
                 AlbumCoverCount = (tag.Pictures?.Length ?? 0).ToString();
 
                 // Extract compilation info from ID3 tag (see https://id3.org/iTunes%20Compilation%20Flag)
@@ -87,8 +87,8 @@ namespace AudioManager.Code.Modules
                 if (pics != null && pics.Length > 0)
                 {
                     var (w, h) = GetCoverDimensions(pics[0].Data.Data);
-                    CoverWidth  = w > 0 ? w.ToString() : "Unknown";
-                    CoverHeight = h > 0 ? h.ToString() : "Unknown";
+                    CoverWidth  = w > 0 ? w.ToString() : Constants.UnknownCover;
+                    CoverHeight = h > 0 ? h.ToString() : Constants.UnknownCover;
                 }
                 else
                 {

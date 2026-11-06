@@ -89,7 +89,7 @@ namespace AudioManager
             // ---- Cover art (mirrors Analyser.PrintCoverArtStatistics) ----
             int missingData = audioTags.Count(t => string.IsNullOrEmpty(t.CoverWidth));
             int noCover = audioTags.Count(t => t.CoverWidth == "0");
-            int unknownFormat = audioTags.Count(t => t.CoverWidth == "Unknown");
+            int unknownFormat = audioTags.Count(t => t.CoverWidth == Constants.UnknownCover);
             int hasKnownDim = trackCount - missingData - noCover - unknownFormat;
             int subMin800 = audioTags.Count(t => KnownDim(t, out int w, out int h) && Math.Min(w, h) < 800);
             int nonSquare = audioTags.Count(t => KnownDim(t, out int w, out int h) && w != h);
@@ -208,7 +208,7 @@ namespace AudioManager
 
         /// <summary>A tag value counts as present if it is non-blank and not the "Missing" sentinel.</summary>
         private static bool IsPresent(string s) =>
-            !string.IsNullOrWhiteSpace(s) && !s.Equals("Missing", StringComparison.OrdinalIgnoreCase);
+            !string.IsNullOrWhiteSpace(s) && !s.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>Parses a .NET TimeSpan length string to seconds, or null if unparseable.</summary>
         private static double? TryParseSeconds(string length)

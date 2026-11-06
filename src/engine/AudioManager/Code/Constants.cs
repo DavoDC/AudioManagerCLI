@@ -71,6 +71,11 @@ namespace AudioManager
         public const string SourcesDir      = "Sources";
         public const string SinglesDir      = "Singles";
 
+        /// <summary>Tag value sentinel: the tag is absent from the file.</summary>
+        public const string MissingTag = "Missing";
+        /// <summary>Cover size sentinel: album art is present but its dimensions could not be read.</summary>
+        public const string UnknownCover = "Unknown";
+
         /// <summary>
         /// Mirror Management
         /// </summary>

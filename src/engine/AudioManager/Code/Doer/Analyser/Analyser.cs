@@ -117,7 +117,7 @@ namespace AudioManager
             // Categorise by width value
             int missingData = audioTags.Count(t => string.IsNullOrEmpty(t.CoverWidth));
             int noCover     = audioTags.Count(t => t.CoverWidth == "0");
-            int badFormat   = audioTags.Count(t => t.CoverWidth == "Unknown");
+            int badFormat   = audioTags.Count(t => t.CoverWidth == Constants.UnknownCover);
             int hasKnownDim = total - missingData - noCover - badFormat;
 
             if (missingData > 0)
