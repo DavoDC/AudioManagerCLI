@@ -178,7 +178,7 @@ Moved to `architecture/Integration-and-ParseCache-Architecture.md` (same folder)
 
 - **Test deactivation pattern (reflection-discovered tests):** TestRunner discovers tests via `GetMethods(BindingFlags.Static | BindingFlags.Public)`. To deactivate a test without deleting it (e.g. when a LibChecker check is deferred until library remediation), change `public static void` to `private static void`. Add `_DEFERRED` suffix to the method name as a signal. Re-enable: revert to public + restore the production code it exercises. The `_IsClean` counterpart tests should remain public - they verify the non-blocking path still passes.
 
-- **Deferred LibChecker check pattern:** When a new LibChecker check would block integration due to pre-existing library violations, keep the code as a commented-out block in `CheckFilename()` with a clear pointer to the remediation task in the backlog. The `_IsDirty` test goes private (`_DEFERRED`); the `_IsClean` tests stay active. Re-enable both together once remediation is complete. Current deferred check: multi-artist semicolon delimiter validation (~436 files pending Mp3tag bulk-rename - the backlog TIER 1).
+- **Deferred LibChecker check pattern:** When a new LibChecker check would block integration due to pre-existing library violations, keep the code as a commented-out block in `CheckFilename()` with a clear pointer to the remediation task in the backlog. The `_IsDirty` test goes private (`_DEFERRED`); the `_IsClean` tests stay active. Re-enable both together once remediation is complete. Current deferred check: multi-artist semicolon delimiter validation (~436 files pending Mp3tag bulk-rename - backlog TIER 1).
 
 - **Parser parallel reads: `audioTags` is sorted by `RelPath`, not by read order** (2026-06-27). `Parallel.ForEach` into `ConcurrentBag` gives no ordering guarantee, so Parser.cs:87 applies an ordinal sort after the reads. All consumers (LibChecker, Analyser, ParseCache) iterate the full list without order dependency - this is fine. Do NOT add any code that relies on `audioTags` order matching mirror folder traversal order.
 
@@ -325,4 +325,4 @@ David's actual integration cadence is one big batch every 2-4 weeks, not daily. 
 
 ## Development Priority (moved from CLAUDE.md 2026-10-12)
 
-Priorities for now (confirmed 2026-09-05). No-signal work picks Intake first. See the backlog priority note.
+Priorities for now (confirmed 2026-09-05). No-signal work picks Intake first.
