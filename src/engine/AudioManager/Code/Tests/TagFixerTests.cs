@@ -712,6 +712,45 @@ namespace AudioManager
             }
         }
 
+        // The collision suffix is a timestamp. Under a culture whose default calendar is not Gregorian (Thai Buddhist
+        // years, +543) a culture-sensitive format would stamp the wrong year, so the name must match the invariant date.
+        public static void ProcessFile_AkiraInstrumental_CollisionStampIsInvariantUnderThaiCulture()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            System.Globalization.CultureInfo previous = System.Threading.Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                string quarantineDir = System.IO.Path.Combine(tempDir, "NewMusic-Quarantine");
+                System.IO.Directory.CreateDirectory(quarantineDir);
+                string occupantPath = System.IO.Path.Combine(quarantineDir, "Akira The Don - Track (Instrumental).mp3");
+                System.IO.File.WriteAllBytes(occupantPath, System.Text.Encoding.ASCII.GetBytes("earlier quarantined file"));
+
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "Akira The Don - Track (Instrumental).mp3",
+                    "Track (Instrumental)", "Album", "Akira The Don");
+
+                var fixer = TagFixer.ForTesting(dryRun: false, quarantineRoot: quarantineDir);
+                System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("th-TH");
+                string expectedDate = DateTime.Now.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture);
+                string thaiYearText = DateTime.Now.ToString("yyyy");
+                var log = fixer.ProcessFile(fixturePath);
+                System.Threading.Thread.CurrentThread.CurrentCulture = previous;
+
+                Assert.True(thaiYearText != expectedDate.Substring(0, 4), "precondition: th-TH must format the year differently from invariant");
+                Assert.Equal("skipped", log.Status, "collision must still take the quarantine branch");
+                string[] others = System.IO.Directory.GetFiles(quarantineDir).Where(f => f != occupantPath).ToArray();
+                Assert.Equal("1", others.Length.ToString(), "incoming instrumental must land under a new, non-clashing name");
+                string stampedPrefix = "Akira The Don - Track (Instrumental) (" + expectedDate + "-";
+                Assert.True(System.IO.Path.GetFileName(others[0]).StartsWith(stampedPrefix, StringComparison.Ordinal),
+                    "collision stamp must use the invariant Gregorian date under th-TH");
+            }
+            finally
+            {
+                System.Threading.Thread.CurrentThread.CurrentCulture = previous;
+                System.IO.Directory.Delete(tempDir, true);
+            }
+        }
+
         public static void ProcessFile_AkiraInstrumental_DryRunTouchesNothing()
         {
             string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());

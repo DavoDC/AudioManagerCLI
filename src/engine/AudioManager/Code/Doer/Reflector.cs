@@ -90,7 +90,7 @@ namespace AudioManager
             string full;
             try { full = Path.GetFullPath(path); }
             catch (Exception) { return false; }
-            if (!full.EndsWith(Path.DirectorySeparatorChar.ToString())) full += Path.DirectorySeparatorChar;
+            if (!full.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)) full += Path.DirectorySeparatorChar;
             return full.Length > repoRoot.Length
                 && full.StartsWith(repoRoot, StringComparison.OrdinalIgnoreCase);
         }
@@ -416,7 +416,7 @@ namespace AudioManager
             // Ensure basePath is treated as a directory (trailing separator) so Uri.MakeRelativeUri
             // returns paths relative to the directory rather than including the directory name.
             string basePathFixed = basePath;
-            if (!basePathFixed.EndsWith(Path.DirectorySeparatorChar.ToString()) && !basePathFixed.EndsWith(Path.AltDirectorySeparatorChar.ToString()))
+            if (!basePathFixed.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) && !basePathFixed.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal))
             {
                 basePathFixed += Path.DirectorySeparatorChar;
             }

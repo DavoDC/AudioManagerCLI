@@ -1354,7 +1354,7 @@ namespace AudioManager
                     case '\t': sb.Append("\\t"); break;
                     default:
                         if (c < ' ')
-                            sb.Append("\\u").Append(((int)c).ToString("x4"));
+                            sb.Append("\\u").Append(((int)c).ToString("x4", System.Globalization.CultureInfo.InvariantCulture));
                         else
                             sb.Append(c);
                         break;

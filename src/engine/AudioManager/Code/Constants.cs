@@ -114,8 +114,8 @@ namespace AudioManager
                 userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             }
 
-            if (!userProfile.EndsWith(Path.DirectorySeparatorChar.ToString()) &&
-                !userProfile.EndsWith(Path.AltDirectorySeparatorChar.ToString()))
+            if (!userProfile.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) &&
+                !userProfile.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal))
             {
                 userProfile += Path.DirectorySeparatorChar;
             }

@@ -253,7 +253,7 @@ namespace AudioManager
                         case 'u':
                             if (i + 5 < s.Length &&
                                 int.TryParse(s.Substring(i + 2, 4),
-                                    System.Globalization.NumberStyles.HexNumber, null, out int code))
+                                    System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out int code))
                             {
                                 sb.Append((char)code);
                                 i += 4;

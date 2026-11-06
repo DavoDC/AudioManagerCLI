@@ -406,7 +406,7 @@ namespace AudioManager
 
             string stem = Path.GetFileNameWithoutExtension(fileName);
             string ext = Path.GetExtension(fileName);
-            string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
             string stamped = Path.Combine(quarantineRoot, $"{stem} ({stamp}){ext}");
             if (!File.Exists(stamped)) return stamped;
 
