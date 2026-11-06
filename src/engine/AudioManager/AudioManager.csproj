@@ -57,6 +57,7 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
+    <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="taglib-sharp, Version=2.1.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\taglib-sharp-netstandard2.0.2.1.0\lib\netstandard2.0\taglib-sharp.dll</HintPath>
     </Reference>
@@ -75,6 +76,7 @@
     <Compile Include="Code\Doer\Doer.cs" />
     <Compile Include="Code\Doer\MusicIntegrator.cs" />
     <Compile Include="Code\Doer\ReplaceGuard.cs" />
+    <Compile Include="Code\Doer\RecycleBin.cs" />
     <Compile Include="Code\Doer\IntegrationManifest.cs" />
     <Compile Include="Code\Doer\TagFixer.cs" />
     <Compile Include="Code\Doer\TagFixCustomRules.cs" />

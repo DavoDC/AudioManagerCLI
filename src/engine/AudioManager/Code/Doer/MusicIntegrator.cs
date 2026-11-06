@@ -392,7 +392,7 @@ namespace AudioManager
                 {
                     if (dryRun)
                     {
-                        Console.WriteLine($"[DRY RUN] Would delete from NewMusic: {dup.RelNewPath}");
+                        Console.WriteLine($"[DRY RUN] Would send to Recycle Bin from NewMusic: {dup.RelNewPath}");
                         entry.Status = "would-delete";
                         entry.Detail = "duplicate (would delete)";
                     }
@@ -400,11 +400,11 @@ namespace AudioManager
                     {
                         try
                         {
-                            File.Delete(sf.SourcePath);
+                            RecycleBin.Send(sf.SourcePath);
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"  [ERROR] Could not delete from NewMusic {dup.RelNewPath}: {ex.Message}");
+                            Console.WriteLine($"  [ERROR] Could not send to Recycle Bin from NewMusic {dup.RelNewPath}: {ex.Message}");
                             entry.Status = "error";
                             entry.Detail = "duplicate (delete failed: " + ex.GetType().Name + ")";
                             logEntries.Add(entry); skippedCount++;
@@ -412,7 +412,7 @@ namespace AudioManager
                             dup.SkipRouting = true;
                             continue;
                         }
-                        Console.WriteLine($"  Deleted from NewMusic: {dup.RelNewPath}");
+                        Console.WriteLine($"  Sent to Recycle Bin from NewMusic: {dup.RelNewPath}");
                         entry.Status = "deleted";
                         entry.Detail = "duplicate (deleted)";
                     }

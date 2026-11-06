@@ -410,10 +410,22 @@ namespace AudioManager
                 var sfD = MakeDup(Path.Combine(newMusic, "Good Artist - Good Song.mp3"), "Good Artist", "Good Song", LibCopyPath(lib, "Good Artist", "Good Song"), 'D');
                 var sfL = MakeDup(Path.Combine(newMusic, "Other Artist - Other Song.mp3"), "Other Artist", "Other Song", libCopy, 'L');
                 var integrator = new MusicIntegrator(lib, false, true, null);
+                var sent = new List<string>();
+                Action<string> original = RecycleBin.Sender;
+                try
+                {
+                    // Fake bin: records the path and removes the file, as the Recycle Bin would.
+                    RecycleBin.Sender = path => { sent.Add(path); File.Delete(path); };
+                    RunExecute(integrator, new List<MusicIntegrator.ScannedFile> { sfD, sfL }, new List<MusicIntegrator.LogEntry>());
+                }
+                finally
+                {
+                    RecycleBin.Sender = original;
+                }
 
-                RunExecute(integrator, new List<MusicIntegrator.ScannedFile> { sfD, sfL }, new List<MusicIntegrator.LogEntry>());
-
-                Assert.True(!File.Exists(sfD.SourcePath), "real D must delete the NewMusic duplicate (dry run would-delete)");
+                Assert.Equal("1", sent.Count.ToString(), "real D must send exactly one NewMusic duplicate to the Recycle Bin");
+                Assert.Equal(sfD.SourcePath, sent[0], "real D must send the NewMusic duplicate, not the library copy");
+                Assert.True(!File.Exists(sfD.SourcePath), "real D must remove the NewMusic duplicate via the bin (dry run would-delete)");
                 Assert.Equal("deleted", sfD.LogEntry.Status, "real D status must be deleted, matching the dry run's would-delete");
                 Assert.True(File.Exists(libCopy + BakSuffix) && !File.Exists(libCopy), "real L must stage the library copy aside (dry run would-replace)");
                 Assert.True(File.Exists(sfL.SourcePath), "real L leaves the new file for 3b routing to place");
