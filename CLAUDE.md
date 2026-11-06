@@ -107,7 +107,7 @@ TagFixer modifies ID3 tags and renames files to match library convention. Tag ch
 
 **Library Operations Constraint:** what the program can/cannot do to files already in the Audio library - see "Library Operations Constraint" in `docs/References/DevContext.md`.
 
-## C#/Python split
+## Language decision
 
 Decided 2026-09-06, do not relitigate: the engine stays C#, and no external consumer (in any language) ever writes to the library, reimplements C# logic, or parses AudioMirror XML. Reasoning: `docs/References/architecture/Architecture-Language-Decision.md`.
 
