@@ -496,14 +496,27 @@ namespace AudioManager
 
         private static Dictionary<string, string> _artistOverrides;
 
+        // shortcut: static cache plus reset seam for tests, upgrade to an injected provider if overrides ever need a per-run path.
+        internal static int OverridesLoadCount;
+
         /// <summary>
-        /// Loads artist name overrides from config/artist-name-overrides.xml (once per process).
+        /// Loads artist name overrides from config/artist-name-overrides.xml (once per process, then cached).
         /// Keys and values are both the canonical form; lookup is case-insensitive.
         /// </summary>
-        private static Dictionary<string, string> GetArtistOverrides()
+        internal static Dictionary<string, string> GetArtistOverrides()
         {
-            _artistOverrides = LoadArtistOverrides(Constants.ArtistOverridesPath);
+            if (_artistOverrides == null)
+            {
+                OverridesLoadCount++;
+                _artistOverrides = LoadArtistOverrides(Constants.ArtistOverridesPath);
+            }
             return _artistOverrides;
+        }
+
+        /// <summary>Clears the overrides cache so the next GetArtistOverrides call reloads the file (tests only).</summary>
+        internal static void ResetArtistOverridesCache()
+        {
+            _artistOverrides = null;
         }
 
         /// <summary>

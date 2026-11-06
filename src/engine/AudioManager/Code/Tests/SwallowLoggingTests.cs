@@ -91,6 +91,17 @@ namespace AudioManager
             finally { Directory.Delete(dir, true); }
         }
 
+        public static void ArtistOverrides_GetTwice_LoadsFileOnce()
+        {
+            TagFixer.ResetArtistOverridesCache();
+            int before = TagFixer.OverridesLoadCount;
+            Dictionary<string, string> first = TagFixer.GetArtistOverrides();
+            Dictionary<string, string> second = TagFixer.GetArtistOverrides();
+            int loads = TagFixer.OverridesLoadCount - before;
+            Assert.True(loads == 1, $"Expected exactly one overrides load across two calls, got {loads}");
+            Assert.True(ReferenceEquals(first, second), "Second call must return the cached dictionary instance");
+        }
+
         // ---- MusicIntegrator alias read (MusicIntegrator.cs ~1495) ----
 
         public static void ArtistAliases_MalformedFile_LogsWarningWithPath()
