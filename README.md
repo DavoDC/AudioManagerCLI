@@ -12,10 +12,6 @@ A C# console application for managing, analysing, and auditing a personal music 
 - **Analyse** - generates timestamped statistical reports, runs full library validation (LibChecker), and auto-commits AudioMirror if the library is clean
 - **Integrate** - scans a staging folder for new MP3s, pre-processes tags, routes files automatically, and produces a confidence report
 
-## Other programs
-
-This repo is the engine and is complete on its own: everything runs from the CLI below. An optional private external client (consumer, a separate repo) spawns this exe and reads the versioned JSON it emits (`data/logs/analysis-stats.json`, `data/logs/tracks.json`), so statistics never drift from the canonical analyser.
-
 ## Build and test
 
 Windows, .NET Framework 4.8, MSBuild (Visual Studio Build Tools). From the repo root:
@@ -94,7 +90,7 @@ Auto-runs after step 2, or manually: `AudioManager.exe analysis`
 
 ## Project Structure
 
-The C# console app lives in `src/engine/`, the external client in `the UI`, launchers in `scripts/`. The full annotated tree is in [DevContext.md, Project Structure](docs/References/DevContext.md#project-structure).
+The C# console app lives in `src/engine/`, and launchers live in `scripts/`. The full annotated tree is in [DevContext.md, Project Structure](docs/References/DevContext.md#project-structure).
 
 ## Performance
 

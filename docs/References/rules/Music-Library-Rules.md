@@ -1,6 +1,6 @@
 # Music Library Rules
 
-**Reference guide.** For the complete end-to-end workflow (Streaming discovery → tagging → device sync), see the the workflow doc.
+**Reference guide.**
 
 ## Paths
 - Library: `<home>\Audio\`

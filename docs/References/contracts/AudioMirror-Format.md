@@ -37,5 +37,3 @@ Each track is an individual `.xml` file. **Final schema (locked 2026-06-06):**
 Under `AUDIO_MIRROR/`:
 - `Artists/<ArtistName>/<Album>/` - standard tracks
 - `Compilations/`, `Miscellaneous Songs/`, `Motivation/`, `Musivation/`, `Sources/` - special categories
-
-`audiomirror_path` in other tooling config should point to the `AUDIO_MIRROR/` folder (not a single file).

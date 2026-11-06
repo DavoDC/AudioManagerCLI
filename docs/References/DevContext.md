@@ -15,7 +15,6 @@ AudioManagerCLI/
   docs/                        # planning files, design docs
   data/logs/                       # integration run logs (gitignored, written by MusicIntegrator)
   scripts/dev/                 # build, test and verify scripts
-  the UI                    # Python external client (python -m tools runs from src/, or PYTHONPATH=src)
   src/engine/                 # C# solution
     AudioManager.sln
     AudioManager/
@@ -62,7 +61,7 @@ These are invariants from rules/Music-Library-Rules.md. Violating them causes fi
 
 **verify.bat prerequisites (ARCH-3).** `scripts\dev\verify.bat` checks MSBuild (vswhere) and the built `AudioManager.Tests.exe` before running anything. A missing tool prints a `[PREREQ] ...` line and exits 3; a real test failure exits 1, so the two are never confused.
 
-**No CI workflow (ARCH-3).** There is no `.github/workflows`. Claude never pushes, so a workflow could not be run to prove it green before David pushed it, and an unproven CI file is worse than none. The build also needs .NET Framework 4.8 and the NuGet-restored `src\engine\packages` (untracked), and the UI capture step needs a browser. Revisit when David wants CI: a windows-latest job running nuget restore, msbuild, `AudioManager.Tests.exe --verify`, and `python -m a verify tool --fast`.
+**No CI workflow (ARCH-3).** There is no `.github/workflows`. Claude never pushes, so a workflow could not be run to prove it green before David pushed it, and an unproven CI file is worse than none. The build also needs .NET Framework 4.8 and the NuGet-restored `src\engine\packages` (untracked). Revisit when David wants CI: a windows-latest job running nuget restore, msbuild, and `AudioManager.Tests.exe --verify`.
 
 ---
 
@@ -159,8 +158,7 @@ Moved to `architecture/Integration-and-ParseCache-Architecture.md` (same folder)
 
 - **ExtractAndFixArtists: `" & "` in title parentheticals is always a collaborator separator, never part of an artist name.** The code splits on `" & "` before the duplicate-artist check and adds each component individually. This invariant must be preserved if featured-artist extraction is ever refactored - never add the compound "A & B" form when A and B will both be present separately. (Fix 2026-05-26: Perry Como track was producing 4 artist entries instead of 3.)
 
-- **What the test suite can and cannot prove** (moved from CLAUDE.md 2026-09-06). `scripts\dev\verify.bat --no-pause` is the single pass/fail judge - it runs the C# build and unit tests, the routing manifest check, and the UI pytest suite. A green run proves the logic is right. It can never prove the batch is safe: nothing in the suite observes the exe actually moving files. On any change touching the integration path, treat green as "the logic is right", never as "the run is safe to fire". See "UI Code-Change Escalation Boundary" in CLAUDE.md for which UI code changes need David before shipping.
-
+- **What the test suite can and cannot prove** (moved from CLAUDE.md 2026-09-06). `scripts\dev\verify.bat --no-pause` is the single pass/fail judge - it runs the C# build, the unit tests, and the routing manifest check. A green run proves the logic is right. It can never prove the batch is safe: nothing in the suite observes the exe actually moving files. On any change touching the integration path, treat green as "the logic is right", never as "the run is safe to fire".
 - **ManifestRunner test pattern:** `new MusicIntegrator(Constants.AudioFolderPath)` (the test constructor with real library path) lets you call `GetDestDir()` against the real folder structure without triggering the integration pipeline. Use for any future routing regression test that needs the real library but no NewMusic files.
 
 - **Album tag inheritance in PreScanFiles:** When album tag is "Missing" and the file is in an immediate subfolder of NewMusic, the subfolder name is used as the album fallback. This runs BEFORE TagFixer simulation, so suffix stripping applies to inherited album names too. Location: `PreScanFiles()` in MusicIntegrator, right before the `if (dryRun && ...)` block.
@@ -170,7 +168,7 @@ Moved to `architecture/Integration-and-ParseCache-Architecture.md` (same folder)
 - **`AgeChecker.ForceRegen(lastRunInfoPath=null)` is the correct seam for forcing a full mirror rebuild.** Only sets `RegenMirror=true`; `AgeChecker` never writes `LastRunInfo.txt` itself. `Reflector` records the build start time and calls `AgeChecker.MarkRegenerated(builtAt)` only after the staged mirror has been swapped in, so a failed build or swap leaves the old stamp. Post-integration flow calls this before `new Reflector()` so orphaned XMLs from deleted/moved library files are pruned.
 
 - **Artist join separator is `"; "` everywhere** (fixed 2026-10-12, INT-1). TagLib#'s `JoinedPerformers` joins Performers arrays with `"; "`, so TagFixer and the MusicIntegrator dry-run simulation join with the same string; an array that already reads back `"A; B"` is no longer seen as changed, so no tag rewrite and no rename. Pinned by `ProcessFile_TwoPerformerArray_NoArtistRewriteOrArtistRename`. Filenames TagFixer writes now also use `"; "` (the library convention). Never compare artists across the two separators without normalising.
-- **Console line formats the UI parses are pinned from the C# side** (INT-2): `MusicIntegrator.FormatAutoLine`, `FormatSkipLine`, `FormatExecutionJsonLine` build the `[AUTO]`, `[SKIP]` and `EXECUTION JSON:` lines and `MusicIntegratorConsoleFormatTests` asserts their exact text. Change one and `the UI` / `the UI` must change in the same commit. The strings `Error processing file:` and `INTEGRATION FAILED` that the UI looks for are NOT emitted by the exe (it prints `[ERROR] Skipping ...`); see the backlog.
+- **Console line formats external consumers parse are pinned from the C# side** (INT-2): `MusicIntegrator.FormatAutoLine`, `FormatSkipLine`, `FormatExecutionJsonLine` build the `[AUTO]`, `[SKIP]` and `EXECUTION JSON:` lines and `MusicIntegratorConsoleFormatTests` asserts their exact text. Change one and every external consumer that parses it must change in the same commit. The strings `Error processing file:` and `INTEGRATION FAILED` that consumers look for are NOT emitted by the exe (it prints `[ERROR] Skipping ...`); see the backlog.
 
 - **verify.bat runs full suite:** build + unit tests + manifest tests. Always pass `--no-pause` when calling from Claude. All assertions must be green before any C# commit.
 
@@ -184,7 +182,7 @@ Moved to `architecture/Integration-and-ParseCache-Architecture.md` (same folder)
 
 - **Parser parallel reads: `audioTags` is sorted by `RelPath`, not by read order** (2026-06-27). `Parallel.ForEach` into `ConcurrentBag` gives no ordering guarantee, so Parser.cs:87 applies an ordinal sort after the reads. All consumers (LibChecker, Analyser, ParseCache) iterate the full list without order dependency - this is fine. Do NOT add any code that relies on `audioTags` order matching mirror folder traversal order.
 
-- **Prefer atomic/per-item handling over all-or-nothing invalidation when partial data can be safely trusted** (2026-09-06, David's call). A parse failure or unrecognized value in one item of a collection (a JSON array element, a per-file record row) should flag or skip only that item, not discard everything else that parsed/validated fine - see `_finish_execute`'s per-row "unverified" status in `the UI` for the pattern. Only fall back to whole-document distrust when there's a specific safety reason the entire document must be treated as untrustworthy (e.g. a version mismatch that could mean the whole shape changed).
+- **Prefer atomic/per-item handling over all-or-nothing invalidation when partial data can be safely trusted** (2026-09-06, David's call). A parse failure or unrecognized value in one item of a collection (a JSON array element, a per-file record row) should flag or skip only that item, not discard everything else that parsed/validated fine. Only fall back to whole-document distrust when there's a specific safety reason the entire document must be treated as untrustworthy (e.g. a version mismatch that could mean the whole shape changed).
 
 ---
 
@@ -323,7 +321,7 @@ Treat it like you treat the XML files: version-control it, don't relegate it to 
 
 ## Integration Cadence (moved from CLAUDE.md 2026-10-12)
 
-David's actual integration cadence is one big batch every 2-4 weeks, not daily. Any UI or report design (UI dashboards, stats, "recent activity" views) that assumes daily additions looks empty most days and spikes on integration day, so design for batch-shaped data (group by integration run or week, not by day). Noted 2026-07-02 during UI mockup review.
+David's actual integration cadence is one big batch every 2-4 weeks, not daily. Any UI or report design (dashboards, stats, "recent activity" views) that assumes daily additions looks empty most days and spikes on integration day, so design for batch-shaped data (group by integration run or week, not by day). Noted 2026-07-02.
 
 ## Development Priority (moved from CLAUDE.md 2026-10-12)
 

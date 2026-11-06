@@ -8,7 +8,7 @@ C# console app (CLI) for managing a personal music library. Two modes:
 - **Analysis** - full pipeline: regenerate AudioMirror XML (Reflector), parse metadata (Parser), generate stats report (Analyser), validate library (LibChecker), save report (ReportWriter), auto-commit AudioMirror if clean (AudioMirrorCommitter)
 - **Integrate** - scans `Downloads/NewMusic/`, fixes tags (TCMP, genres, parentheticals, featured artists), routes files into the library, logs routing decisions to XML for audit trail
 
-This repo is the engine only. Another program may call this exe; it that spawns this exe and reads `data/logs/tracks.json` and `data/logs/analysis-stats.json`; those JSON files and `config/tagfix-custom-rules.xml` are the shared contract, so changing their shape needs the UI repo updated too.
+This repo is the C# engine only. It contains no Python, no UI code, and no Streaming code. Its JSON outputs (`data/logs/tracks.json`, `data/logs/analysis-stats.json`) and `config/tagfix-custom-rules.xml` are a shared contract with external consumers, so changing their shape needs those consumers updated too.
 
 ## Tech Stack
 
@@ -80,7 +80,7 @@ For LibChecker-warning triage, post-integration validation mechanics, AudioMirro
 
 ## Critical Safety Rule
 
-**Only the user (David) runs real integration.** Real integration moves files from NewMusic into the library - the user must trigger it themselves (CLI `integrate`, or the UI repo's view) for data safety and auditability.
+**Only the user (David) runs real integration.** Real integration moves files from NewMusic into the library - the user must trigger it themselves (CLI `integrate`, or an external consumer's integration step) for data safety and auditability.
 
 **Claude CAN run (read-only, no file moves):**
 - `analysis` (and `analysis --force-regen`) - reads library, generates report, no writes except AudioMirror XML regen
@@ -109,7 +109,7 @@ TagFixer modifies ID3 tags and renames files to match library convention. Tag ch
 
 ## C#/Python split
 
-Decided 2026-09-06, do not relitigate: the engine stays C#, and the UI (separate repo) never writes to the library, reimplements C# logic, or parses AudioMirror XML. Reasoning: `docs/References/architecture/Architecture-Language-Decision.md`.
+Decided 2026-09-06, do not relitigate: the engine stays C#, and no external consumer (in any language) ever writes to the library, reimplements C# logic, or parses AudioMirror XML. Reasoning: `docs/References/architecture/Architecture-Language-Decision.md`.
 
 ## What the Test Suite Can and Cannot Prove
 
@@ -119,8 +119,8 @@ See "What the test suite can and cannot prove" in `docs/References/DevContext.md
 
 This repo is C# only and complete on its own through the CLI; it is a public showcase.
 
-- Never add here: Python, browser UI code, UI design docs, launchers, or config for other tools. They belong in the other projects. Docs here describe the engine alone and name the UI only as a consumer of the seam.
-- The only seam is data: this exe writes `data/logs/tracks.json` and `data/logs/analysis-stats.json` and reads `config/tagfix-custom-rules.xml`. Changing the shape of any of them means updating consumer in the same working session.
-- If the UI needs a new engine capability, add a CLI flag or JSON field here and document it as seam. Never add UI-specific code paths.
-- Engine content (docs, tests, fixtures, build scripts) stays here. On every cleanup commit review `git diff --stat` for deletions and for moves into the UI repo.
+- Never add here: Python, UI code, UI design docs, launchers, or config for other tools. Docs here describe the engine alone.
+- The only seam is data: this exe writes `data/logs/tracks.json` and `data/logs/analysis-stats.json` and reads `config/tagfix-custom-rules.xml`. Changing the shape of any of them means updating every external consumer in the same working session.
+- If an external consumer needs a new engine capability, add a CLI flag or JSON field here and document it as seam. Never add consumer-specific code paths.
+- Engine content (docs, tests, fixtures, build scripts) stays here. On every cleanup commit review `git diff --stat` for deletions and for moves out of the engine.
 - Public repo: no private machine paths, no other people's names, no references to tooling or other locations.

@@ -14,9 +14,9 @@ The aim is smaller units that can each be tested alone, with the file-moving cor
 
 1. Characterisation first. Before any method moves, a test that passes on the current code pins its behaviour. If an existing test already covers it (named below), that test is the pin and a missing case is added first.
 2. Verbatim moves. An extraction changes where code lives and how it is called, never what it does. No refactoring inside the same commit as a move.
-3. One class per commit, each commit green on `scripts\dev\verify.bat` (unit tests, the routing manifest, and the UI half).
+3. One class per commit, each commit green on `scripts\dev\verify.bat` (unit tests and the routing manifest).
 4. Every move is also gated by a before/after comparison of a real `AudioManager.exe integrate --dry-run --no-input` run against the same NewMusic content: the console output and the routing JSON must be identical apart from the timestamp. Claude may run dry-run; only David runs real integration.
-5. The guarded path stays guarded: nothing here changes the exe arguments the UI builds, the `[AUTO]`, `[SKIP]` and execution-record line formats (pinned by `MusicIntegratorConsoleFormatTests`), or the JSON contract version.
+5. The guarded path stays guarded: nothing here changes the exe arguments external consumers build, the `[AUTO]`, `[SKIP]` and execution-record line formats (pinned by `MusicIntegratorConsoleFormatTests`), or the JSON contract version.
 6. New files are registered in `AudioManager.csproj` by hand (non-test source still needs a `<Compile Include>`); new test files need no registration (ARCH-2).
 7. Stop condition: if a move cannot be made verbatim because logic is tangled across the seam, stop, record it as a finding, and ask David rather than refactoring on the fly.
 
@@ -57,7 +57,7 @@ Three of the four constructors exist only for tests (`MusicIntegrator(string tes
 1. Shared mutable state. `MusicIntegrator` keeps working state in fields (`_batchTagCache`, `_compilationAlbums`, `_lDeletedLibraryPaths`, the manifest and flags). Each extracted class must receive what it reads explicitly. If a field is both read and written across a seam, that is a design decision, not a verbatim move, and the stop condition in section 2 applies.
 2. `_lDeletedLibraryPaths` links the L decision (replace library copy) to the projected LibChecker. Steps 4 and 6 must agree on who owns it; the proposal is that `DuplicateResolver` owns it and passes it to `ProjectedValidator`.
 3. The known LibChecker versus GetDestDir album-grouping divergence (raw tag versus normalised tag, pinned by `Rules_LibChecker_AlbumGroupingUsesRawAlbumTag_KnownDivergence`) is not part of this work; it needs its own decision.
-4. Console output is a contract with the UI parser (`the UI`, `the UI`). The before/after dry-run gate in section 2 is what protects it; confirm you are happy with that gate in place of per-line tests for every message.
+4. Console output is a contract with external parsers. The before/after dry-run gate in section 2 is what protects it; confirm you are happy with that gate in place of per-line tests for every message.
 5. Effort: roughly one commit per row of section 3, so eight commits. Steps 1 to 4 are low risk and could be done in one session; 5 to 7 deserve a session each with your review between them.
 
 ## 7. Approval needed

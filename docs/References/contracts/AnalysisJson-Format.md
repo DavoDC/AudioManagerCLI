@@ -1,26 +1,26 @@
 # Analysis JSON Format (`analysis --json-output`)
 
-The UI's data contract. `AudioManager.exe analysis --json-output` writes **two** files to `data/logs/`
+The data contract for external consumers. `AudioManager.exe analysis --json-output` writes **two** files to `data/logs/`
 (fixed filenames, latest run wins):
 
-| File | Source | Contains | UI consumer |
+| File | Source | Contains | Typical consumer view |
 |---|---|---|---|
-| `analysis-stats.json` | `Code/Doer/Analyser/StatsJson.cs` | aggregate library statistics | Statistics tab |
-| `tracks.json` | `Code/Doer/Analyser/TracksJson.cs` | the full per-track array | library view |
+| `analysis-stats.json` | `Code/Doer/Analyser/StatsJson.cs` | aggregate library statistics | a statistics view |
+| `tracks.json` | `Code/Doer/Analyser/TracksJson.cs` | the full per-track array | a per-track browser |
 
-**Why both exist / the hard rule they enforce:** the UI must stay **100% decoupled from the raw
+**Why both exist / the hard rule they enforce:** external consumers must stay **100% decoupled from the raw
 AudioMirror XML**. C# owns all data ingestion - it is the only XML parser. `StatsJson` reuses the exact
 `StatList` primitives the text report uses (so stats can't drift from `AudioReport.md`), and `TracksJson`
-emits every per-track row the library view needs (so Python never globs or parses XML to list tracks).
-**Do NOT reimplement distributions in Python. Do NOT parse `AudioReport.md`. Do NOT parse AudioMirror XML
-in Python.** Consume these two files.
+emits every per-track row a browser needs (so consumers never glob or parse XML to list tracks).
+**Do NOT reimplement distributions in consumers. Do NOT parse `AudioReport.md`. Do NOT parse AudioMirror XML
+in consumers.** Consume these two files.
 
 ---
 
 ## `analysis-stats.json` (aggregate statistics)
 
 **Versioning:** `schemaVersion` starts at 1. It is bumped only when a field is removed or its meaning
-changes (additive fields do not bump it). The UI should read `schemaVersion` and refuse a mismatch it
+changes (additive fields do not bump it). A consumer should read `schemaVersion` and refuse a mismatch it
 was not built against, rather than silently mis-reading.
 
 ## Shape
@@ -91,10 +91,10 @@ was not built against, rather than silently mis-reading.
 }
 ```
 
-## Consumption notes for the UI
+## Consumption notes for consumers
 
-- **Read this file; do not shell the exe per panel.** The UI runs `analysis --json-output` once at
-  startup / on manual refresh, then reads `data/logs/analysis-stats.json`. All Statistics panels and stat
+- **Read this file; do not shell the exe per panel.** A consumer runs `analysis --json-output` once at
+  startup / on manual refresh, then reads `data/logs/analysis-stats.json`. All statistics panels and stat
   tiles map 1:1 to a field above.
 - **Per-track rows** (library viewle/grid) are NOT in this file - it is aggregate stats only.
   Per-track data comes from globbing the AudioMirror XML directly (see `contracts/AudioMirror-Format.md`).
@@ -103,14 +103,14 @@ was not built against, rather than silently mis-reading.
 - **Numbers are culture-invariant** (always `.` decimal), safe to `JSON.parse` / `json.loads` regardless
   of the machine locale. There is a regression test guarding this (`Build_UsesInvariantDecimalUnderCommaCulture`).
 - **Missing/degenerate data:** on an empty library, distributions are `[]`, `ageStats` fields are `null`,
-  and percents are `0`. The UI should render empty states, not crash.
+  and percents are `0`. A consumer should render empty states, not crash.
 
 ---
 
-## `tracks.json` (per-track array for the library view)
+## `tracks.json` (per-track array for browsing)
 
 One object per track, every track. ~4 MB for 5,694 tracks - loaded once at startup (and on refresh),
-sliced/filtered in memory by `data_loader`. This file is why Python never needs to touch the XML.
+sliced/filtered in memory by the consumer. This file is why consumers never need to touch the XML.
 
 ```jsonc
 {
@@ -153,7 +153,7 @@ sliced/filtered in memory by `data_loader`. This file is why Python never needs 
   name, the reconstructed path won't exist on disk. Treat a missing file as "no extractable art" and
   show a placeholder - never crash. (Verified 2026-07-03: a random sample of 20 + the first track all
   resolved to real MP3s; the exception is genuinely rare.)
-- **`hasArt`/`hiResArt`** are the album-art *status* (Python doesn't need to open the file to know it) -
+- **`hasArt`/`hiResArt`** are the album-art *status* (a consumer doesn't need to open the file to know it) -
   use them to decide whether to attempt extraction and to badge low-res covers.
 - **`id`** is the stable per-track key for selection/paging state; it is the mirror-relative `.xml` path
   (the source of truth), NOT the `.mp3` path.
@@ -161,6 +161,6 @@ sliced/filtered in memory by `data_loader`. This file is why Python never needs 
 
 ## Versioning both files
 
-`StatsJson.SchemaVersion` and `TracksJson.SchemaVersion` are independent. The UI's `data_loader` should
+`StatsJson.SchemaVersion` and `TracksJson.SchemaVersion` are independent. A consumer should
 check each file's `schemaVersion` against what it was built for and fail loudly on a mismatch rather than
 silently mis-reading. Additive fields do not bump the version; removing a field or changing its meaning does.
