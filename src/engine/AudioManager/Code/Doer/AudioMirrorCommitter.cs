@@ -91,7 +91,15 @@ namespace AudioManager
                 : commitTitle + "\n\n" + commitBody; // blank line: git treats a single newline as part of the subject
 
             // Stage AUDIO_MIRROR folder + LastRunInfo.txt (audit metadata at repo root)
-            RunGit(repoPath, "add AUDIO_MIRROR/ LastRunInfo.txt");
+            GitRunResult add = RunGitDetailed(repoPath, "add AUDIO_MIRROR/ LastRunInfo.txt");
+            if (add.ExitCode != 0)
+            {
+                string addOutput = add.Stdout + add.Stderr;
+                string addFirstLine = addOutput.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? string.Empty;
+                Console.WriteLine($" - FAILED: git add exited {add.ExitCode}. {addFirstLine}");
+                Console.WriteLine(" - Nothing was committed. Fix the git error above, then re-run.");
+                return;
+            }
             GitRunResult commit = RunGitDetailed(repoPath, $"commit -m \"{fullMessage.Replace("\"", "\\\"")}\"");
             string commitResult = commit.Stdout + commit.Stderr;
 

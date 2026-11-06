@@ -232,6 +232,38 @@ namespace AudioManager
             finally { DeleteQuietly(dir); }
         }
 
+        public static void TryCommit_GitAddFails_DoesNotCommitAndReportsFailure()
+        {
+            // LastRunInfo.txt is never created here, so 'git add AUDIO_MIRROR/ LastRunInfo.txt' exits non-zero
+            // on the missing pathspec. The commit step must report that, stage nothing and leave HEAD alone.
+            string dir = CreateTempGitRepo();
+            TextWriter previousOut = Console.Out;
+            var capture = new StringWriter();
+            try
+            {
+                WriteFile(dir, "AUDIO_MIRROR/readme.txt", "no artists");
+                RunProcess("git", "add -A", dir);
+                RunProcess("git", "commit -m initial", dir);
+                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", "<b/>");
+                Assert.True(RunGitOut(dir, "add --dry-run LastRunInfo.txt").Contains("did not match any files"),
+                    "precondition: LastRunInfo.txt pathspec must be missing so git add fails");
+
+                Console.SetOut(capture);
+                AudioMirrorCommitter.TryCommitAt(dir, libCheckerClean: true, trigger: CommitTrigger.Integration);
+                Console.SetOut(previousOut);
+
+                string output = capture.ToString();
+                Assert.True(output.Contains("FAILED: git add exited"), "failed git add should be reported, got: " + output);
+                Assert.Equal("1", RunGitOut(dir, "rev-list --count HEAD"), "failed git add must not create a commit");
+                Assert.Equal("", RunGitOut(dir, "diff --cached --name-only"), "failed git add must leave nothing staged");
+            }
+            finally
+            {
+                Console.SetOut(previousOut);
+                DeleteQuietly(dir);
+            }
+        }
+
         public static void TryCommit_NewArtist_CommitsWithNewArtistBody()
         {
             string dir = CreateRepoWithInitialCommit(withArtist: true);
