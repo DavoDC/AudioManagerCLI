@@ -25,6 +25,4 @@ Long-form reference material for AudioManager, grouped by folder. Start with Dev
 
 ## design/
 
-- [design/Execution-Record-Contract-Research.md](design/Execution-Record-Contract-Research.md) - research findings behind the execution-record contract.
-- [design/Execution-Record-Contract-Design.md](design/Execution-Record-Contract-Design.md) - the settled execution-record contract design.
 - [design/MusicIntegrator-Decomposition-Design.md](design/MusicIntegrator-Decomposition-Design.md) - a proposal to split MusicIntegrator into smaller pieces.
