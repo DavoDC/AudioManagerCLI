@@ -8,7 +8,7 @@ C# console app (CLI) for managing a personal music library. Two modes:
 - **Analysis** - full pipeline: regenerate AudioMirror XML (Reflector), parse metadata (Parser), generate stats report (Analyser), validate library (LibChecker), save report (ReportWriter), auto-commit AudioMirror if clean (AudioMirrorCommitter)
 - **Integrate** - scans `Downloads/NewMusic/`, fixes tags (TCMP, genres, parentheticals, featured artists), routes files into the library, logs routing decisions to XML for audit trail
 
-This repo is the C# engine only. It contains no Python, no UI code, and no Streaming code. Its JSON outputs (`data/logs/tracks.json`, `data/logs/analysis-stats.json`) and `config/tagfix-custom-rules.xml` are a shared contract with external consumers, so changing their shape needs those consumers updated too.
+This repo is the C# engine only. It contains no Python, no UI code, and no streaming-service code. Its JSON outputs (`data/logs/tracks.json`, `data/logs/analysis-stats.json`) and `config/tagfix-custom-rules.xml` are a shared contract with external consumers, so changing their shape needs those consumers updated too.
 
 ## Tech Stack
 

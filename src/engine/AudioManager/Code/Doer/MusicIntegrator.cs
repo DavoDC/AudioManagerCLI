@@ -2028,7 +2028,7 @@ namespace AudioManager
                 if (manifestDecision != '\0')
                 {
                     dup.Decision = manifestDecision;
-                    Console.WriteLine($"  [MANIFEST] {manifestDecision} (user-resolved in UI review)");
+                    Console.WriteLine($"  [MANIFEST] {manifestDecision} (user-resolved in review)");
                     Console.WriteLine();
                     return true;
                 }

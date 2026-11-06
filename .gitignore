@@ -358,6 +358,6 @@ data/reports/
 
 
 
-# Runtime logs (Constants.LogsPath, the UI LOGS_DIR). Only .gitkeep is tracked.
+# Runtime logs (Constants.LogsPath). Only .gitkeep is tracked.
 data/logs/*
 !data/logs/.gitkeep

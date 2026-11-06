@@ -196,7 +196,7 @@ namespace AudioManager
 
                 InvokeRunDuplicateReview(integrator, new List<MusicIntegrator.ScannedFile> { sf }, new List<MusicIntegrator.LogEntry>());
 
-                Assert.Equal("L", sf.Duplicate.Decision.ToString(), "a UI-resolved L in the manifest must win over the D recommendation and must not be downgraded");
+                Assert.Equal("L", sf.Duplicate.Decision.ToString(), "a user-resolved L in the manifest must win over the D recommendation and must not be downgraded");
             }
             finally
             {
