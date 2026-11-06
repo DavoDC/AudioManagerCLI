@@ -1,12 +1,14 @@
-# AudioManager - Claude Context
+# AudioManagerCLI - Claude Context
 
 For implementation invariants, architecture detail, and code patterns: read `docs/References/DevContext.md`.
 
 ## What it does
 
-C# console app for managing a personal music library. Two modes:
+C# console app (CLI) for managing a personal music library. Two modes:
 - **Analysis** - full pipeline: regenerate AudioMirror XML (Reflector), parse metadata (Parser), generate stats report (Analyser), validate library (LibChecker), save report (ReportWriter), auto-commit AudioMirror if clean (AudioMirrorCommitter)
 - **Integrate** - scans `Downloads/NewMusic/`, fixes tags (TCMP, genres, parentheticals, featured artists), routes files into the library, logs routing decisions to XML for audit trail
+
+This repo is the engine only. Another program may call this exe; it that spawns this exe and reads `data/logs/tracks.json` and `data/logs/analysis-stats.json`; those JSON files and `config/tagfix-custom-rules.xml` are the shared contract, so changing their shape needs the UI repo updated too.
 
 ## Tech Stack
 
@@ -19,10 +21,6 @@ C# console app for managing a personal music library. Two modes:
 See "Project Structure" in `docs/References/DevContext.md` for the full tree.
 
 ## Build and Run
-
-### User Workflow (the launcher)
-
-**Primary:** run `.\scripts\the launcher` (windowless; opens the UI in your browser). The UI view dry-runs first, then real integration runs only after you explicitly confirm there. The UI is the only front door.
 
 ### Claude: Building the Program
 
@@ -44,30 +42,9 @@ Runs build + unit tests + routing manifest tests. All must pass before any C# co
 
 Legacy csproj format, csproj file registration, the `Any CPU`-only platform constraint, and which MSBuild to invoke directly: see "Build troubleshooting" in `docs/References/DevContext.md`.
 
-### Claude: UI dev live refresh - use the trigger, don't kill the process
-
-While `scripts\the launcher` runs, touch `a trigger file` instead of killing the window (reload defers while a job runs). Detail: `docs/References/architecture/the architecture doc` "Dev mode: live refresh".
-
-### Claude: driving and checking the UI
-
-Run block (`python -m tools` from `src/`, or with `PYTHONPATH=src`): `scripts\the launcher` (launch), `python -m the UI entry point --check|--status|--preflight|--stop|--launch` (every non-GET request needs the per-launch auth header header), `python -m a verify tool` (one PASS or FAIL line), `python -m capture`, `python -m the UI entry point --fixture NAME`. State endpoints, `window.__debug`, `UI check`, CLI parity: `docs/References/contracts/UI-State-Contract.md`. Fonts are bundled; no external URL may enter the UI. The UI must work on a phone too (David, 2026-11-06, replaces desktop-only), reached over VPN by David only: plan `docs/References/architecture/Remote-Access-Plan.md`; check 390px as well as desktop.
-
-**Verification ladder, cheapest first:** (1) unit test `python -m pytest the UI -q`; (2) `python -m a verify tool --fast` (pytest + UI check, about 20s); (3) `python -m the state command` for the DOM-state read (`/state.json`); (4) `python -m capture` for screenshots; (5) Chrome browser tool only for real interaction.
-
-### UI test suite speed
-
-Measured timings and the re-measure rule: "UI test suite speed" in `docs/References/DevContext.md`.
-
 ### Development priority
 
 Priorities for now; no-signal work picks Intake. Detail: "Development Priority" in `docs/References/DevContext.md`.
-
-### Claude: UI visual design - read the design doc first
-
-Before adding or changing any control, panel, table, or layout in `the UI`,
-read `the design doc` - palette, alignment/spacing rules, and when a view
-should be a table vs a card grid. Every control must reuse the CSS vars and
-patterns it defines rather than inventing new styling per tab.
 
 ## Key Paths (from Constants.cs)
 
@@ -97,13 +74,13 @@ Label "In AudioMirror" for XML paths and "In library" for MP3 paths, never mixed
 
 ## Workflow Note
 
-Integration is one big batch every 2-4 weeks: design UI and reports for batch-shaped data, not daily drips ("Integration Cadence" in `docs/References/DevContext.md`).
+Integration is one big batch every 2-4 weeks: design reports for batch-shaped data, not daily drips ("Integration Cadence" in `docs/References/DevContext.md`).
 
 For LibChecker-warning triage, post-integration validation mechanics, AudioMirror commit/regen policy, and audit-metadata rationale, see `docs/References/DevContext.md`.
 
 ## Critical Safety Rule
 
-**Only the user (David) runs real integration.** Real integration moves files from NewMusic into the library - user must manually trigger it from the UI (`scripts\the launcher`, view) for data safety and auditability.
+**Only the user (David) runs real integration.** Real integration moves files from NewMusic into the library - the user must trigger it themselves (CLI `integrate`, or the UI repo's view) for data safety and auditability.
 
 **Claude CAN run (read-only, no file moves):**
 - `analysis` (and `analysis --force-regen`) - reads library, generates report, no writes except AudioMirror XML regen
@@ -118,8 +95,6 @@ After the run: check `git -C AudioMirror diff HEAD`, confirm the diff looks corr
 **Claude CANNOT run:**
 - `integrate` (real) - moves files, irreversible
 
-**User workflow for real integration:** `.\scripts\the launcher`, UI view; it dry-runs first, then runs real integration only after David explicitly confirms.
-
 **Claude dev workflow for verifying fixes:** build, then run `integrate --dry-run --no-input` (skips interactive prompts) to see real output without blocking - see "Claude dev verify workflow" in `docs/References/DevContext.md` for the exact commands.
 
 ## Tag Fixer Constraint
@@ -132,18 +107,20 @@ TagFixer modifies ID3 tags and renames files to match library convention. Tag ch
 
 **Library Operations Constraint:** what the program can/cannot do to files already in the Audio library - see "Library Operations Constraint" in `docs/References/DevContext.md`.
 
-## UI Code-Change Escalation Boundary
+## C#/Python split
 
-**C#/Python split (decided 2026-09-06, do not relitigate):** keep the language split; never let Python write to the library, reimplement C# logic, or parse AudioMirror XML (2 read-only tag/art exceptions excepted). Reasoning: `docs/References/architecture/Architecture-Language-Decision.md`.
-
-**The guarded path:** the path from a decline click to the exe's argument list - `IntegrationState.accepted`/`declined`, the manifest-writing block in `run_execute`, and the construction of `args` - is the only thing standing between a declined file and it being moved for real. A change there is written unattended but reviewed before it ships.
-
-**Everything else in `the UI` is permissionless:** tests, display logic, status labels, styling, docs. Shrinking the guarded set never needs approval; growing it always does.
+Decided 2026-09-06, do not relitigate: the engine stays C#, and the UI (separate repo) never writes to the library, reimplements C# logic, or parses AudioMirror XML. Reasoning: `docs/References/architecture/Architecture-Language-Decision.md`.
 
 ## What the Test Suite Can and Cannot Prove
 
 See "What the test suite can and cannot prove" in `docs/References/DevContext.md` - a green `verify.bat` proves the logic, never that a real integration batch is safe to fire.
 
-## shared standard
+## Repo boundary - keep the split clean
 
-This UI follows a shared shared standard (checklist of WS ids); backlog items cite WS ids.
+This repo is C# only and complete on its own through the CLI; it is a public showcase.
+
+- Never add here: Python, browser UI code, UI design docs, launchers, or config for other tools. They belong in the other projects. Docs here describe the engine alone and name the UI only as a consumer of the seam.
+- The only seam is data: this exe writes `data/logs/tracks.json` and `data/logs/analysis-stats.json` and reads `config/tagfix-custom-rules.xml`. Changing the shape of any of them means updating consumer in the same working session.
+- If the UI needs a new engine capability, add a CLI flag or JSON field here and document it as seam. Never add UI-specific code paths.
+- Engine content (docs, tests, fixtures, build scripts) stays here. On every cleanup commit review `git diff --stat` for deletions and for moves into the UI repo.
+- Public repo: no private machine paths, no other people's names, no references to tooling or other locations.

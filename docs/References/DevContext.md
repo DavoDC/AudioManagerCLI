@@ -7,14 +7,14 @@ Implementation invariants, architecture notes, and code patterns. Read this when
 ## Project Structure
 
 ```
-AudioManager/
+AudioManagerCLI/
   CLAUDE.md
   README.md
   .gitignore
   config/                      # libchecker-exceptions.xml (edit without recompiling)
   docs/                        # planning files, design docs
   data/logs/                       # integration run logs (gitignored, written by MusicIntegrator)
-  scripts/                     # launchers and one-off utility scripts
+  scripts/dev/                 # build, test and verify scripts
   the UI                    # Python external client (python -m tools runs from src/, or PYTHONPATH=src)
   src/engine/                 # C# solution
     AudioManager.sln
@@ -37,9 +37,7 @@ AudioManager/
           ReportWriter.cs      # timestamped report output
           TagFixer.cs          # comprehensive tag cleanup (TCMP, genres, parentheticals, featured artists, file renames)
         Track/                 # data models: Track, TrackTag, TrackXML
-  data/reports/                # auto-generated timestamped reports (git-tracked back to 2023, written by C# app; only data/reports/with-issues/ is gitignored)
-    YYYY/
-      YYYY-MM-DD - AudioReport.txt
+  data/reports/                # written by the C# app at run time; local data, not tracked in this repo
 ```
 
 ---
@@ -58,11 +56,11 @@ These are invariants from rules/Music-Library-Rules.md. Violating them causes fi
 
 ```
 & "<home>\GitHubRepos\AudioManagerCLI\scripts\dev\build.bat" --no-pause
-& "<home>\GitHubRepos\AudioManager\src\engine\AudioManager\bin\Release\AudioManager.exe" integrate --dry-run --no-input
+& "<home>\GitHubRepos\AudioManagerCLI\src\engine\AudioManager\bin\Release\AudioManager.exe" integrate --dry-run --no-input
 ```
 `--no-input` skips all interactive prompts. Run after any routing or tag fix to see real output without blocking.
 
-**verify.bat prerequisites (ARCH-3).** `scripts\dev\verify.bat` checks MSBuild (vswhere), python on PATH, pytest importable, and the built `AudioManager.Tests.exe` before running anything. A missing tool prints a `[PREREQ] ...` line and exits 3; a real test failure exits 1, so the two are never confused.
+**verify.bat prerequisites (ARCH-3).** `scripts\dev\verify.bat` checks MSBuild (vswhere) and the built `AudioManager.Tests.exe` before running anything. A missing tool prints a `[PREREQ] ...` line and exits 3; a real test failure exits 1, so the two are never confused.
 
 **No CI workflow (ARCH-3).** There is no `.github/workflows`. Claude never pushes, so a workflow could not be run to prove it green before David pushed it, and an unproven CI file is worse than none. The build also needs .NET Framework 4.8 and the NuGet-restored `src\engine\packages` (untracked), and the UI capture step needs a browser. Revisit when David wants CI: a windows-latest job running nuget restore, msbuild, `AudioManager.Tests.exe --verify`, and `python -m a verify tool --fast`.
 
@@ -298,14 +296,6 @@ Treat it like you treat the XML files: version-control it, don't relegate it to 
 
 **Never use string-search of stdout to gate decisions.** Example: detecting "LibChecker: Clean" by grepping Program.cs's captured output. This couples output format to control logic - if LibChecker's message changes, the detection breaks. Better: return explicit status codes or enums from modules, not relying on stdout parsing for branching logic.
 
-## UI Dev live refresh: Trigger Directory Not Guaranteed to Exist
-
-**`a trigger file` needs its parent `.cache` directory created before the first touch on a fresh checkout.** Nothing creates that directory automatically, so on a clone with no prior dev-mode run, touching the trigger file directly fails with a path-not-found error. Create the directory first (`New-Item -ItemType Directory -Force`), then create/touch the trigger file.
-
-## other tooling import: Multiple sys.path.insert Sites
-
-**The `the UI` sys.path.insert into other tooling's `src/` is not the only one.** `the UI` has its own independent `sys.path.insert` for the same other-repo. Confirmed during the 2026-09-02 rename: fixing only the main module's insert path left the test file broken until a second, separate fix. Any future rename/path change on the other tooling side must grep this repo for every `sys.path.insert` occurrence, not just the obvious consumer module.
-
 ## Library Operations Constraint (moved from CLAUDE.md, 2026-09-05, to keep CLAUDE.md under its line budget)
 
 **In the Audio library, the program can ONLY:**
@@ -338,9 +328,3 @@ David's actual integration cadence is one big batch every 2-4 weeks, not daily. 
 ## Development Priority (moved from CLAUDE.md 2026-10-12)
 
 Priorities for now (confirmed 2026-09-05). No-signal work picks Intake first. See the backlog priority note.
-
----
-
-### UI test suite speed
-
-Measured 2026-11-05: `python -m pytest consumer -q --durations=20` runs 621 tests in about 32 s before the speed pass (two runs: 32.6 s and 32.0 s; run-to-run noise is 1 to 2 s on this machine) and in about 30 to 31 s after it (serial runs 30.1 s and 31.7 s, test count still 621). Fixes: the not-running stop test stubs the powershell listener fallback (commit 6f2051cc, 1.04 s to 0.03 s, same assertions), and one session-scoped live UI server in `the UI` now serves both the static-refusal test and the `--check` provenance test (commit 26141f21, the pair fell from about 4.3 s to about 2.9 s). Still slow, on purpose or by constraint: test_preflight `test_stop_ends_a_real_listener_and_logs` (4.3 to 5.5 s, because `launcher.stop` waits 2 s before its forced kill); the two subprocess not-running CLI tests `test_cli_stop_flag_when_nothing_runs` and `test_status_verb_exit_codes` (about 1.1 s each, the powershell fallback runs in a child process that cannot be stubbed); test_flashcheck `test_unreachable_url_exits_2_before_chrome` (2.0 s, every refused loopback connect costs 2 s on this Windows machine, so the port choice does not matter); and the Chrome paint in test_demo_mirror (about 3 s). Earlier history: 2026-10-12 measure was 482 tests in about 14 s; no xdist needed; test_baseline `test_committed_baselines_match_the_fixture_servers` fell from 3.1 s to about 1.7 s because `baseline.main` boots its fixture servers in parallel. The UI check step of `python -m a verify tool` fell from 34 s to 2 s because fixture servers are now addressed as 127.0.0.1 (the name localhost cost 2 s per request on Windows); the Chrome capture step still takes about 98 s and is the bulk of verify. Re-measure with `--durations=20` if the suite passes 2 minutes.

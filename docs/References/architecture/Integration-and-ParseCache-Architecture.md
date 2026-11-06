@@ -6,7 +6,7 @@ Split from `DevContext.md` (doc maintenance pass). Stage 3 integration architect
 
 ## Stage 3 Integration Architecture
 
-**User workflow:** See Music-Discovery-Workflow.md. This section explains how it works for developers.
+**User workflow:** See the the workflow doc. This section explains how it works for developers.
 
 **The pipeline has two conceptually separate concerns:**
 

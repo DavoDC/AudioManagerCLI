@@ -302,9 +302,6 @@ paket-files/
 # CodeRush personal settings
 .cr/personal
 
-# Python Tools for Visual Studio (PTVS)
-__pycache__/
-*.pyc
 
 # Cake - Uncomment if you are using it
 # tools/**
@@ -350,7 +347,7 @@ MigrationBackup/
 .ionide/
 
 # AudioManager - generated reports
-data/reports/with-issues/
+data/reports/
 
 # Aider AI files
 .aider*
@@ -359,11 +356,7 @@ data/reports/with-issues/
 # not per-repo - never commit local config in this repo.
 .claude/
 
-# Python test cache
-.pytest_cache/
 
-# Headless capture output (the UI)
-data/captures/
 
 # Runtime logs (Constants.LogsPath, the UI LOGS_DIR). Only .gitkeep is tracked.
 data/logs/*

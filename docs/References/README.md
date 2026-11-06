@@ -5,11 +5,9 @@ Long-form reference material for AudioManager, grouped by folder. Start with Dev
 ## Root
 
 - [DevContext.md](DevContext.md) - implementation invariants, project structure and code patterns for routing, tags and integration.
-- [Music-Discovery-Workflow.md](Music-Discovery-Workflow.md) - the user-facing end-to-end process from Streaming discovery to device sync.
 
 ## architecture/
 
-- [architecture/the architecture doc](architecture/the architecture doc) - design vision, stack decisions and third-party libraries for the UI layer.
 - [architecture/Integration-and-ParseCache-Architecture.md](architecture/Integration-and-ParseCache-Architecture.md) - stage 3 integration and ParseCache internals for developers.
 - [architecture/Architecture-Language-Decision.md](architecture/Architecture-Language-Decision.md) - the decided polyglot split between C# and Python and why it stays.
 - [architecture/Architecture-Course.html](architecture/Architecture-Course.html) - a standalone course page on the architecture.
@@ -18,7 +16,6 @@ Long-form reference material for AudioManager, grouped by folder. Start with Dev
 
 - [contracts/AnalysisJson-Format.md](contracts/AnalysisJson-Format.md) - the JSON data contract written by `analysis --json-output`.
 - [contracts/AudioMirror-Format.md](contracts/AudioMirror-Format.md) - the layout and meaning of AudioMirror XML files.
-- [contracts/UI-State-Contract.md](contracts/UI-State-Contract.md) - the state endpoints the running UI exposes for verification.
 
 ## rules/
 
@@ -30,5 +27,4 @@ Long-form reference material for AudioManager, grouped by folder. Start with Dev
 
 - [design/Execution-Record-Contract-Research.md](design/Execution-Record-Contract-Research.md) - research findings behind the execution-record contract.
 - [design/Execution-Record-Contract-Design.md](design/Execution-Record-Contract-Design.md) - the settled execution-record contract design.
-- [design/Execution-Record-Fallback-Removal-Design.md](design/Execution-Record-Fallback-Removal-Design.md) - the design that removes the console-output fallback.
 - [design/MusicIntegrator-Decomposition-Design.md](design/MusicIntegrator-Decomposition-Design.md) - a proposal to split MusicIntegrator into smaller pieces.

@@ -1,11 +1,11 @@
 # Music Library Rules
 
-**Reference guide.** For the complete end-to-end workflow (Streaming discovery → tagging → device sync), see **Music-Discovery-Workflow.md**.
+**Reference guide.** For the complete end-to-end workflow (Streaming discovery → tagging → device sync), see the the workflow doc.
 
 ## Paths
 - Library: `<home>\Audio\`
 - New music inbox: `<home>\Downloads\NewMusic\`
-- AudioManager tool: `<home>\GitHubRepos\AudioManager\` (compiled exe in `bin/Release/`)
+- AudioManager tool: `<home>\GitHubRepos\AudioManagerCLI\` (compiled exe in `bin/Release/`)
 
 ## Library Structure
 ```
