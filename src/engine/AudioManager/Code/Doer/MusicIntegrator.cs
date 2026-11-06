@@ -61,6 +61,9 @@ namespace AudioManager
         // Commit deletes the bak on success; rollback restores it on any skip; leftovers roll back at end.
         private Dictionary<string, string> _lStaged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, string> _lStagedBySource = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Dry run only: library paths an L-decision would replace (not blocked in 3a). Their copy is staged
+        // aside in the real run, so 3b treats their destination as free, as the real run does.
+        private HashSet<string> _dryReplacedLibPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 
         /// <summary>Per-file integration result for the log and JSON output.</summary>
@@ -147,7 +150,7 @@ namespace AudioManager
             public char RecommendedKey; // 'D', 'L', or '\0'
             public string OptionsLine;
             public char Decision; // set by PresentDuplicateAndDecide: 'D', 'L', 'K', 'Q'
-            public bool SkipRouting; // true for D-decided and dry-run L-decided duplicates
+            public bool SkipRouting; // true for D-decided duplicates and L-decided ones whose replacement is blocked (3a); dry-run L routes in 3b
         }
 
         /// <summary>A file pre-scanned from NewMusic with its cleaned tags and duplicate data.</summary>
@@ -456,9 +459,8 @@ namespace AudioManager
                             Console.WriteLine($"[DRY RUN] Would route to: {lRelDest}");
                             entry.Status = "would-replace";
                             entry.Detail = "duplicate (would replace)";
-                            logEntries.Add(entry); skippedCount++;
-                            Console.WriteLine();
-                            dup.SkipRouting = true;
+                            _dryReplacedLibPaths.Add(dup.LibraryFilePath);
+                            // SkipRouting stays false: 3b routes the new file and logs the would-move, as the real run does
                         }
                     }
                     else
@@ -549,8 +551,8 @@ namespace AudioManager
         }
 
         /// <summary>
-        /// Step 3b: routes all files. D-decided and dry-run L-decided duplicates were already handled
-        /// in ExecuteDuplicateDecisions (3a); real-mode L files and K files fall through to routing here.
+        /// Step 3b: routes all files. D-decided duplicates and blocked L-decided duplicates were already handled
+        /// in ExecuteDuplicateDecisions (3a); unblocked L files (real and dry-run) and K files fall through to routing here.
         /// In dry-run mode, routing output blocks are collected and returned for the caller to print
         /// sorted by destination path; otherwise returns null.
         /// </summary>
@@ -634,7 +636,8 @@ namespace AudioManager
                         ? $" [{track.Album}]" : "";
                     string routeNewNote = isNewFolder ? " *" : "";
 
-                    if (IsDestBlocked(destPath, null, plannedDests))
+                    // Dry run: a destination occupied only by the library copy this run replaces counts as free (staged in the real run)
+                    if (IsDestBlocked(destPath, dryRun && _dryReplacedLibPaths.Contains(destPath) ? destPath : null, plannedDests))
                     {
                         Console.WriteLine(FormatSkipLine(track.Artists, track.Title));
                         Console.WriteLine();

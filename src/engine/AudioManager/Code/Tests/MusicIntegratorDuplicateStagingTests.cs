@@ -437,10 +437,8 @@ namespace AudioManager
             }
         }
 
-        // BUG PROBE, deliberately private so the runner does not discover it (it fails today, see report).
-        // A dry-run L with a free destination is counted as skipped in 3a, but the real run routes the same
-        // replacement in 3b and counts it as moved. Make it public again only once the product is fixed.
-        private static void DryRun_ReplaceWithFreeDestination_NotCountedAsSkipped()
+        // Dry-run L with a free destination is not counted as skipped in 3a; 3b counts it as moved, as the real run does.
+        public static void DryRun_ReplaceWithFreeDestination_NotCountedAsSkipped()
         {
             string lib = RoutingFixtures.CreateLibraryFixture();
             string newMusic = NewMusicDir();
