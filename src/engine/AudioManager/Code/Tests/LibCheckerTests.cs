@@ -406,13 +406,15 @@ namespace AudioManager
 
         // ---- CheckAlbumCoverDimensions (LIB-3) ----
 
-        public static void LibChecker_LowResCover_IsDirty()
+        public static void LibChecker_LowResCover_IsStillClean()
         {
+            // Report-only (David 2026-11-06): low-res covers are listed but never make the library dirty.
             var tag = new TrackTag("\\Artists\\Known Artist\\Singles\\Known Artist - Song A.xml",
                 "Song A", "Known Artist", "Test Album", "2020", "1", "Hip-Hop",
                 "00:03:00.0000000", "1", "True", "500", "500");
             var checker = new LibChecker(new List<TrackTag> { tag });
-            Assert.True(!checker.IsClean, "500x500 cover art should be dirty (below 800px standard)");
+            Assert.True(checker.IsClean, "500x500 cover art is report-only and must not make the library dirty");
+            Assert.True(checker.LowResCovers.Count == 1, "500x500 cover art must still be collected into LowResCovers");
         }
 
         public static void LibChecker_ExactThresholdCover_IsClean()
@@ -424,14 +426,15 @@ namespace AudioManager
             Assert.True(checker.IsClean, "800x800 cover art (exactly at threshold) should be clean");
         }
 
-        public static void LibChecker_NonSquareLowRes_IsDirty()
+        public static void LibChecker_NonSquareLowRes_IsStillClean()
         {
-            // min(600, 1200) = 600 < 800 - dirty even if one dimension is large
+            // min(600, 1200) = 600 < 800 - listed as low-res, but report-only (David 2026-11-06), so still clean
             var tag = new TrackTag("\\Artists\\Known Artist\\Singles\\Known Artist - Song A.xml",
                 "Song A", "Known Artist", "Test Album", "2020", "1", "Hip-Hop",
                 "00:03:00.0000000", "1", "True", "600", "1200");
             var checker = new LibChecker(new List<TrackTag> { tag });
-            Assert.True(!checker.IsClean, "600x1200 cover art should be dirty (min dimension 600 is below 800)");
+            Assert.True(checker.IsClean, "600x1200 cover art is report-only and must not make the library dirty");
+            Assert.True(checker.LowResCovers.Count == 1, "600x1200 cover art must still be listed in LowResCovers");
         }
 
         public static void LibChecker_LowResCovers_ConsoleHasOneSummaryLine_ReportHasFullList()

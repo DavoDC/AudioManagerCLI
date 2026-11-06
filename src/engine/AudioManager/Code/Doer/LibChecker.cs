@@ -68,7 +68,7 @@ namespace AudioManager
                 // Check album cover counts
                 totalTagHits += CheckAlbumCoverCount(tag);
 
-                // Check album cover dimensions (must be >= 800px); summarised after the loop (LIB-3)
+                // Report album cover dimensions below 800px (report-only, never dirty); summarised after the loop (LIB-3)
                 totalTagHits += CheckAlbumCoverDimensions(tag);
 
                 // Check compilation status
@@ -274,7 +274,7 @@ namespace AudioManager
         }
 
         /// <summary>
-        /// Warns if album cover dimensions are below the library standard (800px minimum).
+        /// Reports low-res covers; report-only, never counts toward IsClean (David 2026-11-06).
         /// Skips tracks with no cover (caught by count check) or unrecognised-format covers.
         /// </summary>
         private int CheckAlbumCoverDimensions(TrackTag tag)
@@ -287,7 +287,7 @@ namespace AudioManager
                 if (w > 0 && h > 0 && Math.Min(w, h) < 800)
                 {
                     lowResCovers.Add($"{tag.RelPath}: {w}x{h}");
-                    return 1;
+                    return 0;
                 }
             }
 
