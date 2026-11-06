@@ -8,12 +8,12 @@ using TagList = System.Collections.Generic.List<AudioManager.Code.Modules.TrackT
 namespace AudioManager
 {
     /// <summary>
-    /// Emits the full per-track array as JSON for the UI's library view.
+    /// Emits the full per-track array as JSON for a client's library view.
     ///
-    /// Companion to StatsJson. Together they let the UI stay 100% decoupled from the raw
+    /// Companion to StatsJson. Together they let a client stay decoupled from the raw
     /// AudioMirror XML: StatsJson gives aggregate statistics, TracksJson gives the per-track rows.
-    /// The UI reads these two files and NEVER parses XML itself - so there is exactly one XML parser
-    /// (the C# Parser) and zero risk of a second, drifting implementation in Python.
+    /// A client reads these two files and never parses XML itself - so there is exactly one XML parser
+    /// (the C# Parser) and zero risk of a second, drifting implementation in another language.
     ///
     /// Data contract: see docs/References/contracts/AnalysisJson-Format.md (Tracks section). Bump SchemaVersion
     /// on any breaking change.
@@ -23,7 +23,7 @@ namespace AudioManager
         /// <summary>Contract version. Increment when a field is removed or its meaning changes.</summary>
         public const int SchemaVersion = 1;
 
-        /// <summary>Fixed output filename (latest run wins) so the UI reads a deterministic path.</summary>
+        /// <summary>Fixed output filename (latest run wins) so a client reads a deterministic path.</summary>
         public const string OutputFileName = "tracks.json";
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace AudioManager
         /// Reconstructs the real MP3 path from a mirror-relative RelPath. The AudioMirror mirrors the
         /// Audio library folder 1:1, so the MP3 lives at AudioFolderPath + RelPath with .xml -> .mp3.
         /// (For the rare track whose filename was sanitised into a different XML name, this path won't
-        /// resolve on disk; the UI treats that as "no extractable art" and shows a placeholder.)
+        /// resolve on disk; a client treats that as "no extractable art" and shows a placeholder.)
         /// </summary>
         private static string ReconstructMp3Path(string relPath)
         {

@@ -294,7 +294,7 @@ namespace AudioManager
         }
 
         // DEFERRED: LibChecker semicolon check is commented out until the ~436 legacy library files
-        // are remediated via Mp3tag (the backlog TIER 1 "Rename malformed multi-artist library files").
+        // are remediated via Mp3tag (rename malformed multi-artist library files first).
         // Re-enable by: (1) restoring the check in LibChecker.cs CheckFilename(), (2) making this public.
         private static void LibChecker_MultiArtistFilenameMissingSemicolon_IsDirty_DEFERRED()
         {

@@ -6,8 +6,7 @@ using System.Linq;
 namespace AudioManager
 {
     /// <summary>
-    /// Coverage for the execution-record contract (docs/References/design/Execution-Record-Contract-
-    /// Design.md): BuildJson's new schemaVersion/recordType/dryRun/generatedAt/confidence keys,
+    /// Coverage for the execution-record contract: BuildJson's new schemaVersion/recordType/dryRun/generatedAt/confidence keys,
     /// the per-file "detail" field, and the JStr control-character escaping fix that ships in the
     /// same pass (section 6 of the design doc). Pure string assertions against BuildJson/JStr - no
     /// filesystem, no console interaction.

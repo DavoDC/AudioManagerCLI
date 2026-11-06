@@ -10,23 +10,22 @@ using TagList = System.Collections.Generic.List<AudioManager.Code.Modules.TrackT
 namespace AudioManager
 {
     /// <summary>
-    /// Emits the full library statistics as a single structured JSON document for the UI.
+    /// Emits the full library statistics as a single structured JSON document for a client.
     ///
-    /// Why this exists: the UI's Statistics/Library tabs need every number the text
+    /// Why this exists: a client's statistics and library views need every number the text
     /// AudioReport.md contains, but parsing markdown is brittle. Rather than reimplement
     /// all the distribution/age/cover logic in Python (which would silently drift from the
     /// C# Analyser over time), this exporter reuses the SAME StatList primitives the text
     /// report uses, so the JSON and the report can never disagree.
     ///
-    /// Data contract: see docs/References/contracts/AnalysisJson-Format.md and the "analysis --json-output"
-    /// section of the UI design notes. Bump SchemaVersion on any breaking change.
+    /// Data contract: see docs/References/contracts/AnalysisJson-Format.md. Bump SchemaVersion on any breaking change.
     /// </summary>
     internal static class StatsJson
     {
         /// <summary>Contract version. Increment when a field is removed or its meaning changes.</summary>
         public const int SchemaVersion = 1;
 
-        /// <summary>Fixed output filename (latest run wins) so the UI reads a deterministic path.</summary>
+        /// <summary>Fixed output filename (latest run wins) so a client reads a deterministic path.</summary>
         public const string OutputFileName = "analysis-stats.json";
 
         /// <summary>

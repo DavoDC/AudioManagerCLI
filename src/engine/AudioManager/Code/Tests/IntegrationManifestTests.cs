@@ -4,7 +4,7 @@ namespace AudioManager
 {
     /// <summary>
     /// Tests for the selective-integration manifest (integrate --manifest).
-    /// Locks the parse contract the UI writes and the two-way filename matching
+    /// Locks the parse contract a client writes and the two-way filename matching
     /// (raw dry-run name OR canonical TagFixer rename) that makes manifests
     /// survive TagFixer renames between the dry run and the real run.
     /// </summary>
@@ -87,7 +87,7 @@ namespace AudioManager
             Assert.True(error == null && m.Entries.Count == 1, "non-string values skipped without error");
         }
 
-        // ---------------------------------------------- dupResolution (UI review-stage override)
+        // ---------------------------------------------- dupResolution (review-stage override)
 
         private const string DupJson = @"[
           {""filename"": ""Kendrick Lamar - HUMBLE.mp3"", ""artist"": ""Kendrick Lamar"", ""title"": ""HUMBLE."",

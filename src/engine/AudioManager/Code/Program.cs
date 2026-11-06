@@ -140,7 +140,7 @@ namespace AudioManager
                         // Save report (reports with issues go to gitignored folder to avoid cluttering diffs)
                         ReportWriter.Save(captureWriter.ToString() + lc.LowResCoverReport, libCheckerClean);
 
-                        // Emit structured stats JSON for the UI (opt-in via --json-output).
+                        // Emit structured stats JSON for a client (opt-in via --json-output).
                         // Reuses the same StatList primitives the report uses, so JSON can't drift from the report.
                         if (jsonOutput)
                         {

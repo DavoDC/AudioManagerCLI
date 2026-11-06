@@ -5,7 +5,7 @@ using System.Text;
 namespace AudioManager
 {
     /// <summary>
-    /// Tests for AtomicFile.WriteAllText: the JSON outputs read by the UI must never be torn or empty,
+    /// Tests for AtomicFile.WriteAllText: the JSON outputs read by a client must never be torn or empty,
     /// so content goes to a sibling .tmp file and then replaces the destination.
     /// </summary>
     internal static class AtomicFileTests

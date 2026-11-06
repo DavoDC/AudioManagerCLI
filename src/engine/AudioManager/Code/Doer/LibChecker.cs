@@ -142,7 +142,7 @@ namespace AudioManager
             // where artists were concatenated without ";": "T.I.Cee Lo Green", "UsherAlicia Keys", etc.).
             // Enabling the check would block all integration until those files are fixed via Mp3tag.
             // Tests for the desired behavior exist (LibChecker_MultiArtistFilename*).
-            // Re-enable after bulk filename remediation: the backlog TIER 1 "Rename malformed multi-artist files".
+            // Re-enable after bulk filename remediation (rename malformed multi-artist files first).
 
             // Check filename contains separator
             totalHits += CheckFilenameForStr(filenameS, " - ");

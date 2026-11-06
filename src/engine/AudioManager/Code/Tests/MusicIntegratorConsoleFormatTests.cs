@@ -1,9 +1,8 @@
 namespace AudioManager
 {
     /// <summary>
-    /// Pins the exact console line formats the UI parses (the UI
-    /// _update_exec_status, the UI execution_record_path). If one of these fails, the
-    /// UI parsers and the UI must change in the same commit.
+    /// Pins the exact console line formats a client parses. If one of these fails, the
+    /// client-side parsers must change in the same commit.
     /// </summary>
     internal static class MusicIntegratorConsoleFormatTests
     {

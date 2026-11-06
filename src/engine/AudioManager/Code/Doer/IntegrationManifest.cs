@@ -8,7 +8,7 @@ namespace AudioManager
 {
     /// <summary>
     /// Manifest for selective integration (integrate --manifest &lt;accepted.json&gt;).
-    /// The UI's review queue writes a JSON array of accepted tracks:
+    /// A client's review queue writes a JSON array of accepted tracks:
     ///   [ {"filename": "...", "artist": "...", "title": "..."}, ... ]
     /// and the integrator moves ONLY matching NewMusic files; everything else is
     /// left untouched in NewMusic (no moves, no deletes).
@@ -26,10 +26,9 @@ namespace AudioManager
             public string Filename;
             public string Artist;
             public string Title;
-            // UI review-stage duplicate resolution ("D"/"L"/"K"), if the user changed it away
+            // Review-stage duplicate resolution ("D"/"L"/"K"), if the user changed it away
             // from the exe's own recommendation. Null/absent means "unresolved" - the exe falls
-            // back to its recommendation exactly as it always has. See "Duplicate-resolution UI"
-            // in the backlog.
+            // back to its recommendation exactly as it always has.
             public string DupResolution;
         }
 
@@ -133,7 +132,7 @@ namespace AudioManager
             Entries.Where(e => !matchedEntries.Contains(e)).ToList();
 
         /// <summary>
-        /// Looks up a UI-resolved duplicate decision ('D'/'L'/'K') for a scanned file, tried by
+        /// Looks up a review-resolved duplicate decision ('D'/'L'/'K') for a scanned file, tried by
         /// exact filename first (same candidate set Matches() uses), then falling back to the
         /// canonical TagFixer-rename form built from artist+title (so it survives a real-run
         /// rename same as filename matching already does). Returns '\0' when unresolved or when

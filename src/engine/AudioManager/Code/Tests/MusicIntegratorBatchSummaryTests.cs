@@ -4,7 +4,7 @@ namespace AudioManager
 {
     /// <summary>
     /// Coverage for the batch-level "summary" block MusicIntegrator.BuildJson emits alongside the
-    /// per-file rows (the backlog "Scan-ahead batch context is invisible"): the route
+    /// per-file rows: the route
     /// distribution, the Misc auto-migration counts, the detected compilation albums, and the
     /// per-entry compilationAlbum flag. Pure string assertions against BuildJson - no filesystem,
     /// no console interaction.
@@ -39,7 +39,7 @@ namespace AudioManager
         public static void BuildJson_RouteDistributionSkipsEntriesWithNoDestination()
         {
             // Skipped and errored entries never get a destination - they must not pollute the
-            // distribution with an "Unknown" bucket the UI would then have to render.
+            // distribution with an "Unknown" bucket a client would then have to render.
             var entries = new List<MusicIntegrator.LogEntry>
             {
                 Entry("a.mp3", "Artists\\Jay-Z\\a.mp3"),
@@ -64,7 +64,7 @@ namespace AudioManager
 
         public static void BuildJson_NoSummary_EmitsEmptyBatchContextNotMissingKeys()
         {
-            // The contract shape must be constant so the UI never has to branch on key presence.
+            // The contract shape must be constant so a client never has to branch on key presence.
             string json = MusicIntegrator.BuildJson(new List<MusicIntegrator.LogEntry>());
             Assert.True(json.Contains("\"miscAutoMigrations\": []"), "empty migrations list still emitted");
             Assert.True(json.Contains("\"miscAutoMigrationTotal\": 0"), "zero total still emitted");

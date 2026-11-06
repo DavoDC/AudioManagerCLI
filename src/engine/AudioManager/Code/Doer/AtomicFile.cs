@@ -5,7 +5,7 @@ using System.Text;
 namespace AudioManager
 {
     /// <summary>
-    /// Atomic text writes for files the UI reads (analysis JSON, routing and execution JSON).
+    /// Atomic text writes for files a client reads (analysis JSON, routing and execution JSON).
     ///
     /// Why: File.WriteAllText straight to the destination lets a crash or a concurrent reader see a
     /// torn or empty file. The text goes to a sibling "path.tmp" first, then replaces the destination

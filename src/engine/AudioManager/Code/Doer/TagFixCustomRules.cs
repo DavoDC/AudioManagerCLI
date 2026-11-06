@@ -69,7 +69,7 @@ namespace AudioManager
 
         /// <summary>
         /// Change string in the same shape TagFixer uses for built-in fixes, suffixed with the
-        /// custom-rule marker so a UI layer can render user rules differently.
+        /// custom-rule marker so a presentation layer can render user rules differently.
         /// </summary>
         public string Describe()
         {

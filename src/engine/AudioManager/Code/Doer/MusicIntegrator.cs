@@ -18,7 +18,7 @@ namespace AudioManager
     /// </summary>
     internal class MusicIntegrator : Doer
     {
-        // Console line formats the UI parses (the UI, the UI).
+        // Console line formats a client parses (see the external contract tests).
         // Kept as functions so Tests/MusicIntegratorConsoleFormatTests.cs pins the exact text.
         internal static string FormatAutoLine(string artists, string title, string albumSuffix) =>
             $"[AUTO] {artists} - {title}{albumSuffix}";
@@ -45,7 +45,7 @@ namespace AudioManager
         private HashSet<string> _compilationAlbums;
         private string _libraryPath;
         // Selective-integration manifest, if any - consulted in PresentDuplicateAndDecide's
-        // noInput branch so a UI review-stage duplicate resolution overrides the exe's own
+        // noInput branch so a review-stage duplicate resolution overrides the exe's own
         // recommendation on a real run. Never used to weaken the accept/decline partition.
         private IntegrationManifest _manifest;
         // Raw tag data cached from RunScanAhead so PreScanFiles avoids a second TagLib read per file
@@ -101,7 +101,7 @@ namespace AudioManager
 
         /// <summary>
         /// Structured post-run integrity data for a real run's execution record (section 2.2 of
-        /// docs/References/design/Execution-Record-Contract-Design.md). Populated by PrintConfidenceReport
+        /// the execution record contract). Populated by PrintConfidenceReport
         /// from the exact same locals it already prints from, so the JSON and the console text can
         /// never disagree. Null on a dry run - the sanity check never runs there. Data only, no
         /// behaviour.
@@ -122,7 +122,7 @@ namespace AudioManager
 
         /// <summary>
         /// Batch-level scan-ahead context that is not derivable from any single LogEntry.
-        /// Carried into BuildJson so the UI can show the same batch picture the CLI prints:
+        /// Carried into BuildJson so a client can show the same batch picture the CLI prints:
         /// which artists get existing Misc songs auto-migrated (files ALREADY in the library
         /// that this run will move), and which albums were detected as batch compilations.
         /// Route distribution is NOT held here - BuildJson derives it from the entries.
@@ -926,8 +926,8 @@ namespace AudioManager
 
             if (!dryRun)
             {
-                // Unconditional on a real run - not gated on jsonOutput. This keeps the UI's
-                // `args` untouched (docs/References/design/Execution-Record-Contract-Design.md section 1):
+                // Unconditional on a real run - not gated on jsonOutput. This keeps a client's
+                // `args` untouched (execution record contract, section 1):
                 // the exe emits the execution record on its own, no new CLI flag needed.
                 // Known scope limit (accepted, not "fixed" here): RunMiscMigration/CleanupNewMusicFolder
                 // below move library files that are not in logEntries, so the record does not cover them.
@@ -1097,11 +1097,11 @@ namespace AudioManager
         /// compilationAlbums}, "confidence": null | {countCheck, sanityCheck, newFolders,
         /// errorCount, errors}, "files": [ {filename, artist, title, album, destination, reason,
         /// isNewFolder, status, detail, inBatchDuplicate, compilationAlbum, libraryDuplicate + dup*
-        /// fields, tagChanges[]} ]}. See docs/References/design/Execution-Record-Contract-Design.md.
+        /// fields, tagChanges[]} ]}.
         /// </summary>
         /// <summary>
-        /// Builds the routing/execution JSON contract text (pure, no I/O) - see the UI's
-        /// docstring for the external contract. Internal + static so tests can assert on its
+        /// Builds the routing/execution JSON contract text (pure, no I/O) - see the external contract
+        /// for the client's routing parser. Internal + static so tests can assert on its
         /// output directly, same pattern as TracksJson.Build. `dryRun` defaults to true and
         /// `confidence` to null so every pre-existing dry-run test call site keeps compiling
         /// unchanged; a real run passes dryRun: false and a populated ConfidenceRecord.
@@ -1133,7 +1133,7 @@ namespace AudioManager
                 sb.AppendLine($"    \"inBatchDuplicate\": {(e.InBatchDuplicate ? "true" : "false")},");
                 sb.AppendLine($"    \"compilationAlbum\": {(e.CompilationAlbum ? "true" : "false")},");
                 // Library-duplicate block - distinct from inBatchDuplicate above, whose field name
-                // and meaning are unchanged. See the backlog "Duplicate-resolution UI".
+                // and meaning are unchanged.
                 sb.AppendLine($"    \"libraryDuplicate\": {(e.LibraryDuplicate ? "true" : "false")},");
                 sb.AppendLine($"    \"dupLibraryPath\": {JStr(e.DupLibraryPath)},");
                 sb.AppendLine($"    \"dupLibraryTrack\": {JStr(e.DupLibraryTrack)},");
@@ -1155,7 +1155,7 @@ namespace AudioManager
 
         /// <summary>
         /// Appends the batch-level "summary" block: route distribution (derived from the entries'
-        /// own destinations, so it can never disagree with the per-file rows the UI renders),
+        /// own destinations, so it can never disagree with the per-file rows a client renders),
         /// the Misc auto-migration counts, and the detected compilation albums. A null summary
         /// still emits the block with empty collections so the contract shape is constant.
         /// </summary>
@@ -1193,7 +1193,7 @@ namespace AudioManager
         /// <summary>
         /// Appends the "confidence" block: the literal null on a dry run (the sanity check never
         /// runs there), otherwise the object built from a populated ConfidenceRecord. See section
-        /// 2.2 of docs/References/design/Execution-Record-Contract-Design.md for the exact shape.
+        /// 2.2 of the execution record contract for the exact shape.
         /// </summary>
         private static void AppendConfidenceBlock(StringBuilder sb, ConfidenceRecord confidence)
         {
@@ -1271,7 +1271,7 @@ namespace AudioManager
         /// <summary>
         /// Writes a real run's execution record to data/logs/execution-{timestamp}.json - the durable,
         /// structured account of what actually moved, distinct from the dry run's routing-*.json
-        /// (see docs/References/design/Execution-Record-Contract-Design.md section 2). Unconditional on a
+        /// (see the execution record contract, section 2). Unconditional on a
         /// real run, not gated on jsonOutput. A failed write must never fail an integration run that
         /// already moved files, so failures are caught and warned, never thrown.
         ///
@@ -1279,11 +1279,11 @@ namespace AudioManager
         /// giving up (docs/References/design/Execution-Record-Fallback-Removal-Design.md section 4.9) - the
         /// dominant real-world cause of the primary write failing is transient (antivirus/indexer
         /// holding the just-created file), and a retry to a different filename costs nothing on the
-        /// success path. A retry success prints the SAME "EXECUTION JSON:" marker the UI matches on,
-        /// so no app-side change is needed to recognise it. Total failure is promoted from [WARN] to
-        /// [ERROR] and reworded, since the UI now treats an absent record as a hard verification
+        /// success path. A retry success prints the SAME "EXECUTION JSON:" marker a client matches on,
+        /// so no client-side change is needed to recognise it. Total failure is promoted from [WARN] to
+        /// [ERROR] and reworded, since a client now treats an absent record as a hard verification
         /// failure rather than a soft degrade - this line is for a human reading
-        /// the UI, not parsed by the UI.
+        /// the run logs folder, not parsed by a client.
         /// </summary>
         private void WriteExecutionRecord(List<LogEntry> entries, ConfidenceRecord confidence)
         {
@@ -1337,8 +1337,7 @@ namespace AudioManager
         /// four-hex-digit escape for any other character below U+0020. \r is emitted as \\r rather
         /// than silently stripped - a
         /// malformed record from an unescaped control character (e.g. in a raw exception message
-        /// landing in "detail") must never be produced. See
-        /// docs/References/design/Execution-Record-Contract-Design.md section 6.</summary>
+        /// landing in "detail") must never be produced. See the execution record contract, section 6.</summary>
         private static string JStr(string s)
         {
             if (s == null) return "null";
@@ -1370,8 +1369,8 @@ namespace AudioManager
         /// <summary>
         /// Prints a confidence report to the console after integration, then returns the same data
         /// as a ConfidenceRecord for WriteExecutionRecord - compute-then-print-then-return, so the
-        /// JSON and the console text are always in agreement (docs/References/
-        /// design/Execution-Record-Contract-Design.md section 3.3). Console output text is unchanged from
+        /// JSON and the console text are always in agreement (execution record contract, section 3.3).
+        /// Console output text is unchanged from
         /// before this record existed.
         /// Covers: count check, per-file table, new folders, destination sanity check, errors.
         /// </summary>
@@ -1859,7 +1858,7 @@ namespace AudioManager
                     {
                         sf.Duplicate = BuildDupData(sourcePath, track, duplicatePath);
                         // Populated once here regardless of which D/L/K decision is made later,
-                        // so the JSON always carries the library-duplicate block for UI review.
+                        // so the JSON always carries the library-duplicate block for review.
                         entry.LibraryDuplicate = true;
                         entry.DupLibraryPath = sf.Duplicate.RelMirrorPath;
                         entry.DupLibraryTrack = sf.Duplicate.MirrorTrack;
@@ -1968,8 +1967,7 @@ namespace AudioManager
             };
         }
 
-        /// <summary>Maps a recommendation key to the exact phrase the UI/CLI display (see
-        /// the backlog "Duplicate-resolution UI" terminology decision).</summary>
+        /// <summary>Maps a recommendation key to the exact phrase the CLI and clients display.</summary>
         private static string DupRecommendationText(char key)
         {
             switch (key)
@@ -2020,9 +2018,8 @@ namespace AudioManager
 
             if (noInput)
             {
-                // UI review-stage resolution wins over the exe's own recommendation on a real
-                // run, carried through the same --manifest mechanism as accept/decline (see
-                // the backlog "Duplicate-resolution UI"). A duplicate left
+                // Review-stage resolution wins over the exe's own recommendation on a real
+                // run, carried through the same --manifest mechanism as accept/decline. A duplicate left
                 // untouched in Review has no manifest entry for it, so this falls through to
                 // the exact same auto-accept-recommendation behavior as before - unresolved
                 // batches stay safe by construction, not by a second code path.
