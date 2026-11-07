@@ -147,7 +147,7 @@ sliced/filtered in memory by the consumer. This file is why consumers never need
 ### Consumption notes
 
 - **`filePath` is the real MP3 path**, reconstructed from the mirror path (the AudioMirror mirrors the
-  Audio folder 1:1). Use it with `mutagen` to extract embedded album art for the grid view. Extract
+  Audio folder 1:1). Use it with `mutagen` to extract embedded album art for display. Extract
   lazily (current page only) and cache thumbnails - do not read 5,694 covers at startup.
 - **`filePath` is best-effort:** for the rare track whose filename was sanitised into a different XML
   name, the reconstructed path won't exist on disk. Treat a missing file as "no extractable art" and
