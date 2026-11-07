@@ -44,7 +44,6 @@ Legacy csproj format, csproj file registration, the `Any CPU`-only platform cons
 
 ### Development priority
 
-Priorities for now; no-signal work picks Intake. Detail: "Development Priority" in `docs/References/DevContext.md`.
 
 ## Key Paths (from Constants.cs)
 
