@@ -72,7 +72,7 @@ namespace AudioManager
                     }
                     else
                     {
-                        Console.WriteLine($"Unknown mode '{args[0]}'. Use: analysis [--force-regen] [--json-output] | integrate [--dry-run] [--json-output] | tagfix [--dry-run]");
+                        Console.WriteLine($"Unknown mode '{args[0]}'. Use: analysis [--force-regen] [--json-output] | integrate [--dry-run] [--json-output] | tagfix [--dry-run] [--json-output]");
                         Environment.Exit(1);
                         return;
                     }
@@ -256,6 +256,11 @@ namespace AudioManager
                     {
                         // TagFix mode - clean tags in NewMusic folder
                         TagFixer tf = new TagFixer(dryRun);
+                        // Plan JSON is read-only and only written for a dry run; a real run never writes it.
+                        if (jsonOutput && dryRun)
+                            Console.WriteLine($"\nTagfix plan JSON written: {TagFixPlanJson.Write(tf)}");
+                        else if (jsonOutput)
+                            Console.WriteLine(" - [WARN] --json-output for tagfix is only written with --dry-run; no JSON written.");
                     }
 
                     // Print total time taken (Integrate and TagFix modes only)

@@ -43,10 +43,46 @@ namespace AudioManager
         {
             public string Filename;
             public string OriginalFilename;
+            public string SourcePath;
             public List<string> Changes = new List<string>();
             public string Status; // "fixed", "would-fix", "skipped", "error"
             public string Detail;
+            /// <summary>Tag values before the fix. Set for every file ProcessFile reads (dry run and real).</summary>
+            public TagState OldTags;
+            /// <summary>Tag values the fix writes. Set for would-fix rows; equal to OldTags for a would-quarantine row.</summary>
+            public TagState NewTags;
+            /// <summary>Dry run only: the instrumental would be moved to quarantine.</summary>
+            public bool WouldQuarantine;
+            /// <summary>Dry run only: the planned rename is blocked (empty artist or title, or the target name is taken).</summary>
+            public bool NeedsManual;
+            public string ManualReason;
+            /// <summary>Dry run only: the rename is blocked, so the file keeps OriginalFilename as its planned name.</summary>
+            public bool RenameBlocked;
         }
+
+        /// <summary>Tag values captured for the dry-run plan JSON (tagfix-plan.json).</summary>
+        internal class TagState
+        {
+            public string Title;
+            public string Album;
+            public string Artists;
+            public string Genre;
+            public bool Compilation;
+        }
+
+        /// <summary>One NewMusic mp3 as found by the scan, before any processing. Input to the plan fingerprint.</summary>
+        internal class ScannedFile
+        {
+            public string Path;
+            public long Size;
+            public DateTime MtimeUtc;
+        }
+
+        /// <summary>Every mp3 the scan found, captured before processing. Empty when the folder is missing.</summary>
+        public List<ScannedFile> Scanned { get; } = new List<ScannedFile>();
+
+        /// <summary>One FixLog per scanned mp3, in scan order. Read by TagFixPlanJson.</summary>
+        public List<FixLog> Results { get; } = new List<FixLog>();
 
         public TagFixer(bool dryRun = false)
         {
@@ -55,13 +91,29 @@ namespace AudioManager
             string modeLabel = dryRun ? " [DRY RUN - no files will be modified]" : "";
             Console.WriteLine($"\nFixing music tags...{modeLabel}");
 
-            var fixLogs = new List<FixLog>();
+            ScanAndProcess(Constants.NewMusicPath);
+        }
 
+        /// <summary>
+        /// Snapshots every mp3 under folder (before any processing), then runs ProcessFile on each into Results.
+        /// The public constructor passes Constants.NewMusicPath; the test seam passes a fixture folder.
+        /// </summary>
+        private void ScanAndProcess(string folder)
+        {
             try
             {
-                var files = Directory.Exists(Constants.NewMusicPath)
-                    ? Directory.GetFiles(Constants.NewMusicPath, "*.mp3", SearchOption.AllDirectories)
+                var files = Directory.Exists(folder)
+                    ? Directory.GetFiles(folder, "*.mp3", SearchOption.AllDirectories)
                     : Array.Empty<string>();
+
+                foreach (var path in files)
+                {
+                    // shortcut: a file that vanishes between scan and stat is recorded with size -1, upgrade to a re-scan when the plan must be exact.
+                    var info = new FileInfo(path);
+                    long size = -1;
+                    try { size = info.Length; } catch (IOException) { }
+                    Scanned.Add(new ScannedFile { Path = path, Size = size, MtimeUtc = info.LastWriteTimeUtc });
+                }
 
                 if (files.Length == 0)
                 {
@@ -71,12 +123,12 @@ namespace AudioManager
 
                 foreach (var sourcePath in files)
                 {
-                    fixLogs.Add(ProcessFile(sourcePath));
+                    Results.Add(ProcessFile(sourcePath));
                 }
 
                 // Per-file tag changes shown in MusicIntegrator's combined routing block.
                 // Only surface errors and the count here.
-                var tagErrors = fixLogs.Where(l => l.Status == "error").ToList();
+                var tagErrors = Results.Where(l => l.Status == "error").ToList();
                 if (tagErrors.Count > 0)
                 {
                     Console.WriteLine($"[ERRORS: {tagErrors.Count}]");
@@ -100,6 +152,17 @@ namespace AudioManager
             return new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot);
         }
 
+        /// <summary>
+        /// Test-only: runs the same scan and processing as the public constructor against folder instead of
+        /// Constants.NewMusicPath, so the plan JSON can be exercised on a temp fixture folder.
+        /// </summary>
+        internal static TagFixer ScanFolderForTesting(string folder, bool dryRun, string customRulesPath = null, string quarantineRoot = null)
+        {
+            var tagFixer = new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot);
+            tagFixer.ScanAndProcess(folder);
+            return tagFixer;
+        }
+
         private TagFixer(bool dryRun, bool skipScan, string customRulesPath = null, string quarantineRoot = null)
         {
             this.dryRun = dryRun;
@@ -118,7 +181,7 @@ namespace AudioManager
         /// </summary>
         internal FixLog ProcessFile(string sourcePath)
         {
-            var log = new FixLog { OriginalFilename = Path.GetFileName(sourcePath) };
+            var log = new FixLog { OriginalFilename = Path.GetFileName(sourcePath), SourcePath = sourcePath };
             TagLib.File tagFile = null;
             try
             {
@@ -131,6 +194,7 @@ namespace AudioManager
                 string artists = tag.JoinedPerformers ?? "";
                 string album = tag.Album ?? "";
                 string genres = tag.JoinedGenres ?? "";
+                log.OldTags = new TagState { Title = title, Album = album, Artists = artists, Genre = genres, Compilation = id3.IsCompilation };
 
                 // QUARANTINE: Akira The Don instrumentals (Rule from STAGE_3B). Never deleted; moved to quarantineRoot.
                 // Match if: artist = "Akira The Don" AND title contains/ends with "Instrumental"
@@ -145,6 +209,8 @@ namespace AudioManager
                     {
                         Console.WriteLine($"  [WOULD QUARANTINE] {fileName} (Akira The Don instrumental)");
                         log.Detail = "would quarantine instrumental";
+                        log.WouldQuarantine = true;
+                        log.NewTags = log.OldTags;
                         return log;
                     }
 
@@ -209,6 +275,9 @@ namespace AudioManager
                         .ToList();
                     finalArtists = string.Join("; ", artistList);
                 }
+
+                // Tag values this fix would write (the plan JSON reads these; the real run writes the same values).
+                log.NewTags = new TagState { Title = finalTitle, Album = finalAlbum, Artists = finalArtists, Genre = finalGenres, Compilation = true };
 
                 // Check if any changes needed (built-in plus custom)
                 bool titleChanged = finalTitle != title;
@@ -328,11 +397,22 @@ namespace AudioManager
                     {
                         log.Changes.Add("[WARN] Rename skipped: empty artist or title after sanitisation");
                         log.Filename = log.OriginalFilename;
+                        log.NeedsManual = true;
+                        log.ManualReason = "empty artist or title after sanitisation";
+                        log.RenameBlocked = true;
                     }
                     else
                     {
                         string newFilename = $"{sanitisedArtists} - {sanitisedTitle}.mp3";
                         log.Filename = newFilename;
+                        // Read-only check, mirrors the real run: a different file already holds the target name.
+                        string targetPath = Path.Combine(Path.GetDirectoryName(sourcePath), newFilename);
+                        if (!newFilename.Equals(log.OriginalFilename, StringComparison.OrdinalIgnoreCase) && File.Exists(targetPath))
+                        {
+                            log.NeedsManual = true;
+                            log.ManualReason = "rename target already exists";
+                            log.RenameBlocked = true;
+                        }
                     }
                     log.Status = "would-fix";
                     fixedCount++;
