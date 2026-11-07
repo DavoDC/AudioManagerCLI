@@ -69,7 +69,7 @@ Label "In AudioMirror" for XML paths and "In library" for MP3 paths, never mixed
 
 ## Library Routing Rules
 
-**Before touching GetDestDir or any routing code**, read `docs/References/rules/Music-Library-Rules.md` and see "Library Routing Rules" in `docs/References/DevContext.md` - subfolder-before-song and scan-ahead invariants. Violating them causes files to land in wrong locations.
+**Before touching GetDestDir or any routing code**, read `docs/References/rules/MusicLibraryRules.md` and see "Library Routing Rules" in `docs/References/DevContext.md` - subfolder-before-song and scan-ahead invariants. Violating them causes files to land in wrong locations.
 
 ## Workflow Note
 
@@ -108,7 +108,7 @@ TagFixer modifies ID3 tags and renames files to match library convention. Tag ch
 
 ## Language decision
 
-Decided 2026-09-06, do not relitigate: the engine stays C#, and no external consumer (in any language) ever writes to the library, reimplements C# logic, or parses AudioMirror XML. Reasoning: `docs/References/architecture/Architecture-Language-Decision.md`.
+Decided 2026-09-06, do not relitigate: the engine stays C#, and no external consumer (in any language) ever writes to the library, reimplements C# logic, or parses AudioMirror XML. Reasoning: `docs/References/architecture/ArchitectureLanguageDecision.md`.
 
 ## What the Test Suite Can and Cannot Prove
 

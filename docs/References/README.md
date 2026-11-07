@@ -8,21 +8,21 @@ Long-form reference material for AudioManager, grouped by folder. Start with Dev
 
 ## architecture/
 
-- [architecture/Integration-and-ParseCache-Architecture.md](architecture/Integration-and-ParseCache-Architecture.md) - stage 3 integration and ParseCache internals for developers.
-- [architecture/Architecture-Language-Decision.md](architecture/Architecture-Language-Decision.md) - the decided engine language (C# only) and why.
-- [architecture/Architecture-Course.html](architecture/Architecture-Course.html) - a standalone course page on the architecture.
+- [architecture/IntegrationAndParseCacheArchitecture.md](architecture/IntegrationAndParseCacheArchitecture.md) - stage 3 integration and ParseCache internals for developers.
+- [architecture/ArchitectureLanguageDecision.md](architecture/ArchitectureLanguageDecision.md) - the decided engine language (C# only) and why.
+- [architecture/ArchitectureCourse.html](architecture/ArchitectureCourse.html) - a standalone course page on the architecture.
 
 ## contracts/
 
-- [contracts/AnalysisJson-Format.md](contracts/AnalysisJson-Format.md) - the JSON data contract written by `analysis --json-output`.
-- [contracts/AudioMirror-Format.md](contracts/AudioMirror-Format.md) - the layout and meaning of AudioMirror XML files.
+- [contracts/AnalysisJSONFormat.md](contracts/AnalysisJSONFormat.md) - the JSON data contract written by `analysis --json-output`.
+- [contracts/AudioMirrorFormat.md](contracts/AudioMirrorFormat.md) - the layout and meaning of AudioMirror XML files.
 
 ## rules/
 
-- [rules/Music-Library-Rules.md](rules/Music-Library-Rules.md) - tag and routing rules that decide where each track lands in the library.
-- [rules/Post-Integration-Validation.md](rules/Post-Integration-Validation.md) - why post-integration LibChecker warnings are often false and how to check them.
-- [rules/SAFETY_CONSTRAINTS.md](rules/SAFETY_CONSTRAINTS.md) - the safety review of library file operations against the rules.
+- [rules/MusicLibraryRules.md](rules/MusicLibraryRules.md) - tag and routing rules that decide where each track lands in the library.
+- [rules/PostIntegrationValidation.md](rules/PostIntegrationValidation.md) - why post-integration LibChecker warnings are often false and how to check them.
+- [rules/SafetyConstraints.md](rules/SafetyConstraints.md) - the safety review of library file operations against the rules.
 
 ## design/
 
-- [design/MusicIntegrator-Decomposition-Design.md](design/MusicIntegrator-Decomposition-Design.md) - a proposal to split MusicIntegrator into smaller pieces.
+- [design/MusicIntegratorDecompositionDesign.md](design/MusicIntegratorDecompositionDesign.md) - a proposal to split MusicIntegrator into smaller pieces.
