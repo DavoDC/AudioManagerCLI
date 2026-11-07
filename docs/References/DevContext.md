@@ -19,7 +19,7 @@ AudioManagerCLI/
     AudioManager.sln
     AudioManager/
       Code/                    # all C# source
-        (Code/Tests/ is compiled only into src/engine/AudioManager.Tests, never the shipped exe)
+        (test code lives in src/engine/AudioManager.Tests, never the shipped exe)
         Program.cs             # entry point, mode selection, CLI args handler
         Constants.cs           # all paths and settings (single source of truth)
         TeeWriter.cs           # dual output: screen + log file simultaneously
@@ -89,7 +89,7 @@ Success output:
 
 **Platform constraint:** Solution only defines `Any CPU`. Never pass `-p:Platform=x86` to MSBuild - it will fail with `MSB4126: The specified solution configuration "Release|x86" is invalid`. Always use `-p:Platform="Any CPU"` (the default in build.bat).
 
-**Tests are a separate project (ARCH-2).** Test code lives in `src\engine\AudioManager.Tests\` (the host, `TestHost.cs`) plus every file under `src\engine\AudioManager\Code\Tests\`, which that project compiles by wildcard. A new test file needs NO csproj entry and NO list entry: put it in `Code\Tests\`, name the static class `*Tests`, and `TestRunner` finds it by reflection. `TestRunnerTests` fails if a static class with test-shaped methods is not named `*Tests`. The shipped `AudioManager.exe` contains no test code and has no `--test` or `--verify` flags; run `scripts\dev\test.bat` or `scripts\dev\verify.bat` (which call `AudioManager.Tests.exe`). Only non-test source (`Code\Doer\`, `Code\Track\`) still needs a `<Compile Include>` in `AudioManager.csproj`.
+**Tests are a separate project (ARCH-2).** Test code lives in `src\engine\AudioManager.Tests\` (the host, `TestHost.cs`, plus every test file beside it), which that project compiles by wildcard (`*.cs`). A new test file needs NO csproj entry and NO list entry: put it in `src\engine\AudioManager.Tests\`, name the static class `*Tests`, and `TestRunner` finds it by reflection. `TestRunnerTests` fails if a static class with test-shaped methods is not named `*Tests`. The shipped `AudioManager.exe` contains no test code and has no `--test` or `--verify` flags; run `scripts\dev\test.bat` or `scripts\dev\verify.bat` (which call `AudioManager.Tests.exe`). Only non-test source (`Code\Doer\`, `Code\Track\`) still needs a `<Compile Include>` in `AudioManager.csproj`.
 
 **If build fails generally:** check `data\logs\build.log` for full MSBuild output and error details.
 

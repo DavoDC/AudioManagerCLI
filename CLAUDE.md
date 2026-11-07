@@ -32,7 +32,7 @@ Completes in ~2-3 seconds without blocking. Success output example: "Build succe
 
 ### Claude: Running Tests (MANDATORY after any C# code change)
 
-**After every C# code change, run tests before committing** - fast (< 1 second), catches tag logic regressions. Files that trigger this: anything in `src/engine/AudioManager/Code/`, especially TagFixer.cs, Track/Track.cs, Constants.cs, Code/Tests/.
+**After every C# code change, run tests before committing** - fast (< 1 second), catches tag logic regressions. Files that trigger this: anything in `src/engine/AudioManager/Code/`, especially TagFixer.cs, Track/Track.cs, Constants.cs, src/engine/AudioManager.Tests/.
 
 ```powershell
 & "<home>\GitHubRepos\AudioManagerCLI\scripts\dev\verify.bat" --no-pause

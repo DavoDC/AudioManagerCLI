@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Test host for AudioManager (ARCH-2). Every Code\Tests\*.cs file is compiled by wildcard, so a new
+<!-- Test host for AudioManager (ARCH-2). Every *.cs file in this folder is compiled by wildcard, so a new
      test file cannot be forgotten; TestRunner discovers the test classes by reflection. The shipped
      AudioManager.exe contains none of this. -->
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -50,10 +50,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="TestHost.cs" />
-    <Compile Include="..\AudioManager\Code\Tests\**\*.cs">
-      <Link>Tests\%(RecursiveDir)%(Filename)%(Extension)</Link>
-    </Compile>
+    <Compile Include="*.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AudioManager\AudioManager.csproj">
