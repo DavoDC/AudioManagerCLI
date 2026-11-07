@@ -8,7 +8,7 @@ C# console app (CLI) for managing a personal music library. Two modes:
 - **Analysis** - full pipeline: regenerate AudioMirror XML (Reflector), parse metadata (Parser), generate stats report (Analyser), validate library (LibChecker), save report (ReportWriter), auto-commit AudioMirror if clean (AudioMirrorCommitter)
 - **Integrate** - scans `Downloads/NewMusic/`, fixes tags (TCMP, genres, parentheticals, featured artists), routes files into the library, logs routing decisions to XML for audit trail
 
-This repo is the C# engine only. It contains no Python, no UI code, and no streaming-service code. Its JSON outputs (`data/logs/tracks.json`, `data/logs/analysis-stats.json`) and `config/tagfix-custom-rules.xml` are a shared contract with external consumers, so changing their shape needs those consumers updated too.
+This repo is the C# engine only. It contains no Python, no UI code, and no streaming-service code. Its JSON outputs (`data/logs/tracks.json`, `data/logs/analysis-stats.json`, `data/logs/routing-<timestamp>.json`) and `config/tagfix-custom-rules.xml` are a shared contract with external consumers, so changing their shape needs those consumers updated too.
 
 ## Tech Stack
 
@@ -120,7 +120,7 @@ See "What the test suite can and cannot prove" in `docs/References/DevContext.md
 This repo is C# only and complete on its own through the CLI; it is a public showcase.
 
 - Never add here: Python, UI code, UI design docs, launchers, or config for other tools. Docs here describe the engine alone.
-- The only seam is data: this exe writes `data/logs/tracks.json` and `data/logs/analysis-stats.json` and reads `config/tagfix-custom-rules.xml`. Changing the shape of any of them means updating every external consumer in the same working session.
+- The only seam is data: this exe writes `data/logs/tracks.json`, `data/logs/analysis-stats.json` and `data/logs/routing-<timestamp>.json` and reads `config/tagfix-custom-rules.xml`. Changing the shape of any of them means updating every external consumer in the same working session.
 - If an external consumer needs a new engine capability, add a CLI flag or JSON field here and document it as seam. Never add consumer-specific code paths.
 - Engine content (docs, tests, fixtures, build scripts) stays here. On every cleanup commit review `git diff --stat` for deletions and for moves out of the engine.
 - Public repo: no private machine paths, no other people's names, no references to tooling or other locations.
