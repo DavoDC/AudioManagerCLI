@@ -11,8 +11,8 @@ if not defined MSBUILD (
     exit /b 1
 )
 
-set SLN=%~dp0..\..\src\engine\AudioManager.sln
-set EXE=%~dp0..\..\src\engine\AudioManager\bin\Release\AudioManager.exe
+set SLN=%~dp0..\..\src\AudioManager.sln
+set EXE=%~dp0..\..\src\AudioManager\bin\Release\AudioManager.exe
 set LOG=%~dp0..\..\data\logs\build.log
 
 if not exist "%~dp0..\..\data\logs" mkdir "%~dp0..\..\data\logs"

@@ -2,7 +2,7 @@
 
 Status: PROPOSAL. No code has moved. David approves this document before any extraction starts.
 
-Date: 2026-10-12. Source: `src/engine/AudioManager/Code/Doer/MusicIntegrator.cs`, about 2,400 lines as of this date (it was 2,201 when the 2026-09-06 design review flagged it).
+Date: 2026-10-12. Source: `src/AudioManager/Code/Doer/MusicIntegrator.cs`, about 2,400 lines as of this date (it was 2,201 when the 2026-09-06 design review flagged it).
 
 ## 1. Why
 
@@ -31,7 +31,7 @@ Line numbers are as of 2026-10-12 and will drift; the method names are the durab
 | 2 | `ConfidenceReporter` | `PrintConfidenceReport` | covered indirectly by the execution-record tests | a test pinning the printed confidence block for a clean run and a run with failures |
 | 3 | `MirrorIndex` | `BuildMirrorIndex`, `FindDuplicateInMirror`, `NormaliseTitleForDedup`, `LoadArtistAliases`, `GetAliasExpandedKeys`, `DeriveLibraryPathFromMirrorPath`, `ReadMirrorTrackInfo`, `IsAlbumFolderCompilation` | `DuplicateDetectionTests` | a test for `DeriveLibraryPathFromMirrorPath` outside the mirror root |
 | 4 | `ProjectedValidator` | `BuildProjection`, `RunProjectedLibChecker`, `GetMirrorRelPath` | `ProjectedLibCheckerTests` | none expected |
-| 5 | `DestinationRouter` | `GetDestDir`, `FindAlbumFolder`, `CountAlbumSongs`, `CountAkiraTheDonPersonSongs`, `CountAkiraTheDonPersonAlbumSongs`, `SanitiseFolderName`, `RunScanAhead`, `GetRouteCategory`, `GetRouteSummary` | `RoutingTests`, `RoutingFixtures`, the routing manifest (`src/engine/fixtures/routing-manifest.json`), `RulesCharacterisationTests` | none expected; the routing suite is the strongest pin in the program |
+| 5 | `DestinationRouter` | `GetDestDir`, `FindAlbumFolder`, `CountAlbumSongs`, `CountAkiraTheDonPersonSongs`, `CountAkiraTheDonPersonAlbumSongs`, `SanitiseFolderName`, `RunScanAhead`, `GetRouteCategory`, `GetRouteSummary` | `RoutingTests`, `RoutingFixtures`, the routing manifest (`src/fixtures/routing-manifest.json`), `RulesCharacterisationTests` | none expected; the routing suite is the strongest pin in the program |
 | 6 | `DuplicateResolver` | `RunDuplicateReview`, `ExecuteDuplicateDecisions`, `PresentDuplicateAndDecide`, `BuildDupData`, `DupRecommendationText`, `MarkInBatchDuplicates`, `ReadMenuKey` | `DuplicateDetectionTests`, `MusicIntegratorDuplicateJsonTests` | a test for `ExecuteDuplicateDecisions` with K, L and D decisions against a temp library (this is the delete path, so it is pinned before it moves) |
 | 7 | `NewMusicScanner` and `LibraryMaintenance` | scanner: `PreScanFiles`; maintenance: `RunMiscMigration`, `CleanupNewMusicFolder` | `MusicIntegratorRouteAllFilesTests`, `IntegrationTests` | a test for `CleanupNewMusicFolder` on a temp folder tree |
 

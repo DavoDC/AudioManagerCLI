@@ -1,7 +1,7 @@
 @echo off
 :: Build + unit tests + routing manifest (engine only). Human mode: no args (window stays open). Claude mode: --no-pause (clean exit).
-set TESTEXE=%~dp0..\..\src\engine\AudioManager.Tests\bin\Release\AudioManager.Tests.exe
-set MANIFEST=%~dp0..\..\src\engine\fixtures\routing-manifest.json
+set TESTEXE=%~dp0..\..\src\AudioManager.Tests\bin\Release\AudioManager.Tests.exe
+set MANIFEST=%~dp0..\..\src\fixtures\routing-manifest.json
 set START_TIME=%TIME%
 
 :: Prerequisites (ARCH-3): named [PREREQ] errors, exit code 3, distinct from a test failure (1).

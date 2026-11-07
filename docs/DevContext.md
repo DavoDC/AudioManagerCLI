@@ -15,11 +15,11 @@ AudioManagerCLI/
   docs/                        # planning files, design docs
   data/logs/                       # integration run logs (gitignored, written by MusicIntegrator)
   scripts/dev/                 # build, test and verify scripts
-  src/engine/                 # C# solution
+  src/                         # C# solution (sln, AudioManager, AudioManager.Tests, fixtures)
     AudioManager.sln
     AudioManager/
       Code/                    # all C# source
-        (test code lives in src/engine/AudioManager.Tests, never the shipped exe)
+        (test code lives in src/AudioManager.Tests, never the shipped exe)
         Program.cs             # entry point, mode selection, CLI args handler
         Constants.cs           # all paths and settings (single source of truth)
         TeeWriter.cs           # dual output: screen + log file simultaneously
@@ -55,13 +55,13 @@ These are invariants from Rules/MusicLibraryRules.md. Violating them causes file
 
 ```
 & "<home>\GitHubRepos\AudioManagerCLI\scripts\dev\build.bat" --no-pause
-& "<home>\GitHubRepos\AudioManagerCLI\src\engine\AudioManager\bin\Release\AudioManager.exe" integrate --dry-run --no-input
+& "<home>\GitHubRepos\AudioManagerCLI\src\AudioManager\bin\Release\AudioManager.exe" integrate --dry-run --no-input
 ```
 `--no-input` skips all interactive prompts. Run after any routing or tag fix to see real output without blocking.
 
 **verify.bat prerequisites (ARCH-3).** `scripts\dev\verify.bat` checks MSBuild (vswhere) and the built `AudioManager.Tests.exe` before running anything. A missing tool prints a `[PREREQ] ...` line and exits 3; a real test failure exits 1, so the two are never confused.
 
-**No CI workflow (ARCH-3).** There is no `.github/workflows`. Claude never pushes, so a workflow could not be run to prove it green before David pushed it, and an unproven CI file is worse than none. The build also needs .NET Framework 4.8 and the NuGet-restored `src\engine\packages` (untracked). Revisit when David wants CI: a windows-latest job running nuget restore, msbuild, and `AudioManager.Tests.exe --verify`.
+**No CI workflow (ARCH-3).** There is no `.github/workflows`. Claude never pushes, so a workflow could not be run to prove it green before David pushed it, and an unproven CI file is worse than none. The build also needs .NET Framework 4.8 and the NuGet-restored `src\packages` (untracked). Revisit when David wants CI: a windows-latest job running nuget restore, msbuild, and `AudioManager.Tests.exe --verify`.
 
 ---
 
@@ -70,7 +70,7 @@ These are invariants from Rules/MusicLibraryRules.md. Violating them causes file
 Success output:
 ```
 [BUILD] Compiling AudioManager...
-[BUILD] Done. Exe: <home>\GitHubRepos\AudioManagerCLI\scripts\dev\..\..\src\engine\AudioManager\bin\Release\AudioManager.exe
+[BUILD] Done. Exe: <home>\GitHubRepos\AudioManagerCLI\scripts\dev\..\..\src\AudioManager\bin\Release\AudioManager.exe
 ```
 
 ---
@@ -81,7 +81,7 @@ Success output:
 
 **Every new file must be manually registered:**
 1. Create the `.cs` file in the appropriate folder
-2. Open `src\engine\AudioManager\AudioManager.csproj`
+2. Open `src\AudioManager\AudioManager.csproj`
 3. Add a `<Compile Include="Code\...\NewFile.cs" />` entry in the correct section
 4. Build to verify: `.\scripts\dev\build.bat`
 
@@ -89,7 +89,7 @@ Success output:
 
 **Platform constraint:** Solution only defines `Any CPU`. Never pass `-p:Platform=x86` to MSBuild - it will fail with `MSB4126: The specified solution configuration "Release|x86" is invalid`. Always use `-p:Platform="Any CPU"` (the default in build.bat).
 
-**Tests are a separate project (ARCH-2).** Test code lives in `src\engine\AudioManager.Tests\` (the host, `TestHost.cs`, plus every test file beside it), which that project compiles by wildcard (`*.cs`). A new test file needs NO csproj entry and NO list entry: put it in `src\engine\AudioManager.Tests\`, name the static class `*Tests`, and `TestRunner` finds it by reflection. `TestRunnerTests` fails if a static class with test-shaped methods is not named `*Tests`. The shipped `AudioManager.exe` contains no test code and has no `--test` or `--verify` flags; run `scripts\dev\test.bat` or `scripts\dev\verify.bat` (which call `AudioManager.Tests.exe`). Only non-test source (`Code\Doer\`, `Code\Track\`) still needs a `<Compile Include>` in `AudioManager.csproj`.
+**Tests are a separate project (ARCH-2).** Test code lives in `src\AudioManager.Tests\` (the host, `TestHost.cs`, plus every test file beside it), which that project compiles by wildcard (`*.cs`). A new test file needs NO csproj entry and NO list entry: put it in `src\AudioManager.Tests\`, name the static class `*Tests`, and `TestRunner` finds it by reflection. `TestRunnerTests` fails if a static class with test-shaped methods is not named `*Tests`. The shipped `AudioManager.exe` contains no test code and has no `--test` or `--verify` flags; run `scripts\dev\test.bat` or `scripts\dev\verify.bat` (which call `AudioManager.Tests.exe`). Only non-test source (`Code\Doer\`, `Code\Track\`) still needs a `<Compile Include>` in `AudioManager.csproj`.
 
 **If build fails generally:** check `data\logs\build.log` for full MSBuild output and error details.
 
@@ -221,7 +221,7 @@ Moved to `Architecture/IntegrationAndParseCacheArchitecture.md` (same folder). R
 
 - **Stub `.mp3` files work for count-only paths.** `RoutingFixtures` creates `new byte[0]` placeholder .mp3 files. Safe only where the code calls `Directory.GetFiles(*.mp3).Length` without opening them (library-side counts). The ATD `Singles/` TagLib# scan is bypassed in tests because the fixture creates no `Singles/` folder - `Directory.Exists` returns false before any read.
 
-- **`--verify` flag pattern for combining test modes.** When two test runners need to be called and their results combined, add a `--verify <manifestPath>` handler in `src/engine/AudioManager.Tests/TestHost.cs` (it lived in Program.cs until ARCH-2) that calls each runner with out-params `(out int passed, out int failed)`, short-circuits on first failure, then prints a combined banner. The bat calls `--verify` and exits. The runners keep their original `Run()` signatures for backward compat via overloads. Applied 2026-06-02 to combine `--test` (TestRunner) + `--routing-manifest` (ManifestRunner). Use this pattern for any future multi-mode verification step.
+- **`--verify` flag pattern for combining test modes.** When two test runners need to be called and their results combined, add a `--verify <manifestPath>` handler in `src/AudioManager.Tests/TestHost.cs` (it lived in Program.cs until ARCH-2) that calls each runner with out-params `(out int passed, out int failed)`, short-circuits on first failure, then prints a combined banner. The bat calls `--verify` and exits. The runners keep their original `Run()` signatures for backward compat via overloads. Applied 2026-06-02 to combine `--test` (TestRunner) + `--routing-manifest` (ManifestRunner). Use this pattern for any future multi-mode verification step.
 
 ## XML Generation and Declaration
 

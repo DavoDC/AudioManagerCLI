@@ -1,5 +1,5 @@
 @echo off
-set TESTEXE=%~dp0..\..\src\engine\AudioManager.Tests\bin\Release\AudioManager.Tests.exe
+set TESTEXE=%~dp0..\..\src\AudioManager.Tests\bin\Release\AudioManager.Tests.exe
 set START_TIME=%TIME%
 
 echo ============================================================

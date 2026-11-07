@@ -21,7 +21,7 @@ scripts\dev\build.bat
 scripts\dev\verify.bat
 ```
 
-`scripts/dev/verify.bat` builds, then runs the unit tests and the routing manifest. The exe lands in `src/engine/AudioManager/bin/Release/AudioManager.exe`.
+`scripts/dev/verify.bat` builds, then runs the unit tests and the routing manifest. The exe lands in `src/AudioManager/bin/Release/AudioManager.exe`.
 
 ## CLI Usage
 
@@ -90,7 +90,7 @@ Auto-runs after step 2, or manually: `AudioManager.exe analysis`
 
 ## Project Structure
 
-The C# console app lives in `src/engine/`, and launchers live in `scripts/`. The full annotated tree is in [DevContext.md, Project Structure](docs/DevContext.md#project-structure).
+The C# console app lives in `src/`, and launchers live in `scripts/`. The full annotated tree is in [DevContext.md, Project Structure](docs/DevContext.md#project-structure).
 
 ## Performance
 
