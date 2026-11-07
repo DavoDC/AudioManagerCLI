@@ -29,7 +29,7 @@ namespace AudioManager
         internal static string FormatExecutionJsonLine(string path) =>
             $"\n  EXECUTION JSON: {path}";
 
-        // Bump on any breaking change to BuildJson's contract shape (docs/References/).
+        // Bump on any breaking change to BuildJson's contract shape (docs/).
         private const int SchemaVersion = 1;
         private bool dryRun;
         private bool noInput;
@@ -1294,7 +1294,7 @@ namespace AudioManager
 
         /// <summary>
         /// The write-with-one-retry logic extracted out of WriteExecutionRecord so it is reachable
-        /// from a test without reflecting into a private instance method (docs/References/
+        /// from a test without reflecting into a private instance method (docs/
         /// design/Execution-Record-Fallback-Removal-Design.md section 5.3, test 11/12) - takes the logs
         /// directory, timestamp and pre-built JSON as plain values and a log sink instead of writing
         /// to Console directly, so a test can capture the printed lines. Returns true when either the

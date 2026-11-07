@@ -1,6 +1,6 @@
 # AudioManagerCLI - Claude Context
 
-For implementation invariants, architecture detail, and code patterns: read `docs/References/DevContext.md`.
+For implementation invariants, architecture detail, and code patterns: read `docs/DevContext.md`.
 
 ## What it does
 
@@ -18,7 +18,7 @@ This repo is the C# engine only. It contains no Python, no UI code, and no strea
 
 ## Project Structure
 
-See "Project Structure" in `docs/References/DevContext.md` for the full tree.
+See "Project Structure" in `docs/DevContext.md` for the full tree.
 
 ## Build and Run
 
@@ -28,7 +28,7 @@ See "Project Structure" in `docs/References/DevContext.md` for the full tree.
 ```powershell
 & "<home>\GitHubRepos\AudioManagerCLI\scripts\dev\build.bat" --no-pause
 ```
-Completes in ~2-3 seconds without blocking. Success output example: "Build success/failure" in `docs/References/DevContext.md`.
+Completes in ~2-3 seconds without blocking. Success output example: "Build success/failure" in `docs/DevContext.md`.
 
 ### Claude: Running Tests (MANDATORY after any C# code change)
 
@@ -40,7 +40,7 @@ Completes in ~2-3 seconds without blocking. Success output example: "Build succe
 
 Runs build + unit tests + routing manifest tests. All must pass before any C# commit. All bats support `--no-pause` (always pass it from Claude). If a test fails: fix the code, not the test (unless the test is wrong - state why).
 
-Legacy csproj format, csproj file registration, the `Any CPU`-only platform constraint, and which MSBuild to invoke directly: see "Build troubleshooting" in `docs/References/DevContext.md`.
+Legacy csproj format, csproj file registration, the `Any CPU`-only platform constraint, and which MSBuild to invoke directly: see "Build troubleshooting" in `docs/DevContext.md`.
 
 ### Development priority
 
@@ -65,17 +65,17 @@ Legacy csproj format, csproj file registration, the `Any CPU`-only platform cons
 
 ## Display Conventions
 
-Label "In AudioMirror" for XML paths and "In library" for MP3 paths, never mixed: "Display Conventions" in `docs/References/DevContext.md`.
+Label "In AudioMirror" for XML paths and "In library" for MP3 paths, never mixed: "Display Conventions" in `docs/DevContext.md`.
 
 ## Library Routing Rules
 
-**Before touching GetDestDir or any routing code**, read `docs/References/rules/MusicLibraryRules.md` and see "Library Routing Rules" in `docs/References/DevContext.md` - subfolder-before-song and scan-ahead invariants. Violating them causes files to land in wrong locations.
+**Before touching GetDestDir or any routing code**, read `docs/Rules/MusicLibraryRules.md` and see "Library Routing Rules" in `docs/DevContext.md` - subfolder-before-song and scan-ahead invariants. Violating them causes files to land in wrong locations.
 
 ## Workflow Note
 
-Integration is one big batch every 2-4 weeks: design reports for batch-shaped data, not daily drips ("Integration Cadence" in `docs/References/DevContext.md`).
+Integration is one big batch every 2-4 weeks: design reports for batch-shaped data, not daily drips ("Integration Cadence" in `docs/DevContext.md`).
 
-For LibChecker-warning triage, post-integration validation mechanics, AudioMirror commit/regen policy, and audit-metadata rationale, see `docs/References/DevContext.md`.
+For LibChecker-warning triage, post-integration validation mechanics, AudioMirror commit/regen policy, and audit-metadata rationale, see `docs/DevContext.md`.
 
 ## Critical Safety Rule
 
@@ -94,7 +94,7 @@ After the run: check `git -C AudioMirror diff HEAD`, confirm the diff looks corr
 **Claude CANNOT run:**
 - `integrate` (real) - moves files, irreversible
 
-**Claude dev workflow for verifying fixes:** build, then run `integrate --dry-run --no-input` (skips interactive prompts) to see real output without blocking - see "Claude dev verify workflow" in `docs/References/DevContext.md` for the exact commands.
+**Claude dev workflow for verifying fixes:** build, then run `integrate --dry-run --no-input` (skips interactive prompts) to see real output without blocking - see "Claude dev verify workflow" in `docs/DevContext.md` for the exact commands.
 
 ## Tag Fixer Constraint
 
@@ -104,15 +104,15 @@ TagFixer modifies ID3 tags and renames files to match library convention. Tag ch
 
 **Rule:** Never refactor this to accept a `folderPath` parameter or add a library mode. If you need to fix tags in the library, implement it as a separate, read-only analysis tool first, then ask David before touching any files.
 
-**Library Operations Constraint:** what the program can/cannot do to files already in the Audio library - see "Library Operations Constraint" in `docs/References/DevContext.md`.
+**Library Operations Constraint:** what the program can/cannot do to files already in the Audio library - see "Library Operations Constraint" in `docs/DevContext.md`.
 
 ## Language decision
 
-Decided 2026-09-06, do not relitigate: the engine stays C#, and no external consumer (in any language) ever writes to the library, reimplements C# logic, or parses AudioMirror XML. Reasoning: `docs/References/architecture/ArchitectureLanguageDecision.md`.
+Decided 2026-09-06, do not relitigate: the engine stays C#, and no external consumer (in any language) ever writes to the library, reimplements C# logic, or parses AudioMirror XML. Reasoning: `docs/Architecture/ArchitectureLanguageDecision.md`.
 
 ## What the Test Suite Can and Cannot Prove
 
-See "What the test suite can and cannot prove" in `docs/References/DevContext.md` - a green `scripts/dev/verify.bat` proves the logic, never that a real integration batch is safe to fire.
+See "What the test suite can and cannot prove" in `docs/DevContext.md` - a green `scripts/dev/verify.bat` proves the logic, never that a real integration batch is safe to fire.
 
 ## Repo boundary - keep the split clean
 

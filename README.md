@@ -90,7 +90,7 @@ Auto-runs after step 2, or manually: `AudioManager.exe analysis`
 
 ## Project Structure
 
-The C# console app lives in `src/engine/`, and launchers live in `scripts/`. The full annotated tree is in [DevContext.md, Project Structure](docs/References/DevContext.md#project-structure).
+The C# console app lives in `src/engine/`, and launchers live in `scripts/`. The full annotated tree is in [DevContext.md, Project Structure](docs/DevContext.md#project-structure).
 
 ## Performance
 

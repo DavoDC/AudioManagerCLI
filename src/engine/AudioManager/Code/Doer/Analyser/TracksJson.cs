@@ -15,7 +15,7 @@ namespace AudioManager
     /// A client reads these two files and never parses XML itself - so there is exactly one XML parser
     /// (the C# Parser) and zero risk of a second, drifting implementation in another language.
     ///
-    /// Data contract: see docs/References/contracts/AnalysisJSONFormat.md (Tracks section). Bump SchemaVersion
+    /// Data contract: see docs/Contracts/AnalysisJSONFormat.md (Tracks section). Bump SchemaVersion
     /// on any breaking change.
     /// </summary>
     internal static class TracksJson
