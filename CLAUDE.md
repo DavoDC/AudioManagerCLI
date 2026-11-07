@@ -119,7 +119,7 @@ See "What the test suite can and cannot prove" in `docs/References/DevContext.md
 
 This repo is C# only and complete on its own through the CLI; it is a public showcase.
 
-- Never add here: Python, UI code, UI design docs, launchers, or config for other tools. Docs here describe the engine alone.
+- Never add here: Python, UI code, UI design docs, launchers, or config for other apps. Docs here describe the engine alone.
 - The only seam is data: this exe writes `data/logs/tracks.json`, `data/logs/analysis-stats.json` and `data/logs/routing-<timestamp>.json` and reads `config/tagfix-custom-rules.xml`. Changing the shape of any of them means updating every external consumer in the same working session.
 - If an external consumer needs a new engine capability, add a CLI flag or JSON field here and document it as seam. Never add consumer-specific code paths.
 - Engine content (docs, tests, fixtures, build scripts) stays here. On every cleanup commit review `git diff --stat` for deletions and for moves out of the engine.
