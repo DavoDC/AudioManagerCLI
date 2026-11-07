@@ -325,4 +325,3 @@ David's actual integration cadence is one big batch every 2-4 weeks, not daily. 
 
 ## Development Priority (moved from CLAUDE.md 2026-10-12)
 
-Priorities for now (confirmed 2026-09-05). No-signal work picks Intake first.
