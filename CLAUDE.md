@@ -32,7 +32,7 @@ Completes in ~2-3 seconds without blocking. Success output example: "Build succe
 
 ### Claude: Running Tests (MANDATORY after any C# code change)
 
-**After every C# code change, run tests before committing** - fast (< 1 second), catches tag logic regressions. Files that trigger this: anything in `Code/`, especially TagFixer.cs, Track/Track.cs, Constants.cs, Code/Tests/.
+**After every C# code change, run tests before committing** - fast (< 1 second), catches tag logic regressions. Files that trigger this: anything in `src/engine/AudioManager/Code/`, especially TagFixer.cs, Track/Track.cs, Constants.cs, Code/Tests/.
 
 ```powershell
 & "<home>\GitHubRepos\AudioManagerCLI\scripts\dev\verify.bat" --no-pause
@@ -113,7 +113,7 @@ Decided 2026-09-06, do not relitigate: the engine stays C#, and no external cons
 
 ## What the Test Suite Can and Cannot Prove
 
-See "What the test suite can and cannot prove" in `docs/References/DevContext.md` - a green `verify.bat` proves the logic, never that a real integration batch is safe to fire.
+See "What the test suite can and cannot prove" in `docs/References/DevContext.md` - a green `scripts/dev/verify.bat` proves the logic, never that a real integration batch is safe to fire.
 
 ## Repo boundary - keep the split clean
 

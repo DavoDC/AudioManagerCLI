@@ -21,7 +21,7 @@ scripts\dev\build.bat
 scripts\dev\verify.bat
 ```
 
-`verify.bat` builds, then runs the unit tests and the routing manifest. The exe lands in `src/engine/AudioManager/bin/Release/AudioManager.exe`.
+`scripts/dev/verify.bat` builds, then runs the unit tests and the routing manifest. The exe lands in `src/engine/AudioManager/bin/Release/AudioManager.exe`.
 
 ## CLI Usage
 
