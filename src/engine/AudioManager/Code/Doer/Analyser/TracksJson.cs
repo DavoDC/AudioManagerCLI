@@ -8,7 +8,7 @@ using TagList = System.Collections.Generic.List<AudioManager.Code.Modules.TrackT
 namespace AudioManager
 {
     /// <summary>
-    /// Emits the full per-track array as JSON for a client's library view.
+    /// Emits the full per-track array as JSON for a client's library listing.
     ///
     /// Companion to StatsJson. Together they let a client stay decoupled from the raw
     /// AudioMirror XML: StatsJson gives aggregate statistics, TracksJson gives the per-track rows.

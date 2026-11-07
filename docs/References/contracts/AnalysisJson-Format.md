@@ -96,7 +96,7 @@ was not built against, rather than silently mis-reading.
 - **Read this file; do not shell the exe per panel.** A consumer runs `analysis --json-output` once at
   startup / on manual refresh, then reads `data/logs/analysis-stats.json`. All statistics panels and stat
   tiles map 1:1 to a field above.
-- **Per-track rows** (library viewle/grid) are NOT in this file - it is aggregate stats only.
+- **Per-track rows** (a library table) are NOT in this file - it is aggregate stats only.
   Per-track data comes from globbing the AudioMirror XML directly (see `contracts/AudioMirror-Format.md`).
 - **`totalLibraryBytes` is real**, computed from a single disk walk inside the exe. This removes the
   earlier plan to fake file size from bitrate in Python - the accurate number is now free.
