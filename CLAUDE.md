@@ -123,4 +123,4 @@ This repo is C# only and complete on its own through the CLI; it is a public sho
 - The only seam is data: this exe writes `data/logs/tracks.json`, `data/logs/analysis-stats.json` and `data/logs/routing-<timestamp>.json` and reads `config/tagfix-custom-rules.xml`. Changing the shape of any of them means updating every external consumer in the same working session.
 - If an external consumer needs a new engine capability, add a CLI flag or JSON field here and document it as seam. Never add consumer-specific code paths.
 - Engine content (docs, tests, fixtures, build scripts) stays here. On every cleanup commit review `git diff --stat` for deletions and for moves out of the engine.
-- Public repo: no private machine paths, no other people's names, no references to tooling or other locations.
+- Public repo: no private machine paths, no other people's names, no references to other repos or local folders.
