@@ -89,7 +89,7 @@ For LibChecker-warning triage, post-integration validation mechanics, AudioMirro
 ```
 & "...\AudioManager.exe" analysis --force-regen --no-input --no-auto-commit
 ```
-After the run: check `git -C AudioMirror diff HEAD`, confirm the diff looks correct, then commit AudioMirror manually.
+After the run: check `git -C AudioMirror diff HEAD`, confirm the diff looks correct, then leave the commit to David through the program (GUI Mirror tab Commit AudioMirror button, or an Analysis run's auto-commit). NEVER commit AudioMirror by hand with git, GitHub Desktop or Claude: the program owns the title and description (David, 2026-11-08).
 
 **Claude CANNOT run:**
 - `integrate` (real) - moves files, irreversible
