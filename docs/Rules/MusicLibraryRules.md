@@ -81,8 +81,12 @@ Audio/
 ## Same Song On Two Albums Rule (David, 2026-11-08)
 When one artist has the same song (same artist+title) on two albums, one in the library and one incoming, **the album with more tracks wins** (the "real" release); the song is kept there and the copy on the smaller album is the one replaced. Tie: the incoming copy wins.
 - Example: Akira The Don, "Don't Stop Asking Questions" is on library album "Me Is A Disease" (3 tracks) and on incoming "The Real Currency Of Life" (5 tracks) -> keep it on "The Real Currency Of Life", the Me Is A Disease copy goes (that album drops to 2 tracks, and the 2+ rule above still applies).
-- Status: policy only. The engine currently flags such a song as a plain duplicate and asks per track (L/R decision), with no album-size default. Until the default is built, answer that prompt by this rule.
-- Recommendation now implemented: `BuildDupData` in `MusicIntegrator.cs` recommends L or D by album track count (tie: L), after the deluxe, single and compilation rules. It is a recommendation only; no-input runs still downgrade it to K.
+- Status: the recommendation is implemented: `BuildDupData` in `MusicIntegrator.cs` recommends L or D by album track count (tie: L), after the deluxe, single and compilation rules. It is a recommendation only; no-input runs still downgrade it to K.
+
+## Richer Metadata Wins Rule (David, 2026-11-08)
+When an incoming track duplicates a library track and the incoming copy, AFTER TagFixer, lists MORE artists than the library copy, **keep the incoming copy** (recommend L), even when the album is the same. More artists means more correct metadata. This is checked BEFORE the same-album "keep library" rule.
+- Example: library `Miscellaneous Songs\The Avalanches - Frankie Sinatra.mp3` has only The Avalanches; incoming "Frankie Sinatra (ft. Danny Brown & MF DOOM)" becomes artists The Avalanches;Danny Brown;MF DOOM after Tag Fix -> keep incoming. After L the library copy is replaced and the file routes by the normal rules.
+- Status: policy only, not yet built (backlog). Until built, answer the duplicate prompt L for such tracks.
 
 ---
 
