@@ -78,6 +78,11 @@ Audio/
 - Example: Album has 0 in library + 1 in NewMusic = 1 total → Singles folder
 - No loose files directly in an artist folder - all files must be in album subfolder or Singles/
 
+## Same Song On Two Albums Rule (David, 2026-11-08)
+When one artist has the same song (same artist+title) on two albums, one in the library and one incoming, **the album with more tracks wins** (the "real" release); the song is kept there and the copy on the smaller album is the one replaced. Tie: the incoming copy wins.
+- Example: Akira The Don, "Don't Stop Asking Questions" is on library album "Me Is A Disease" (3 tracks) and on incoming "The Real Currency Of Life" (5 tracks) -> keep it on "The Real Currency Of Life", the Me Is A Disease copy goes (that album drops to 2 tracks, and the 2+ rule above still applies).
+- Status: policy only. The engine currently flags such a song as a plain duplicate and asks per track (L/R decision), with no album-size default. Until the default is built, answer that prompt by this rule.
+
 ---
 
 ## Folder: Artists
