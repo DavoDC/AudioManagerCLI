@@ -173,7 +173,8 @@ namespace AudioManager
         /// <summary>
         /// Folder that Akira The Don instrumentals are moved into (never deleted). Constants.QuarantinePath unless a test overrides it.
         /// </summary>
-        private readonly string quarantineRoot;
+        // BL-58: initialised here so the public constructor (which does not chain to the private one) also gets the default.
+        private readonly string quarantineRoot = Constants.QuarantinePath;
 
         /// <summary>
         /// Reads, cleans, and (if not dry-run) writes ID3 tags for a single MP3 file, renaming

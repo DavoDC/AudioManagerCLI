@@ -776,6 +776,16 @@ namespace AudioManager
             }
         }
 
+        // BL-58: the public constructor (the real Tag Fix path) scans the real NewMusic inbox, so tests cannot run it.
+        // Every constructor must still start from the same default quarantine root, so pin that default here.
+        public static void Constructor_DefaultQuarantineRoot_IsConstantsQuarantinePath()
+        {
+            var fixer = TagFixer.ForTesting(dryRun: false);
+            var field = typeof(TagFixer).GetField("quarantineRoot", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.True(field != null, "TagFixer must keep a quarantineRoot field");
+            Assert.Equal(Constants.QuarantinePath, (string)field.GetValue(fixer), "default quarantine root must be Constants.QuarantinePath");
+        }
+
         public static void ProcessFile_NonAkiraInstrumental_NeverQuarantined()
         {
             string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
