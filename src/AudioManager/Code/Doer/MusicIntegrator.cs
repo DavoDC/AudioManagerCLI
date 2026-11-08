@@ -1708,6 +1708,25 @@ namespace AudioManager
             catch { /* fall through to null */ }
         }
 
+        /// <summary>
+        /// Counts the audio entries directly inside the library album folder of a duplicate.
+        /// Returns 0 when the folder is missing or unreadable, which makes the size rule stand down.
+        /// </summary>
+        private static int CountLibraryAlbumTracks(string libraryFilePath)
+        {
+            try
+            {
+                string albumFolder = Path.GetDirectoryName(libraryFilePath);
+                if (string.IsNullOrEmpty(albumFolder) || !Directory.Exists(albumFolder))
+                    return 0;
+                return Directory.GetFiles(albumFolder, "*.mp3", SearchOption.TopDirectoryOnly).Length;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
         /// <summary>Forwards to <see cref="RulesEngine.IsDeluxeVersionOf"/> (the single definition, INT-3).</summary>
         internal static bool IsDeluxeVersionOf(string candidate, string baseAlbum) =>
             RulesEngine.IsDeluxeVersionOf(candidate, baseAlbum);
@@ -1907,6 +1926,9 @@ namespace AudioManager
 
             string libraryAlbum = Path.GetFileName(Path.GetDirectoryName(duplicatePath));
             bool sameAlbum = newIsAlbum && libraryAlbum.Equals(track.Album, StringComparison.OrdinalIgnoreCase);
+            // Track counts for the size rule; 0 means unknown and the rule does not fire.
+            int libraryAlbumTracks = CountLibraryAlbumTracks(libraryFilePath);
+            int incomingAlbumTracks = newIsAlbum ? CountAlbumSongs(track.PrimaryArtist, track.Album) : 0;
 
             string dupReason = "";
             char recommendedKey = '\0';
@@ -1936,6 +1958,15 @@ namespace AudioManager
             {
                 recommendedKey = 'L';
                 dupReason = $"Library copy is from a compilation; new file is from artist album '{track.Album}'";
+            }
+            else if (newIsAlbum && !sameAlbum && incomingAlbumTracks > 0 && libraryAlbumTracks > 0)
+            {
+                // Same song on two different albums: the album with more tracks wins; tie keeps the new copy.
+                recommendedKey = incomingAlbumTracks >= libraryAlbumTracks ? 'L' : 'D';
+                string sizeNote = incomingAlbumTracks > libraryAlbumTracks ? "larger album preferred"
+                    : incomingAlbumTracks < libraryAlbumTracks ? "library album is larger, keep library"
+                    : "same size, incoming copy kept";
+                dupReason = $"New album '{track.Album}' has {incomingAlbumTracks} tracks, library album '{libraryAlbum}' has {libraryAlbumTracks} tracks - {sizeNote}";
             }
 
             string optD = "[D] Delete NewMusic copy (keep library)";

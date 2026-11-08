@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
+using AudioManager.Code.Modules;
 
 namespace AudioManager
 {
@@ -175,6 +177,142 @@ namespace AudioManager
             Assert.True(!MusicIntegrator.IsDeluxeVersionOf(null, "BULLY"), "null candidate returns false");
             Assert.True(!MusicIntegrator.IsDeluxeVersionOf("BULLY - DELUXE", null), "null base returns false");
             Assert.True(!MusicIntegrator.IsDeluxeVersionOf("", ""), "empty strings return false");
+        }
+
+        // ---- Same song on two albums: larger album preferred (MusicLibraryRules "Same Song On Two Albums Rule") ----
+
+        private const string SizeArtist = "Akira The Don";
+        private const string SizeTitle = "Don't Stop Asking Questions";
+
+        /// <summary>
+        /// Creates a temp library whose library album folder holds libraryTracks .mp3 files.
+        /// The duplicate path is a mirror-style XML inside that folder; BuildDupData derives the
+        /// library album folder from it. Caller deletes the root with RoutingFixtures.Cleanup.
+        /// </summary>
+        private static string SizeFixture(string libraryAlbum, int libraryTracks)
+        {
+            string root = Path.Combine(Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            string albumDir = Path.Combine(root, "Musivation", SizeArtist, "People", "Naval Ravikant", libraryAlbum);
+            Directory.CreateDirectory(albumDir);
+            for (int i = 0; i < libraryTracks; i++)
+                File.WriteAllBytes(Path.Combine(albumDir, "track" + (i + 1) + ".mp3"), new byte[0]);
+            return root;
+        }
+
+        private static string SizeDupPath(string root, string libraryAlbum) =>
+            Path.Combine(root, "Musivation", SizeArtist, "People", "Naval Ravikant", libraryAlbum, SizeArtist + " - " + SizeTitle + ".xml");
+
+        /// <summary>Runs the private BuildDupData for the incoming track against the duplicate path.</summary>
+        private static MusicIntegrator.DupData BuildSizeDup(string root, string libraryAlbum, string incomingAlbum, int incomingBatchTracks)
+        {
+            var batch = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
+            batch[SizeArtist] = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { { incomingAlbum, incomingBatchTracks } };
+            var integrator = new MusicIntegrator(root, batch);
+            var track = new Track { Artists = SizeArtist, Title = SizeTitle, Album = incomingAlbum, Genres = "Missing" };
+            MethodInfo method = typeof(MusicIntegrator).GetMethod("BuildDupData", BindingFlags.Instance | BindingFlags.NonPublic);
+            return (MusicIntegrator.DupData)method.Invoke(integrator, new object[] { "C:\\unused\\new.mp3", track, SizeDupPath(root, libraryAlbum) });
+        }
+
+        public static void SameSongSize_LargerIncomingAlbum_RecommendsL()
+        {
+            string root = SizeFixture("ME IS A DISEASE", 3);
+            try
+            {
+                var dup = BuildSizeDup(root, "ME IS A DISEASE", "THE REAL CURRENCY OF LIFE", 5);
+                Assert.Equal("L", dup.RecommendedKey.ToString(), "5-track incoming album beats 3-track library album: keep new");
+                Assert.True(dup.DupReason != null && dup.DupReason.Contains("larger album preferred"), "reason names the size rule");
+                Assert.True(dup.DupReason.Contains("5 tracks") && dup.DupReason.Contains("3 tracks"), "reason states both counts");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(root);
+            }
+        }
+
+        public static void SameSongSize_SmallerIncomingAlbum_RecommendsD()
+        {
+            string root = SizeFixture("THE REAL CURRENCY OF LIFE", 5);
+            try
+            {
+                var dup = BuildSizeDup(root, "THE REAL CURRENCY OF LIFE", "ME IS A DISEASE", 3);
+                Assert.Equal("D", dup.RecommendedKey.ToString(), "3-track incoming album loses to 5-track library album: keep library");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(root);
+            }
+        }
+
+        public static void SameSongSize_TieRecommendsL()
+        {
+            string root = SizeFixture("ME IS A DISEASE", 3);
+            try
+            {
+                var dup = BuildSizeDup(root, "ME IS A DISEASE", "SOME OTHER ALBUM", 3);
+                Assert.Equal("L", dup.RecommendedKey.ToString(), "equal track counts: incoming copy wins");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(root);
+            }
+        }
+
+        public static void SameSongSize_UnknownLibraryCount_NoNewRecommendation()
+        {
+            string root = SizeFixture("ME IS A DISEASE", 0);
+            try
+            {
+                var dup = BuildSizeDup(root, "ME IS A DISEASE", "THE REAL CURRENCY OF LIFE", 5);
+                Assert.Equal("\0", dup.RecommendedKey.ToString(), "library album with no audio entries: size rule must not fire");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(root);
+            }
+        }
+
+        public static void SameSongSize_UnknownIncomingCount_NoNewRecommendation()
+        {
+            string root = SizeFixture("ME IS A DISEASE", 3);
+            try
+            {
+                var dup = BuildSizeDup(root, "ME IS A DISEASE", "THE REAL CURRENCY OF LIFE", 0);
+                Assert.Equal("\0", dup.RecommendedKey.ToString(), "incoming album with no known tracks: size rule must not fire");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(root);
+            }
+        }
+
+        public static void SameSongSize_SameAlbum_StillRecommendsD()
+        {
+            string root = SizeFixture("THE REAL CURRENCY OF LIFE", 5);
+            try
+            {
+                var dup = BuildSizeDup(root, "THE REAL CURRENCY OF LIFE", "THE REAL CURRENCY OF LIFE", 5);
+                Assert.Equal("D", dup.RecommendedKey.ToString(), "same album is still D, not decided by size");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(root);
+            }
+        }
+
+        public static void SameSongSize_DeluxeRuleStillWinsOverSize()
+        {
+            // Incoming deluxe has FEWER tracks than the library album: size alone would say D.
+            string root = SizeFixture("DAMN.", 5);
+            try
+            {
+                var dup = BuildSizeDup(root, "DAMN.", "DAMN. (Deluxe)", 2);
+                Assert.Equal("L", dup.RecommendedKey.ToString(), "deluxe rule keeps priority over the size rule");
+                Assert.True(dup.DupReason != null && dup.DupReason.Contains("deluxe preferred"), "reason is the deluxe reason, not the size reason");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(root);
+            }
         }
     }
 }
