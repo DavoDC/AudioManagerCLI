@@ -24,6 +24,46 @@ namespace AudioManager
             Assert.True(m.Entries[1].Title == "Nightfall", "title field mapped");
         }
 
+        private const string PairJson = @"[
+          {""filename"": ""Lukis Mac - Intro.mp3"", ""sourceRel"": ""Album A\\Lukis Mac - Intro.mp3"", ""artist"": ""Lukis Mac"", ""title"": ""Intro"", ""dupResolution"": ""K""}
+        ]";
+
+        public static void SourceRel_EntryMatchesOnlyItsOwnFolder()
+        {
+            var m = IntegrationManifest.Parse(PairJson, out string error);
+            Assert.True(error == null, $"no parse error, got: {error}");
+            Assert.True(m.Matches("Lukis Mac - Intro.mp3", @"Album A\Lukis Mac - Intro.mp3"), "the accepted row matches");
+            Assert.True(!m.Matches("Lukis Mac - Intro.mp3", @"Album B\Lukis Mac - Intro.mp3"),
+                "a same-named file in another folder must stay declined");
+        }
+
+        public static void SourceRel_DupResolutionIsPerFile()
+        {
+            var m = IntegrationManifest.Parse(PairJson, out _);
+            Assert.Equal("K", m.GetDupResolution("Lukis Mac - Intro.mp3", "Lukis Mac", "Intro", @"Album A\Lukis Mac - Intro.mp3").ToString(), "own row resolves");
+            Assert.Equal("\0", m.GetDupResolution("Lukis Mac - Intro.mp3", "Lukis Mac", "Intro", @"Album B\Lukis Mac - Intro.mp3").ToString(), "other folder has no resolution");
+        }
+
+        public static void FilenameOnlyManifest_StillMatchesAnyFolder()
+        {
+            var m = IntegrationManifest.Parse(SampleJson, out _);
+            Assert.True(m.Matches("Aurora Bytes - Nightfall.mp3", @"Some Folder\Aurora Bytes - Nightfall.mp3"), "old manifests keep matching by name");
+        }
+
+        public static void RoutingJson_EmitsSourceRelPerFile()
+        {
+            var e = new MusicIntegrator.LogEntry { Filename = "Intro.mp3", SourceRel = @"Album A\Intro.mp3", Status = "routed" };
+            string json = MusicIntegrator.BuildJson(new System.Collections.Generic.List<MusicIntegrator.LogEntry> { e });
+            Assert.True(json.Contains("\"sourceRel\": \"Album A\\\\Intro.mp3\""), "routing JSON carries sourceRel, got: " + json);
+        }
+
+        public static void RelToNewMusic_OnlyForFilesUnderNewMusic()
+        {
+            string inside = System.IO.Path.Combine(Constants.NewMusicPath, "Album A", "x.mp3");
+            Assert.Equal(@"Album A\x.mp3", MusicIntegrator.RelToNewMusic(inside), "relative path under NewMusic");
+            Assert.True(MusicIntegrator.RelToNewMusic(@"Z:\elsewhere\x.mp3") == null, "outside NewMusic gives null");
+        }
+
         public static void Matches_ByExactFilename()
         {
             var m = IntegrationManifest.Parse(SampleJson, out _);

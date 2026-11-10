@@ -69,10 +69,23 @@ namespace AudioManager
         private Dictionary<string, string> _lSlotOwners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
 
+        /// <summary>Path of a file relative to NewMusic with backslashes, or null when it is not under NewMusic.</summary>
+        internal static string RelToNewMusic(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return null;
+            string root = Constants.NewMusicPath?.TrimEnd('\\', '/');
+            if (string.IsNullOrEmpty(root)) return null;
+            string full = path.Replace('/', '\\');
+            if (!full.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) return null;
+            return full.Substring(root.Length + 1);
+        }
+
         /// <summary>Per-file integration result for the log and JSON output.</summary>
         internal class LogEntry
         {
             public string Filename;
+            // Path relative to NewMusic (null when the source is not under it); lets a client key rows per file.
+            public string SourceRel;
             public string Title;
             public string Artists;
             public string Album;
@@ -215,7 +228,7 @@ namespace AudioManager
             {
                 // Step 1: Fix tags in NewMusic folder
                 // A manifest declines files before Tag Fix too: declined files are never rewritten, renamed or quarantined.
-                var tagFixer = new TagFixer(dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f))));
+                var tagFixer = new TagFixer(dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))));
                 var tagChanges = tagFixer.FileChanges;
 
                 var files = Directory.Exists(Constants.NewMusicPath)
@@ -228,7 +241,7 @@ namespace AudioManager
                 if (manifest != null && files.Length > 0)
                 {
                     int beforeCount = files.Length;
-                    files = files.Where(f => manifest.Matches(Path.GetFileName(f))).ToArray();
+                    files = files.Where(f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))).ToArray();
                     int excluded = beforeCount - files.Length;
                     Console.WriteLine($" - Manifest filter: {files.Length} of {beforeCount} NewMusic file(s) selected" +
                         (excluded > 0 ? $"; {excluded} left untouched in NewMusic" : ""));
@@ -1292,6 +1305,7 @@ namespace AudioManager
                 var e = entries[i];
                 sb.AppendLine("  {");
                 sb.AppendLine($"    \"filename\": {JStr(e.Filename)},");
+                if (!string.IsNullOrEmpty(e.SourceRel)) sb.AppendLine($"    \"sourceRel\": {JStr(e.SourceRel)},");
                 sb.AppendLine($"    \"artist\": {JStr(e.Artists)},");
                 sb.AppendLine($"    \"title\": {JStr(e.Title)},");
                 sb.AppendLine($"    \"album\": {JStr(e.Album)},");
@@ -2003,7 +2017,7 @@ namespace AudioManager
             var result = new List<ScannedFile>();
             foreach (var sourcePath in files)
             {
-                var entry = new LogEntry { Filename = Path.GetFileName(sourcePath) };
+                var entry = new LogEntry { Filename = Path.GetFileName(sourcePath), SourceRel = RelToNewMusic(sourcePath) };
                 var sf = new ScannedFile { SourcePath = sourcePath, LogEntry = entry };
                 try
                 {
@@ -2325,7 +2339,7 @@ namespace AudioManager
                 // the exact same auto-accept-recommendation behavior as before - unresolved
                 // batches stay safe by construction, not by a second code path.
                 char manifestDecision = _manifest?.GetDupResolution(
-                    Path.GetFileName(sf.SourcePath), track.Artists, track.Title) ?? '\0';
+                    Path.GetFileName(sf.SourcePath), track.Artists, track.Title, RelToNewMusic(sf.SourcePath)) ?? '\0';
                 if (manifestDecision != '\0')
                 {
                     dup.Decision = manifestDecision;

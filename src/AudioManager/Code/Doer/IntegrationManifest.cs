@@ -24,6 +24,10 @@ namespace AudioManager
         internal class Entry
         {
             public string Filename;
+            // Optional path of the file relative to NewMusic. When present the entry matches ONLY that
+            // exact file, so two same-named files in different folders are accepted or declined
+            // independently. Absent = match by filename in any folder (old manifests).
+            public string SourceRel;
             public string Artist;
             public string Title;
             // Review-stage duplicate resolution ("D"/"L"/"K"), if the user changed it away
@@ -36,6 +40,10 @@ namespace AudioManager
 
         private HashSet<string> candidateNames;
         private readonly Dictionary<string, Entry> candidateToEntry =
+            new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Entry> relToEntry =
+            new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Entry> relCanonical =
             new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<Entry> matchedEntries = new HashSet<Entry>();
 
@@ -101,10 +109,11 @@ namespace AudioManager
 
                 var entry = new Entry();
                 fields.TryGetValue("filename", out entry.Filename);
+                fields.TryGetValue("sourceRel", out entry.SourceRel);
                 fields.TryGetValue("artist", out entry.Artist);
                 fields.TryGetValue("title", out entry.Title);
                 fields.TryGetValue("dupResolution", out entry.DupResolution);
-                if (string.IsNullOrWhiteSpace(entry.Filename) &&
+                if (string.IsNullOrWhiteSpace(entry.Filename) && string.IsNullOrWhiteSpace(entry.SourceRel) &&
                     (string.IsNullOrWhiteSpace(entry.Artist) || string.IsNullOrWhiteSpace(entry.Title)))
                 {
                     error = "manifest entry needs a filename, or an artist and title";
@@ -118,13 +127,43 @@ namespace AudioManager
         }
 
         /// <summary>True if a NewMusic filename is accepted by this manifest.</summary>
-        internal bool Matches(string filename)
+        internal bool Matches(string filename, string sourceRel = null)
         {
-            if (string.IsNullOrEmpty(filename)) return false;
-            if (!candidateNames.Contains(filename)) return false;
-            if (candidateToEntry.TryGetValue(filename, out var entry))
-                matchedEntries.Add(entry);
+            var entry = FindEntry(filename, null, null, sourceRel);
+            if (entry == null) return false;
+            matchedEntries.Add(entry);
             return true;
+        }
+
+        private static string NormRel(string rel) => rel?.Replace('/', '\\').Trim('\\');
+
+        /// <summary>
+        /// Entry for a scanned file. An entry with a sourceRel matches only that exact relative path (or,
+        /// after a Tag Fix rename, the canonical artist - title name in the SAME folder); an entry without
+        /// one matches by filename in any folder, as old manifests always did.
+        /// </summary>
+        private Entry FindEntry(string filename, string artist, string title, string sourceRel)
+        {
+            string rel = NormRel(sourceRel);
+            if (!string.IsNullOrEmpty(rel) && relToEntry.TryGetValue(rel, out var byRel)) return byRel;
+
+            Entry entry = null;
+            if (!string.IsNullOrEmpty(filename)) candidateToEntry.TryGetValue(filename, out entry);
+            if (entry == null && !string.IsNullOrEmpty(artist) && !string.IsNullOrEmpty(title))
+            {
+                string sanArtist = Reflector.SanitiseFilename(artist);
+                string sanTitle = Reflector.SanitiseFilename(title);
+                if (!string.IsNullOrEmpty(sanArtist) && !string.IsNullOrEmpty(sanTitle))
+                    candidateToEntry.TryGetValue($"{sanArtist} - {sanTitle}.mp3", out entry);
+            }
+            if (entry == null && !string.IsNullOrEmpty(rel))
+            {
+                // Same-folder canonical rename of a sourceRel entry (Tag Fix renamed the file in place).
+                string dir = Path.GetDirectoryName(rel) ?? "";
+                string name = Path.GetFileName(rel);
+                if (relCanonical.TryGetValue(dir + "\\" + name, out var byCanon)) return byCanon;
+            }
+            return entry;
         }
 
         /// <summary>Entries that never matched any scanned file (stale scan warning).</summary>
@@ -139,19 +178,9 @@ namespace AudioManager
         /// the value isn't one of D/L/K - callers must treat that as "no override", never as an
         /// implicit decision.
         /// </summary>
-        internal char GetDupResolution(string filename, string artist, string title)
+        internal char GetDupResolution(string filename, string artist, string title, string sourceRel = null)
         {
-            Entry entry = null;
-            if (!string.IsNullOrEmpty(filename))
-                candidateToEntry.TryGetValue(filename, out entry);
-
-            if (entry == null && !string.IsNullOrEmpty(artist) && !string.IsNullOrEmpty(title))
-            {
-                string sanArtist = Reflector.SanitiseFilename(artist);
-                string sanTitle = Reflector.SanitiseFilename(title);
-                if (!string.IsNullOrEmpty(sanArtist) && !string.IsNullOrEmpty(sanTitle))
-                    candidateToEntry.TryGetValue($"{sanArtist} - {sanTitle}.mp3", out entry);
-            }
+            Entry entry = FindEntry(filename, artist, title, sourceRel);
 
             if (entry == null || string.IsNullOrEmpty(entry.DupResolution)) return '\0';
             char c = char.ToUpperInvariant(entry.DupResolution[0]);
@@ -163,6 +192,22 @@ namespace AudioManager
             candidateNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var e in Entries)
             {
+                if (!string.IsNullOrWhiteSpace(e.SourceRel))
+                {
+                    // Path-keyed entry: matches only its own file, never a same-named file elsewhere.
+                    string rel = NormRel(e.SourceRel);
+                    if (!relToEntry.ContainsKey(rel)) relToEntry[rel] = e;
+                    if (!string.IsNullOrWhiteSpace(e.Artist) && !string.IsNullOrWhiteSpace(e.Title))
+                    {
+                        string a = Reflector.SanitiseFilename(e.Artist), t = Reflector.SanitiseFilename(e.Title);
+                        if (!string.IsNullOrEmpty(a) && !string.IsNullOrEmpty(t))
+                        {
+                            string key = (Path.GetDirectoryName(rel) ?? "") + "\\" + $"{a} - {t}.mp3";
+                            if (!relCanonical.ContainsKey(key)) relCanonical[key] = e;
+                        }
+                    }
+                    continue;
+                }
                 if (!string.IsNullOrWhiteSpace(e.Filename))
                 {
                     candidateNames.Add(e.Filename);
