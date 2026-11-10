@@ -16,3 +16,5 @@ Always written by `--apply-plan`: `data/logs/tagfix-result.json` (schemaVersion 
 Journal `data/logs/tagfix-journal-<yyyyMMdd-HHmmss>.json`: written before the first change, rewritten atomically after every file. One entry per planned file with `file`, `oldName`, `newName`, the old and new tag fields, `backup`, `quarantinedTo`, `detail` and `status` (`pending`, `done`, `failed`, `quarantined`, `already_done`, `reverted`). After a crash, `pending` entries were never touched.
 
 Byte backups: `data/backups/<stamp>/<relative path>` (gitignored). Backups older than 7 days are pruned at the start of the next apply, never on a clean run and never by a background job.
+
+Test-only folder override: env `AUDIOMANAGER_TEST_ROOT=<dir>` redirects NewMusic (`<dir>\NewMusic`), its quarantine (`<dir>\NewMusic-Quarantine`), logs (`<dir>\logs`) and backups (`<dir>\backups`). Unset means the real paths, no behaviour change. A file the plan scan could not read (locked, corrupt) is listed in `failures` and makes the status `partial`.

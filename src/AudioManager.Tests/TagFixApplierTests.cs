@@ -148,6 +148,24 @@ namespace AudioManager
             finally { TagFixer.Saver = originalSaver; Cleanup(e); }
         }
 
+        public static void Apply_LockedFile_IsReportedAsFailureNotApplied()
+        {
+            var e = NewEnv();
+            try
+            {
+                Messy(e, "ok.mp3");
+                string locked = Messy(e, "locked.mp3");
+                string fp = Plan(e);
+                using (new FileStream(locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                {
+                    var r = TagFixApplier.Apply(e.Folder, fp, e.Logs, e.Backups, e.Quarantine, Now);
+                    Assert.Equal("partial", r.Status, "locked file makes the run partial");
+                    Assert.True(r.Applied == 1 && r.Failed == 1 && r.Failures.Count == 1, "one applied, one failure listed");
+                }
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void Apply_QuarantineIsJournaledAndRevertMovesItBack()
         {
             var e = NewEnv();

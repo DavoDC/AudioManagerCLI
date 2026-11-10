@@ -16,7 +16,14 @@ namespace AudioManager
         public static readonly string AudioFolderPath = Path.Combine(UserBasePath, "Audio");
 
         // The path to the new music folder (e.g. <home>\Downloads\NewMusic\)
-        public static readonly string NewMusicPath = Path.Combine(UserBasePath, "Downloads", "NewMusic");
+        // Test-only override: env AUDIOMANAGER_TEST_ROOT redirects NewMusic, its quarantine, logs and backups
+        // into that folder (NewMusic, NewMusic-Quarantine, logs, backups). Unset means the real paths, unchanged.
+        public static readonly string TestRoot = Environment.GetEnvironmentVariable("AUDIOMANAGER_TEST_ROOT");
+        private static bool HasTestRoot => !string.IsNullOrWhiteSpace(TestRoot);
+
+        public static readonly string NewMusicPath = HasTestRoot
+            ? Path.Combine(TestRoot, "NewMusic")
+            : Path.Combine(UserBasePath, "Downloads", "NewMusic");
 
         // Quarantine sibling of NewMusic (e.g. <home>\Downloads\NewMusic-Quarantine\). Deliberately outside
         // NewMusicPath because TagFixer scans NewMusicPath recursively.
@@ -52,8 +59,8 @@ namespace AudioManager
 
         // Path to the integration logs folder (gitignored, written by MusicIntegrator)
         /// <summary>Tag Fix byte backups, one folder per apply run (gitignored; pruned after 7 days at the next apply).</summary>
-        public static readonly string BackupsPath = Path.Combine(RepoRoot, "data", "backups");
-        public static readonly string LogsPath =Path.Combine(RepoRoot, "data", "logs");
+        public static readonly string BackupsPath = HasTestRoot ? Path.Combine(TestRoot, "backups") : Path.Combine(RepoRoot, "data", "backups");
+        public static readonly string LogsPath = HasTestRoot ? Path.Combine(TestRoot, "logs") : Path.Combine(RepoRoot, "data", "logs");
 
         // Path to the parser result cache (gitignored, in data/logs/)
         public static readonly string ParseCachePath = Path.Combine(LogsPath, "parse-cache.txt");

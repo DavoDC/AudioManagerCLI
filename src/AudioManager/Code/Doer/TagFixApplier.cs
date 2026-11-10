@@ -147,6 +147,12 @@ namespace AudioManager
                 WriteJournal(result.JournalPath, folder, quarantineRoot, entries, now);
             }
 
+            // Files the scan could not read (locked, corrupt) were never planned; they are failures, not silent skips.
+            foreach (var u in scan.Results.Where(l => l.Status == "error"))
+            {
+                result.Failed++; result.Failures.Add(Rel(folder, u.SourcePath) + ": unreadable, not changed: " + u.Detail);
+            }
+
             var after = TagFixer.ForFolder(folder, dryRun: true, quarantineRoot: quarantineRoot);
             result.PendingAfter = after.Results.Count(l => l.Status == "would-fix" || l.WouldQuarantine);
             result.Status = result.Failed == 0 ? "applied" : "partial";
