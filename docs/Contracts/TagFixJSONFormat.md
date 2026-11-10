@@ -95,6 +95,15 @@ before `tagChanges`. It is `null` when the track has no tag fix. Otherwise it is
 display strings, so existing consumers keep working. No routing contract doc under `docs/Contracts/` mentions
 `tagChanges`, so this section is the only place the `tagFix` shape is written down.
 
+## Per-file exceptions: `config/tagfix-exceptions.xml`
+
+A hand-edited config read by TagFixer and by the integrate library-duplicate check. It is not written by the engine and not part of the plan JSON. Root element `<TagFixExceptions>`, two row kinds, both keyed by the ORIGINAL NewMusic filename (case-insensitive, no path).
+
+- `<Exception file="..." keep="title|artist|album|casing" />` keeps the named tag as read. `title` skips built-in cleanup and custom rules on the title. `artist` keeps the artists tag as read, with no feat. split. `album` skips built-in album cleanup and custom rules on the album. `casing` skips the artist name casing overrides. Several rows for one file combine. The filename rename follows the kept tags.
+- `<NotDuplicate file="..." />` makes the integrate library-duplicate check skip that file, so its routing entry has `libraryDuplicate` false.
+
+A missing file means no exceptions, silently. A malformed file prints one `[WARN]` line and means no exceptions. An unusable row is skipped with a `[WARN]` and the other rows still apply. Code: `src/AudioManager/Code/Doer/TagFixExceptions.cs` (`Load`, `Keeps`, `IsNotDuplicate`). Tests: `src/AudioManager.Tests/TagFixExceptionsTests.cs`.
+
 ## Encoding and line endings
 
 UTF-8 without a byte-order mark, written atomically (temp file, then replace). Lines end with CRLF on Windows.

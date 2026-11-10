@@ -33,6 +33,11 @@ namespace AudioManager
         private readonly TagFixCustomRuleSet customRules;
 
         /// <summary>
+        /// Per-file keep= flags from config/tagfix-exceptions.xml. Empty when the file is missing or malformed.
+        /// </summary>
+        private readonly TagFixExceptions exceptions;
+
+        /// <summary>
         /// Per-file tag changes for display in MusicIntegrator's combined routing block.
         /// Key: filename MusicIntegrator will see (original in dry-run; post-rename in real mode).
         /// Value: list of change strings e.g. "Title: \"X\" -> \"Y\"". Excludes filename renames.
@@ -93,6 +98,7 @@ namespace AudioManager
         {
             this.dryRun = dryRun;
             this.customRules = TagFixCustomRuleSet.Load();
+            this.exceptions = TagFixExceptions.Load();
             string modeLabel = dryRun ? " [DRY RUN - no files will be modified]" : "";
             Console.WriteLine($"\nFixing music tags...{modeLabel}");
 
@@ -152,9 +158,9 @@ namespace AudioManager
         /// ProcessFile() directly against a fixture path without touching the real inbox.
         /// Pass customRulesPath to load custom rules from a fixture file instead of the repo config.
         /// </summary>
-        internal static TagFixer ForTesting(bool dryRun, string customRulesPath = null, string quarantineRoot = null)
+        internal static TagFixer ForTesting(bool dryRun, string customRulesPath = null, string quarantineRoot = null, string exceptionsPath = null)
         {
-            return new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot);
+            return new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot, exceptionsPath: exceptionsPath);
         }
 
         /// <summary>
@@ -174,10 +180,11 @@ namespace AudioManager
             return ScanFolderForTesting(folder, dryRun, quarantineRoot: quarantineRoot);
         }
 
-        private TagFixer(bool dryRun, bool skipScan,string customRulesPath = null, string quarantineRoot = null)
+        private TagFixer(bool dryRun, bool skipScan, string customRulesPath = null, string quarantineRoot = null, string exceptionsPath = null)
         {
             this.dryRun = dryRun;
             this.customRules = TagFixCustomRuleSet.Load(customRulesPath);
+            this.exceptions = TagFixExceptions.Load(exceptionsPath);
             this.quarantineRoot = quarantineRoot ?? Constants.QuarantinePath;
         }
 
@@ -246,11 +253,19 @@ namespace AudioManager
                     return log;
                 }
 
+                // Per-file keep= flags (config/tagfix-exceptions.xml), keyed by the original NewMusic filename.
+                string originalName = Path.GetFileName(sourcePath);
+                bool keepTitle = exceptions.Keeps(originalName, "title");
+                bool keepAlbum = exceptions.Keeps(originalName, "album");
+                bool keepArtist = exceptions.Keeps(originalName, "artist");
+                bool keepCasing = exceptions.Keeps(originalName, "casing");
+
                 // Apply built-in tag cleanup rules (unchanged - custom rules run after these)
-                string cleanTitle = RemoveParentheticals(title);
-                string cleanAlbum = StripAlbumSuffixes(RemoveParentheticals(album));
-                var artistList = ExtractAndFixArtists(title, artists);
-                string cleanArtists = string.Join("; ", artistList);
+                string cleanTitle = keepTitle ? title : RemoveParentheticals(title);
+                string cleanAlbum = keepAlbum ? album : StripAlbumSuffixes(RemoveParentheticals(album));
+                // keep=artist: artists stay exactly as read (no feat. split from the title).
+                var artistList = keepArtist ? new List<string>() : ExtractAndFixArtists(title, artists, applyCasing: !keepCasing);
+                string cleanArtists = keepArtist ? artists : string.Join("; ", artistList);
 
                 bool tcmpNeeded = !id3.IsCompilation;
                 bool genreNeeded = ShouldFixGenre(cleanArtists, genres);
@@ -270,8 +285,13 @@ namespace AudioManager
                     Artists = cleanArtists ?? "",
                     Genre = cleanGenres ?? ""
                 };
+                // Fields the keep= flags protect are also out of reach of custom rules.
+                var protectedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (keepTitle) protectedFields.Add("title");
+                if (keepAlbum) protectedFields.Add("album");
+                if (keepArtist) protectedFields.Add("artists");
                 var customChanges = customRules != null
-                    ? customRules.Apply(customValues)
+                    ? customRules.Apply(customValues, protectedFields)
                     : new List<TagFixCustomRuleChange>();
 
                 string finalTitle = customValues.Title;
@@ -655,7 +675,7 @@ namespace AudioManager
         /// Extracts featured artists from title parentheticals and combines with existing artists.
         /// Returns a list of artists with primary artist first, others semicolon-separated.
         /// </summary>
-        internal static List<string> ExtractAndFixArtists(string title, string currentArtists)
+        internal static List<string> ExtractAndFixArtists(string title, string currentArtists, bool applyCasing = true)
         {
             var artists = new List<string>();
 
@@ -709,7 +729,8 @@ namespace AudioManager
 
             // Casing (BL-61): the source tag is the truth, never recased (PARTYNEXTDOOR, RZA, MF DOOM, SZA).
             // Only the explicit overrides list (config/artist-name-overrides.xml) maps a name to a canonical form.
-            var overrides = GetArtistOverrides();
+            // keep=casing (TagFixExceptions) passes applyCasing false, so the source casing is kept as read.
+            var overrides = applyCasing ? GetArtistOverrides() : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var cased = artists
                 .Select(a => overrides.TryGetValue(a, out string canonical) ? canonical : a)
                 .Distinct(StringComparer.OrdinalIgnoreCase)

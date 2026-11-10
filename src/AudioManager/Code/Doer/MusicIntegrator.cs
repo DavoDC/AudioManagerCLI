@@ -1828,6 +1828,7 @@ namespace AudioManager
         private List<ScannedFile> PreScanFiles(string[] files, Dictionary<string, List<string>> tagChanges, Dictionary<string, TagFixer.FixLog> tagLogs = null)
         {
             var mirrorIndex = BuildMirrorIndex();
+            var tagExceptions = TagFixExceptions.Load(); // NotDuplicate rows in config/tagfix-exceptions.xml
             var result = new List<ScannedFile>();
             foreach (var sourcePath in files)
             {
@@ -1898,7 +1899,9 @@ namespace AudioManager
                             entry.TagFix = tagLog;
                     }
 
-                    string duplicatePath = FindDuplicateInMirror(track, mirrorIndex);
+                    // NotDuplicate matches the ORIGINAL NewMusic name; a tag fix may have renamed the file already.
+                    string exceptionKey = tagLogs != null && tagLogs.TryGetValue(filename, out var nameLog) ? nameLog.OriginalFilename : filename;
+                    string duplicatePath = tagExceptions.IsNotDuplicate(exceptionKey) ? null : FindDuplicateInMirror(track, mirrorIndex);
                     if (!string.IsNullOrEmpty(duplicatePath))
                     {
                         sf.Duplicate = BuildDupData(sourcePath, track, duplicatePath);

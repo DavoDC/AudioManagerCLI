@@ -189,7 +189,7 @@ namespace AudioManager
         /// Returns one change record per rule that actually altered a value; a rule that matches but
         /// produces an identical value records nothing.
         /// </summary>
-        internal List<TagFixCustomRuleChange> Apply(TagFieldValues values)
+        internal List<TagFixCustomRuleChange> Apply(TagFieldValues values, ISet<string> skipFields = null)
         {
             var changes = new List<TagFixCustomRuleChange>();
             if (values == null) return changes;
@@ -197,6 +197,7 @@ namespace AudioManager
             foreach (var rule in Rules)
             {
                 if (!rule.Enabled) continue;
+                if (skipFields != null && skipFields.Contains(rule.Field)) continue;
                 try
                 {
                     string current = values.Get(rule.Field) ?? "";

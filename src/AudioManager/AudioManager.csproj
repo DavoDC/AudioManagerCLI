@@ -83,6 +83,7 @@
     <Compile Include="Code\Doer\IntegrationManifest.cs" />
     <Compile Include="Code\Doer\TagFixer.cs" />
     <Compile Include="Code\Doer\TagFixCustomRules.cs" />
+    <Compile Include="Code\Doer\TagFixExceptions.cs" />
     <Compile Include="Code\Doer\Reflector.cs" />
     <Compile Include="Code\Doer\ReportWriter.cs" />
     <Compile Include="Code\Doer\ParseCache.cs" />

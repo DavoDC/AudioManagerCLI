@@ -54,6 +54,9 @@ namespace AudioManager
         // Path to the user-defined TagFixer custom rules config file (additive pass after built-in fixes)
         public static readonly string TagFixCustomRulesPath = Path.Combine(RepoRoot, "config", "tagfix-custom-rules.xml");
 
+        // Path to the per-file tag fix exceptions config file (keep= flags for TagFixer, NotDuplicate rows for the integrate duplicate check)
+        public static readonly string TagFixExceptionsPath = Path.Combine(RepoRoot, "config", "tagfix-exceptions.xml");
+
         // Path to the artist name aliases config file (maps old names to canonical names for duplicate detection)
         public static readonly string ArtistAliasesPath = Path.Combine(RepoRoot, "config", "artist-aliases.xml");
 
