@@ -1110,6 +1110,7 @@ namespace AudioManager
         /// data/logs/execution-{timestamp}.json (WriteExecutionRecord) with recordType "execution",
         /// dryRun false, and a populated "confidence" block. Schema: {schemaVersion, recordType,
         /// dryRun, generatedAt, "summary": {routes, miscAutoMigrations, miscAutoMigrationTotal,
+        /// counts {files, routed, skipped, errors, libraryDuplicates, inBatchDuplicates, unrouted},
         /// compilationAlbums}, "confidence": null | {countCheck, sanityCheck, newFolders,
         /// errorCount, errors}, "files": [ {filename, artist, title, album, destination, reason,
         /// isNewFolder, status, detail, inBatchDuplicate, compilationAlbum, libraryDuplicate + dup*
@@ -1206,6 +1207,16 @@ namespace AudioManager
             sb.AppendLine($"    \"routes\": {{{string.Join(", ", ordered.Select(kv => $"{JStr(kv.Key)}: {kv.Value}"))}}},");
             sb.AppendLine($"    \"miscAutoMigrations\": [{string.Join(", ", orderedMigrations.Select(kv => $"{{\"artist\": {JStr(kv.Key)}, \"count\": {kv.Value}}}"))}],");
             sb.AppendLine($"    \"miscAutoMigrationTotal\": {migrationTotal},");
+
+            // Stage counts derived from the same rows written to files[], so a GUI reads them
+            // without scanning rows. "skipped" covers skip and would-skip statuses.
+            int files = entries.Count;
+            int routed = entries.Count(e => e.Status == "moved" || e.Status == "would-move");
+            int skipped = entries.Count(e => e.Status != null && (e.Status.StartsWith("skip", StringComparison.Ordinal) || e.Status == "would-skip"));
+            int errors = entries.Count(e => e.Status == "error");
+            int libraryDuplicates = entries.Count(e => e.LibraryDuplicate);
+            int inBatchDuplicates = entries.Count(e => e.InBatchDuplicate);
+            sb.AppendLine($"    \"counts\": {{\"files\": {files}, \"routed\": {routed}, \"skipped\": {skipped}, \"errors\": {errors}, \"libraryDuplicates\": {libraryDuplicates}, \"inBatchDuplicates\": {inBatchDuplicates}, \"unrouted\": {files - routed}}},");
             sb.AppendLine($"    \"compilationAlbums\": [{string.Join(", ", comps.Select(a => JStr(a)))}]");
             sb.AppendLine("  },");
         }
