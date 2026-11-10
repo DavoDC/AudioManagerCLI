@@ -23,3 +23,18 @@ Long-form reference material for AudioManager, grouped by folder. Start with Dev
 - [Rules/MusicLibraryRules.md](Rules/MusicLibraryRules.md) - tag and routing rules that decide where each track lands in the library.
 - [Rules/PostIntegrationValidation.md](Rules/PostIntegrationValidation.md) - why post-integration LibChecker warnings are often false and how to check them.
 - [Rules/SafetyConstraints.md](Rules/SafetyConstraints.md) - the safety review of library file operations against the rules.
+
+## Where rules live
+
+One canonical home per kind of rule. A rule is stated in its home only; anywhere else gets a one-line link, never a restatement.
+
+| Kind | Canonical file |
+|------|----------------|
+| Tag cleanup, title and artist rules, routing, duplicate matching and policy | [Rules/MusicLibraryRules.md](Rules/MusicLibraryRules.md) |
+| Safety review of file operations | [Rules/SafetyConstraints.md](Rules/SafetyConstraints.md) |
+| LibChecker false-warning guidance | [Rules/PostIntegrationValidation.md](Rules/PostIntegrationValidation.md) |
+| JSON fields and statuses (plan, apply, routing, gate, mirror, analysis) | [Contracts/](Contracts/) |
+| Operator steps for a real integration | [GoLiveRunbook.md](GoLiveRunbook.md) |
+| Code invariants and patterns | [DevContext.md](DevContext.md) |
+
+The top-level README is product overview only: no per-rule text. A test (`DocSingleSourceTests`) fails when README.md or CLAUDE.md contains rule-only keywords.

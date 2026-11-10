@@ -35,12 +35,12 @@ Run via the CLI:
 Ensures the library conforms to organization rules:
 - **Filename matching** - all artists from tag appear in filename
 - **Tag completeness** - Title, Artists, Album, Year present on all tracks
-- **Unwanted strings** - flags feat., ft., edit, bonus, original, soundtrack, version, explicit in tags
+- **Unwanted strings** - flags leftover credit and version text in tags
 - **Album cover** - exactly 1 cover per track (APIC frame)
-- **Compilation flag** - TCMP=1 on all tracks
+- **Compilation flag** - set consistently on all tracks
 - **Duplicates** - no artist+title duplicates (detects re-integrated songs)
-- **Artist folder structure** - Artists with 3+ songs have dedicated folders
-- **Album subfolders** - 2+ songs from same album → album subfolder; 1 song → Singles/
+- **Artist folder structure** - artists with enough songs have dedicated folders
+- **Album subfolders** - album and Singles layout is checked
 - **Misc folder review** - warns if Misc folder has grown too large
 - **Compilations validation** - tracks in Compilations/ whose artist has an Artists/ folder are flagged as misrouted, unless the album is a genuine various-artist compilation (3+ distinct primary artists in that album)
 - **Genre consistency** - Musivation/Motivation folders have matching genre tag
@@ -62,21 +62,12 @@ For listening statistics, visit [LastFM](https://www.last.fm/user/david369music)
 **Automated end-to-end workflow:** drop new MP3s in `Downloads/NewMusic`, run the three-step sequence below:
 
 ### Step 1: Tag Fixing (TagFixer)
-Cleans raw MP3s before integration:
-- Removes parenthetical phrases from titles (e.g., `(feat. Artist)`, `(Remix)`)
-- Extracts featured artists and adds to the artist tag
-- Moves a trailing bare credit (`360 featuring A & B`, `Song ft. A`) out of the title into the artist tag (never mid-title, never bare `with`)
-- Renames files per convention: `{artists} - {title}.mp3`
-- Sets `TCMP=1` on all tracks
-- Sets genre for special artists (Akira The Don → Musivation)
+Cleans raw MP3s (titles, artist tags, file names) before integration. The exact rules are in [MusicLibraryRules.md](docs/Rules/MusicLibraryRules.md).
 
 Run: `AudioManager.exe tagfix [--dry-run]`
 
 ### Step 2: Integration (MusicIntegrator)
-Routes cleaned files into the library:
-- Scan-ahead identifies artists hitting the 3-song threshold (routes to `Artists/` instead of `Misc`) and detects various-artist compilation albums (routes to `Compilations/`)
-- Auto-routes to destination folders based on metadata: Artists (with album subfolders), Compilations, Musivation, Motivation, Misc
-- Optional folder picker for Films/Shows/Anime media tracks
+Routes cleaned files into the library by metadata, with an optional folder picker for media tracks. Routing rules: [MusicLibraryRules.md](docs/Rules/MusicLibraryRules.md).
 
 Run: `AudioManager.exe integrate [--dry-run]`
 

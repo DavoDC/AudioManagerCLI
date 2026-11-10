@@ -97,8 +97,7 @@ The safety of the L (replace library) decision depends on **duplicate detection 
 
 **Detection logic** (FindDuplicateInMirror):
 - Compares **primary artist + title** of the incoming file against an in-memory index of all AudioMirror XMLs (tags only, no audio bytes are read)
-- Case-insensitive; the title has any "(feat. X)", "(ft. X)" or "(featuring X)" removed first (NormaliseTitleForDedup), so a track with and without a feat tag still matches
-- A missing or "Missing" artist or title never matches (returns no duplicate)
+- Title normalisation before matching: see [Duplicate Matching Rule](MusicLibraryRules.md#duplicate-matching-rule)
 - Returns matching XML file path if found
 - No hash-based comparison: the code never hashes file content
 

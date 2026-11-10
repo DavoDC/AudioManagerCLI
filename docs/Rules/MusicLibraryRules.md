@@ -84,6 +84,9 @@ When one artist has the same song (same artist+title) on two albums, one in the 
 - Example: Akira The Don, "Don't Stop Asking Questions" is on library album "Me Is A Disease" (3 tracks) and on incoming "The Real Currency Of Life" (5 tracks) -> keep it on "The Real Currency Of Life", the Me Is A Disease copy goes (that album drops to 2 tracks, and the 2+ rule above still applies).
 - Status: the recommendation is implemented: `BuildDupData` in `MusicIntegrator.cs` recommends L or D by album track count (tie: L), after the deluxe, single and compilation rules. It is a recommendation only; no-input runs still downgrade it to K.
 
+## Duplicate Matching Rule
+Duplicate detection (`FindDuplicateInMirror`) compares primary artist + title, case-insensitive, tags only. `NormaliseTitleForDedup()` runs on BOTH sides of every dedup key (index build in `GetAliasExpandedKeys` and lookup), and strips `(feat./ft./featuring X)` only, never (Remix), (Edit) or (Live), which are distinct tracks. Rationale: library tags may predate TagFixer cleanup and the incoming batch is already cleaned, so without it "Song (feat. X)" in the library silently fails to match "Song" in the batch. A missing or "Missing" artist or title never matches.
+
 ## Richer Metadata Wins Rule (David, 2026-11-08)
 When an incoming track duplicates a library track and the incoming copy, AFTER TagFixer, lists MORE artists than the library copy, **keep the incoming copy** (recommend L), even when the album is the same. More artists means more correct metadata. This is checked BEFORE the same-album "keep library" rule.
 - Example: library `Miscellaneous Songs\The Avalanches - Frankie Sinatra.mp3` has only The Avalanches; incoming "Frankie Sinatra (ft. Danny Brown & MF DOOM)" becomes artists The Avalanches;Danny Brown;MF DOOM after Tag Fix -> keep incoming. After L the library copy is replaced and the file routes by the normal rules.

@@ -142,7 +142,7 @@ Moved to `Architecture/IntegrationAndParseCacheArchitecture.md` (same folder). R
 
 - **`_batchTagCache` is populated by RunScanAhead and consumed by PreScanFiles** (2026-06-27). Stores raw tag data from the first TagLib pass so PreScanFiles skips its own read. Two invariants: (1) cache entries use raw (un-normalized) values - PreScanFiles does its own normalization; (2) the fallback path `TagLib.File.Create` must stay for files that RunScanAhead skipped due to read errors. In test constructors: initialize as `new Dictionary<...>()` not null (same rule as other scan-ahead fields).
 
-- **`NormaliseTitleForDedup()` is applied on BOTH sides of every dedup key** (2026-06-27). Applied in `GetAliasExpandedKeys` (index build) and `FindDuplicateInMirror` (lookup). Strips `(feat./ft./featuring X)` only - not (Remix), (Edit), (Live) which are distinct tracks. Rationale: library tags may predate TagFixer cleanup; incoming batch has already been cleaned; without normalization, "Song (feat. X)" in library silently fails to match "Song" in batch.
+- **`NormaliseTitleForDedup()` is applied on BOTH sides of every dedup key.** Rule and rationale: [Rules/MusicLibraryRules.md, Duplicate Matching Rule](Rules/MusicLibraryRules.md#duplicate-matching-rule).
 
 - **RunScanAhead counts batch + Misc + Sources/ for artist folder threshold.** Sources/ tracks are scanned via `Path.Combine(Constants.MirrorFolderPath, Constants.SourcesDir)` with `SearchOption.AllDirectories` - same XML parsing as Misc. Sources tracks count toward the 3-song threshold but are NOT added to `_miscMigrationCandidates` - they stay in Sources/ regardless of whether the artist gets promoted. (Fix 2026-05-26: without Sources/, Common with 1 Sources/Films song + 2 batch songs still routed to Misc.)
 

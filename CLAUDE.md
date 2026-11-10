@@ -1,12 +1,13 @@
 # AudioManagerCLI - Claude Context
 
 For implementation invariants, architecture detail, and code patterns: read `docs/DevContext.md`.
+Rules are stated once, in their canonical doc (table: `docs/README.md`, "Where rules live"); elsewhere link, never restate. Do not put rule text in the top-level README.
 
 ## What it does
 
 C# console app (CLI) for managing a personal music library. Two modes:
 - **Analysis** - full pipeline: regenerate AudioMirror XML (Reflector), parse metadata (Parser), generate stats report (Analyser), validate library (LibChecker), save report (ReportWriter), auto-commit AudioMirror if clean (AudioMirrorCommitter)
-- **Integrate** - scans `Downloads/NewMusic/`, fixes tags (TCMP, genres, parentheticals, featured artists), routes files into the library, logs routing decisions to XML for audit trail
+- **Integrate** - scans `Downloads/NewMusic/`, fixes tags (rules: `docs/Rules/MusicLibraryRules.md`), routes files into the library, logs routing decisions to XML for audit trail
 
 This repo is the C# engine only. It contains no Python, no UI code, and no streaming-service code. Its JSON outputs (`data/logs/tracks.json`, `data/logs/analysis-stats.json`, `data/logs/routing-<timestamp>.json`) and `config/tagfix-custom-rules.xml` are a shared contract with external consumers, so changing their shape needs those consumers updated too.
 
