@@ -21,7 +21,12 @@ The files have ALREADY MOVED. Do not re-run integrate. Fix the cause (shorten a 
 ## Reverting
 - **Tag changes can be reverted only BEFORE integrate** (`tagfix --revert <journal>`). After integrate the files have left NewMusic and revert reports `current file missing` for each (safe, by design).
 - Byte backups of the pre-apply files stay in `data/backups/<stamp>/` for 7 days (pruned at the next apply).
-- Integrate itself has no undo: moved files are in the library. A replaced library file (decision L) is deleted permanently once the new file lands, so avoid L unless sure.
+- Integrate itself has no undo: moved files are in the library.
+- **A library file replaced by decision L is kept, not deleted.** Once the new file lands, the old one moves (a rename) to `NewMusic-Quarantine\Replaced\<yyyyMMdd-HHmmss>\`, next to the NewMusic folder. It is never pruned automatically. The execution JSON lists each one under `replacedOriginals` (`original` = the library path, `held` = where it is now). **Restore:** move the `held` file back to its `original` path (the replacement is at that path now, so move or rename the replacement first, then re-run the mirror step). If the holding folder is on a different volume than the library, integrate refuses to start and nothing moves.
+
+## Known limits
+- Two NewMusic files can share one filename (for example `Lukis Mac - Intro.mp3`, different albums): do not decline just one of the pair; accept both or neither (the manifest matches by filename).
+- A second `tagfix --apply-plan` while one is running is refused with status `apply_locked`: nothing changes and no result file is written. A lock left by a crashed run is cleared automatically by the next apply.
 
 ## Stop and ask when
 - The plan `fileCount` differs from the music files you expect, `needsManual` is above 0, or the gate is anything but `passed`.
