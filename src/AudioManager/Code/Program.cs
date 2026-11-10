@@ -195,6 +195,15 @@ namespace AudioManager
                     }
                     else if (mode == 2)
                     {
+                        // A malformed tagfix-exceptions.xml would silently drop keep protections: refuse before anything runs.
+                        string exceptionsError = TagFixExceptions.CheckFile();
+                        if (exceptionsError != null)
+                        {
+                            Console.WriteLine($" - ERROR: {exceptionsError}");
+                            teeWriter.CloseLogFile(); // Exit skips finally, so close the log first
+                            Environment.Exit(1);
+                        }
+
                         // Selective integration: load + validate the manifest BEFORE the gate,
                         // so a bad manifest fails fast and never means "integrate everything".
                         IntegrationManifest manifest = null;
@@ -280,6 +289,14 @@ namespace AudioManager
                     }
                     else if (mode == 3)
                     {
+                        string exceptionsError = TagFixExceptions.CheckFile();
+                        if (exceptionsError != null && !args.Any(a => a.Equals("--revert", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            Console.WriteLine($" - ERROR: {exceptionsError}");
+                            teeWriter.CloseLogFile(); // Exit skips finally, so close the log first
+                            Environment.Exit(1);
+                        }
+
                         // Guarded apply of the reviewed plan, or revert of a journal (no plain scan in these modes).
                         int revertIdx = Array.FindIndex(args, a => a.Equals("--revert", StringComparison.OrdinalIgnoreCase));
                         if (revertIdx >= 0 && revertIdx + 1 < args.Length)

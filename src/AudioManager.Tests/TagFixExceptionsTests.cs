@@ -131,6 +131,22 @@ namespace AudioManager
             finally { Directory.Delete(dir, true); }
         }
 
+        public static void CheckFile_MalformedFile_ReturnsErrorText_MissingAndGoodAreNull()
+        {
+            string dir = NewTempDir();
+            try
+            {
+                Assert.True(TagFixExceptions.CheckFile(Path.Combine(dir, "absent.xml")) == null, "a missing file is fine (no protections defined)");
+                string good = WriteExceptionsFile(dir, "<Exception file=\"a.mp3\" keep=\"title\" />");
+                Assert.True(TagFixExceptions.CheckFile(good) == null, "a well-formed file is fine");
+                string bad = Path.Combine(dir, "bad.xml");
+                File.WriteAllText(bad, "<TagFixExceptions><Exception file=\"a.mp3\" keep=\"title\"  <<< not xml");
+                string err = TagFixExceptions.CheckFile(bad);
+                Assert.True(err != null && err.Contains("tagfix-exceptions") || err != null && err.Contains("bad.xml"), "a malformed file gives an error naming it: " + err);
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
         // ---- TagFixer: keep flags change what is written ----
 
         public static void TagFixer_KeepTitle_KeepsParentheticalTitleUnchanged()

@@ -59,6 +59,25 @@ namespace AudioManager
             return set;
         }
 
+        /// <summary>
+        /// Null when the file is absent or parses; otherwise an error text. Load() fails safe to "no protections", which is
+        /// wrong for a run that writes tags, so Program refuses to start tagfix or integrate while this is non-null.
+        /// </summary>
+        internal static string CheckFile(string path = null)
+        {
+            string effectivePath = path ?? Constants.TagFixExceptionsPath;
+            try
+            {
+                if (!File.Exists(effectivePath)) return null;
+                new XmlDocument().Load(effectivePath);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return $"Tag fix exceptions file is unreadable ({effectivePath}): {ex.Message}. Fix or remove it; running without it would drop your keep protections.";
+            }
+        }
+
         /// <summary>True when the original filename has a keep token (title, artist, album or casing).</summary>
         internal bool Keeps(string originalFilename, string keep, string originalSourceRel = null)
         {
