@@ -322,6 +322,24 @@ namespace AudioManager
             finally { DeleteQuietly(dir); }
         }
 
+        public static void GetTrackedArtists_NonAsciiArtistFolder_ReturnsRealName()
+        {
+            // BL-68: without core.quotepath=false, git ls-tree quotes/octal-escapes non-ASCII paths and the name never matches
+            string dir = CreateTempGitRepo();
+            try
+            {
+                string artist = "Björk";
+                WriteFile(dir, "LastRunInfo.txt", "run");
+                WriteFile(dir, "AUDIO_MIRROR/Artists/" + artist + "/x.xml", "<x/>");
+                RunProcess("git", "add -A", dir);
+                RunProcess("git", "commit -m initial", dir);
+                HashSet<string> tracked = AudioMirrorCommitter.GetTrackedArtists(dir);
+                Assert.True(tracked.Contains(artist), "non-ASCII artist must match its real name, got: " + Join(tracked));
+                Assert.Equal("1", tracked.Count.ToString(), "exactly one tracked artist expected, got: " + Join(tracked));
+            }
+            finally { DeleteQuietly(dir); }
+        }
+
         // AddAlbum: per-artist album sets
 
         public static void AddAlbum_NewArtist_CreatesEntryWithAlbum()
@@ -366,6 +384,32 @@ namespace AudioManager
         {
             Assert.True(!AudioMirrorCommitter.IsNothingToCommit("[main 1a2b3c4] Nov 5 Update\n 2 files changed, 4 insertions(+)"),
                 "a successful commit summary is not nothing-to-commit");
+        }
+
+        // ClassifyCommitResult (BL-69): a non-zero exit is a failure first; 'nothing to commit' is benign only as git's own exit-1 message
+
+        public static void ClassifyCommitResult_ExitZero_Success()
+        {
+            CommitOutcome outcome = AudioMirrorCommitter.ClassifyCommitResult(0, "[main 1a2b3c4] Nov 5 Update\n 2 files changed, 4 insertions(+)");
+            Assert.True(outcome == CommitOutcome.Success, "exit 0 with a commit summary should be Success");
+        }
+
+        public static void ClassifyCommitResult_ExitOneNothingToCommit_NothingToCommit()
+        {
+            CommitOutcome outcome = AudioMirrorCommitter.ClassifyCommitResult(1, "nothing to commit, working tree clean");
+            Assert.True(outcome == CommitOutcome.NothingToCommit, "git's own exit 1 'nothing to commit' should be NothingToCommit");
+        }
+
+        public static void ClassifyCommitResult_FatalNothingToCommit_Failure()
+        {
+            CommitOutcome outcome = AudioMirrorCommitter.ClassifyCommitResult(128, "fatal: unable to index file: nothing to commit");
+            Assert.True(outcome == CommitOutcome.Failure, "exit 128 with 'nothing to commit' inside a fatal line must be Failure");
+        }
+
+        public static void ClassifyCommitResult_ErrorLineNothingToCommit_Failure()
+        {
+            CommitOutcome outcome = AudioMirrorCommitter.ClassifyCommitResult(1, "error: cannot lock ref: nothing to commit");
+            Assert.True(outcome == CommitOutcome.Failure, "exit 1 with an error: line mentioning 'nothing to commit' must be Failure");
         }
 
         // Program.DecidePreIntegrationGate: one test per PreIntegrationGateResult value.

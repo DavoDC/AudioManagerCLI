@@ -20,6 +20,14 @@ namespace AudioManager
     /// Rules: only commits if LibChecker was clean AND trigger mode is reliable
     /// (force regen or integration). Never pushes - user pushes manually.
     /// </summary>
+    /// <summary>Classification of a git commit result (BL-69).</summary>
+    internal enum CommitOutcome
+    {
+        Success,
+        NothingToCommit,
+        Failure,
+    }
+
     internal static class AudioMirrorCommitter
     {
         /// <summary>
@@ -103,23 +111,18 @@ namespace AudioManager
             GitRunResult commit = RunGitDetailed(repoPath, $"commit -m \"{fullMessage.Replace("\"", "\\\"")}\"");
             string commitResult = commit.Stdout + commit.Stderr;
 
-            if (IsNothingToCommit(commitResult))
+            CommitOutcome outcome = ClassifyCommitResult(commit.ExitCode, commitResult);
+            if (outcome == CommitOutcome.NothingToCommit)
             {
                 Console.WriteLine(" - Nothing staged to commit.");
                 return;
             }
 
-            if (IsCommitFailure(commit.ExitCode, commitResult))
+            if (outcome == CommitOutcome.Failure)
             {
                 string firstLine = commitResult.Trim().Split('\n')[0].Trim();
                 Console.WriteLine($" - FAILED: git commit exited {commit.ExitCode}. {firstLine}");
                 Console.WriteLine(" - Nothing was committed. Fix the git error above, then re-run.");
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(commitResult))
-            {
-                Console.WriteLine(" - Nothing staged to commit.");
                 return;
             }
 
@@ -251,7 +254,7 @@ namespace AudioManager
         /// </summary>
         internal static HashSet<string> GetTrackedArtists(string repoPath)
         {
-            string output = RunGit(repoPath, $"ls-tree --name-only HEAD AUDIO_MIRROR/{Constants.ArtistsDir}/");
+            string output = RunGit(repoPath, $"-c core.quotepath=false ls-tree --name-only HEAD AUDIO_MIRROR/{Constants.ArtistsDir}/");
             return new HashSet<string>(
                 output.Split('\n')
                       .Select(l => l.Trim().Replace('\\', '/'))
@@ -372,6 +375,30 @@ namespace AudioManager
             return output.Contains("nothing to commit")
                 || output.Contains("nothing added to commit")
                 || output.Contains("no changes added to commit");
+        }
+
+        /// <summary>
+        /// Classifies a git commit result (BL-69). A non-zero exit is a failure unless it is git's own
+        /// exit-1 'nothing to commit' message with no fatal:/error: line. Exit 0 is Success, or
+        /// NothingToCommit when it prints no commit summary or the nothing-to-commit text.
+        /// Pure function - no I/O.
+        /// </summary>
+        internal static CommitOutcome ClassifyCommitResult(int exitCode, string output)
+        {
+            output = output ?? string.Empty;
+            if (exitCode == 0)
+            {
+                if (IsCommitFailure(0, output)) return CommitOutcome.Failure;
+                if (string.IsNullOrWhiteSpace(output) || IsNothingToCommit(output)) return CommitOutcome.NothingToCommit;
+                return CommitOutcome.Success;
+            }
+
+            bool hasFatalOrErrorLine = output.Split('\n')
+                .Select(l => l.TrimStart())
+                .Any(l => l.StartsWith("fatal:", StringComparison.Ordinal) || l.StartsWith("error:", StringComparison.Ordinal));
+            if (exitCode == 1 && !hasFatalOrErrorLine && IsNothingToCommit(output))
+                return CommitOutcome.NothingToCommit;
+            return CommitOutcome.Failure;
         }
 
         /// <summary>
