@@ -44,6 +44,29 @@ namespace AudioManager
             Assert.Equal("\0", m.GetDupResolution("Lukis Mac - Intro.mp3", "Lukis Mac", "Intro", @"Album B\Lukis Mac - Intro.mp3").ToString(), "other folder has no resolution");
         }
 
+        // Manifest built from a PRE-apply routing: sourceRel holds the raw name, artist/title the tags.
+        private const string PreApplyJson = @"[
+          {""filename"": ""raw name 1.mp3"", ""sourceRel"": ""Album A\\raw name 1.mp3"", ""artist"": ""Lukis Mac"", ""title"": ""Intro""}
+        ]";
+
+        public static void SourceRel_AfterTagFixRename_MatchesOnlySameFolderCanonicalName()
+        {
+            var m = IntegrationManifest.Parse(PreApplyJson, out _);
+            Assert.True(m.Matches("Lukis Mac - Intro.mp3", @"Album A\Lukis Mac - Intro.mp3"), "renamed file in the same folder still matches");
+            Assert.True(!m.Matches("Lukis Mac - Intro.mp3", @"Album B\Lukis Mac - Intro.mp3"), "same new name in another folder must not match");
+            Assert.True(!m.Matches("Lukis Mac - Intro.mp3", null), "a file with no path under NewMusic must not match a sourceRel row");
+            Assert.True(!m.Matches("Lukis Mac - Intro.mp3"), "name alone must not match a sourceRel row");
+        }
+
+        public static void SourceRel_StaleEntry_MatchesNothingAndIsReportedUnmatched()
+        {
+            var m = IntegrationManifest.Parse(PreApplyJson, out _);
+            Assert.True(!m.Matches("Something Else.mp3", @"Album A\Something Else.mp3"), "unrelated file in the same folder stays out");
+            Assert.True(!m.Matches("raw name 1.mp3", @"Album B\raw name 1.mp3"), "the old raw name in another folder stays out");
+            Assert.True(m.UnmatchedEntries().Count == 1, "the stale row is reported as unmatched, not silently dropped");
+            Assert.True(m.GetDupResolution("Lukis Mac - Intro.mp3", "Lukis Mac", "Intro", @"Album B\Lukis Mac - Intro.mp3") == '\0', "no dup resolution leaks across folders");
+        }
+
         public static void FilenameOnlyManifest_StillMatchesAnyFolder()
         {
             var m = IntegrationManifest.Parse(SampleJson, out _);
