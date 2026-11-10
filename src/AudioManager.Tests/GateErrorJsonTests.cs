@@ -9,6 +9,30 @@ namespace AudioManager
     /// </summary>
     internal static class GateErrorJsonTests
     {
+        public static void JsonText_Quote_EscapesControlCharsNeverDropsThem()
+        {
+            Assert.Equal("null", JsonText.Quote(null), "null stays the literal null");
+            Assert.Equal("\"a\\tb\\r\\n\\u0001\\\\\\\"\"", JsonText.Quote("a\tb\r\n\u0001\\\""), "tab, CR, LF, control and quote escaped");
+        }
+
+        public static void GateJson_ErrorMessageWithTabAndCr_IsEscapedNotDropped()
+        {
+            string d = Path.Combine(Path.GetTempPath(), "am_gatejs_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            try
+            {
+                GateResultJson.WriteError(d, "a\tb\rc");
+                string json = File.ReadAllText(Path.Combine(d, GateResultJson.OutputFileName));
+                Assert.True(json.Contains("a\\tb\\rc"), "tab and CR are escaped in the gate json: " + json);
+            }
+            finally { if (Directory.Exists(d)) Directory.Delete(d, true); }
+        }
+
+        public static void GateJson_GitStatusFailed_HasGitErrorStatusAndFixGitAction()
+        {
+            string json = GateResultJson.Build(Program.PreIntegrationGateResult.GitStatusFailed, null, 0, DateTime.Now);
+            Assert.True(json.Contains("\"status\": \"git_error\"") && json.Contains("\"action\": \"fix_git\""), "git failure maps to git_error / fix_git");
+        }
+
         public static void WriteError_WritesGateErrorStatus_AndClearStaleRemovesOldFile()
         {
             string d = Path.Combine(Path.GetTempPath(), "am_gateerr_" + Guid.NewGuid().ToString("N").Substring(0, 8));

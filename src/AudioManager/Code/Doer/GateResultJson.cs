@@ -109,8 +109,7 @@ namespace AudioManager
 
         private static string JStr(string s)
         {
-            if (s == null) return "null";
-            return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", "\\n") + "\"";
+            return JsonText.Quote(s);
         }
     }
 }
