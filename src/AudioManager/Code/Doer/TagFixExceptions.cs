@@ -14,6 +14,9 @@ namespace AudioManager
     ///   &lt;Exception file="..." keep="title|artist|album|casing" /&gt;  read by TagFixer. Multiple rows for one file combine.
     ///   &lt;NotDuplicate file="..." /&gt;                         read by the integrate library-duplicate check.
     ///
+    /// Both kinds accept an optional sourceRel="Folder\Name.mp3" (original path under NewMusic). A row with it applies
+    /// to that exact file only, so two same-named files can be scoped separately; a row without it matches by filename.
+    ///
     /// Loading always fails safe. A missing file yields no exceptions silently. A malformed file logs one
     /// [WARN] and yields no exceptions. An unusable row is skipped on its own with a [WARN].
     /// </summary>
@@ -24,6 +27,9 @@ namespace AudioManager
 
         private readonly Dictionary<string, HashSet<string>> keepsByFile = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> notDuplicateFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Rows carrying the optional sourceRel attribute apply to that exact path only; rows without it stay name-keyed.
+        private readonly Dictionary<string, HashSet<string>> keepsByRel = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> notDuplicateRels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Loads exceptions from the given path (or Constants.TagFixExceptionsPath by default).
@@ -54,18 +60,25 @@ namespace AudioManager
         }
 
         /// <summary>True when the original filename has a keep token (title, artist, album or casing).</summary>
-        internal bool Keeps(string originalFilename, string keep)
+        internal bool Keeps(string originalFilename, string keep, string originalSourceRel = null)
         {
             if (string.IsNullOrWhiteSpace(originalFilename) || string.IsNullOrWhiteSpace(keep)) return false;
-            return keepsByFile.TryGetValue(originalFilename.Trim(), out var keeps) && keeps.Contains(keep.Trim().ToLowerInvariant());
+            string token = keep.Trim().ToLowerInvariant();
+            string rel = NormRel(originalSourceRel);
+            if (!string.IsNullOrEmpty(rel) && keepsByRel.TryGetValue(rel, out var byRel) && byRel.Contains(token)) return true;
+            return keepsByFile.TryGetValue(originalFilename.Trim(), out var keeps) && keeps.Contains(token);
         }
 
-        /// <summary>True when the library-duplicate check must skip this original filename.</summary>
-        internal bool IsNotDuplicate(string originalFilename)
+        /// <summary>True when the library-duplicate check must skip this original filename (or this exact path).</summary>
+        internal bool IsNotDuplicate(string originalFilename, string originalSourceRel = null)
         {
             if (string.IsNullOrWhiteSpace(originalFilename)) return false;
+            string rel = NormRel(originalSourceRel);
+            if (!string.IsNullOrEmpty(rel) && notDuplicateRels.Contains(rel)) return true;
             return notDuplicateFiles.Contains(originalFilename.Trim());
         }
+
+        private static string NormRel(string rel) => string.IsNullOrWhiteSpace(rel) ? null : rel.Replace('/', '\\').Trim().Trim('\\');
 
         private void AddKeepRow(XmlElement el)
         {
@@ -85,10 +98,13 @@ namespace AudioManager
             }
             if (valid.Count == 0) return;
 
-            if (!keepsByFile.TryGetValue(file, out var keeps))
+            string rel = NormRel(el.GetAttribute("sourceRel"));
+            var target = string.IsNullOrEmpty(rel) ? keepsByFile : keepsByRel;
+            string key = string.IsNullOrEmpty(rel) ? file : rel;
+            if (!target.TryGetValue(key, out var keeps))
             {
                 keeps = new HashSet<string>();
-                keepsByFile[file] = keeps;
+                target[key] = keeps;
             }
             foreach (string token in valid) keeps.Add(token);
         }
@@ -101,7 +117,9 @@ namespace AudioManager
                 Console.WriteLine("  [WARN] NotDuplicate row skipped: missing file attribute");
                 return;
             }
-            notDuplicateFiles.Add(file);
+            string rel = NormRel(el.GetAttribute("sourceRel"));
+            if (string.IsNullOrEmpty(rel)) notDuplicateFiles.Add(file);
+            else notDuplicateRels.Add(rel);
         }
     }
 }

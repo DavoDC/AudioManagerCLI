@@ -2088,7 +2088,10 @@ namespace AudioManager
 
                     // NotDuplicate matches the ORIGINAL NewMusic name; a tag fix may have renamed the file already.
                     string exceptionKey = tagLogs != null && tagLogs.TryGetValue(filename, out var nameLog) ? nameLog.OriginalFilename : filename;
-                    string duplicatePath = tagExceptions.IsNotDuplicate(exceptionKey) ? null : FindDuplicateInMirror(track, mirrorIndex);
+                    // Same-folder rename: the original path is the current folder plus the original name.
+                    string currentRel = RelToNewMusic(sourcePath);
+                    string originalRel = currentRel == null ? null : Path.Combine(Path.GetDirectoryName(currentRel) ?? "", exceptionKey);
+                    string duplicatePath = tagExceptions.IsNotDuplicate(exceptionKey, originalRel) ? null : FindDuplicateInMirror(track, mirrorIndex);
                     if (!string.IsNullOrEmpty(duplicatePath))
                     {
                         sf.Duplicate = BuildDupData(sourcePath, track, duplicatePath);

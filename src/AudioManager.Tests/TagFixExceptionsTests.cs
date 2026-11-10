@@ -39,6 +39,43 @@ namespace AudioManager
             return capture.ToString();
         }
 
+        // ---- optional sourceRel: scope a row to one file when two share a filename ----
+
+        public static void SourceRel_RowAppliesOnlyToItsOwnPath_OtherFolderUnaffected()
+        {
+            string dir = NewTempDir();
+            try
+            {
+                string path = WriteExceptionsFile(dir,
+                    "<Exception file=\"Intro.mp3\" sourceRel=\"Album A\\Intro.mp3\" keep=\"title\" />\n" +
+                    "<NotDuplicate file=\"Intro.mp3\" sourceRel=\"Album A\\Intro.mp3\" />");
+                TagFixExceptions set = TagFixExceptions.Load(path);
+
+                Assert.True(set.Keeps("Intro.mp3", "title", @"Album A\Intro.mp3"), "keep applies to its own path");
+                Assert.True(!set.Keeps("Intro.mp3", "title", @"Album B\Intro.mp3"), "keep must not hit the same-named file elsewhere");
+                Assert.True(!set.Keeps("Intro.mp3", "title"), "a path-scoped row must not match a name-only lookup");
+                Assert.True(set.IsNotDuplicate("Intro.mp3", @"album a/Intro.mp3"), "NotDuplicate matches its own path, slash and case tolerant");
+                Assert.True(!set.IsNotDuplicate("Intro.mp3", @"Album B\Intro.mp3"), "NotDuplicate must not hit the other folder");
+                Assert.True(!set.IsNotDuplicate("Intro.mp3"), "a path-scoped NotDuplicate must not match a name-only lookup");
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        public static void SourceRel_AbsentRow_StillMatchesByFilenameInAnyFolder()
+        {
+            string dir = NewTempDir();
+            try
+            {
+                string path = WriteExceptionsFile(dir,
+                    "<Exception file=\"Intro.mp3\" keep=\"album\" />\n<NotDuplicate file=\"Intro.mp3\" />");
+                TagFixExceptions set = TagFixExceptions.Load(path);
+
+                Assert.True(set.Keeps("Intro.mp3", "album", @"Album B\Intro.mp3"), "old row keeps matching by name with a path supplied");
+                Assert.True(set.IsNotDuplicate("Intro.mp3", @"Album B\Intro.mp3"), "old NotDuplicate row keeps matching by name");
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
         // ---- Load: parsing and fail-safe behaviour ----
 
         public static void Load_ValidFile_ParsesKeepAndNotDuplicateRows()

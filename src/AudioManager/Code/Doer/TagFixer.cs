@@ -257,10 +257,11 @@ namespace AudioManager
 
                 // Per-file keep= flags (config/tagfix-exceptions.xml), keyed by the original NewMusic filename.
                 string originalName = Path.GetFileName(sourcePath);
-                bool keepTitle = exceptions.Keeps(originalName, "title");
-                bool keepAlbum = exceptions.Keeps(originalName, "album");
-                bool keepArtist = exceptions.Keeps(originalName, "artist");
-                bool keepCasing = exceptions.Keeps(originalName, "casing");
+                string originalRel = MusicIntegrator.RelToNewMusic(sourcePath);
+                bool keepTitle = exceptions.Keeps(originalName, "title", originalRel);
+                bool keepAlbum = exceptions.Keeps(originalName, "album", originalRel);
+                bool keepArtist = exceptions.Keeps(originalName, "artist", originalRel);
+                bool keepCasing = exceptions.Keeps(originalName, "casing", originalRel);
 
                 // Apply built-in tag cleanup rules (unchanged - custom rules run after these)
                 string cleanTitle = keepTitle ? title : StripTrailingCredit(RemoveParentheticals(title));
