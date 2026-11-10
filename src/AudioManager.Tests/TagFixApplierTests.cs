@@ -43,6 +43,21 @@ namespace AudioManager
 
         private static void Cleanup(Env e) { try { Directory.Delete(e.Root, true); } catch (IOException) { } }
 
+        public static void ScanFolder_FileFilterExcludesFile_LeavesItByteIdentical()
+        {
+            var e = NewEnv();
+            try
+            {
+                string path = Messy(e);
+                byte[] before = File.ReadAllBytes(path);
+                var tf = TagFixer.ScanFolderForTesting(e.Folder, false, quarantineRoot: e.Quarantine, fileFilter: f => false);
+                Assert.True(File.Exists(path), "a file the filter excludes must keep its name");
+                Assert.Equal(Convert.ToBase64String(before), Convert.ToBase64String(File.ReadAllBytes(path)), "a file the filter excludes must not be rewritten");
+                Assert.Equal("0", tf.Scanned.Count.ToString(), "an excluded file is not scanned");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void ProcessFile_StaleTagfixBak_IsNeverDeleted()
         {
             var e = NewEnv();

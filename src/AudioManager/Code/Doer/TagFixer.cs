@@ -94,7 +94,7 @@ namespace AudioManager
         /// <summary>One FixLog per scanned mp3, in scan order. Read by TagFixPlanJson.</summary>
         public List<FixLog> Results { get; } = new List<FixLog>();
 
-        public TagFixer(bool dryRun = false)
+        public TagFixer(bool dryRun = false, Func<string, bool> fileFilter = null)
         {
             this.dryRun = dryRun;
             this.customRules = TagFixCustomRuleSet.Load();
@@ -102,20 +102,22 @@ namespace AudioManager
             string modeLabel = dryRun ? " [DRY RUN - no files will be modified]" : "";
             Console.WriteLine($"\nFixing music tags...{modeLabel}");
 
-            ScanAndProcess(Constants.NewMusicPath);
+            ScanAndProcess(Constants.NewMusicPath, fileFilter);
         }
 
         /// <summary>
         /// Snapshots every mp3 under folder (before any processing), then runs ProcessFile on each into Results.
         /// The public constructor passes Constants.NewMusicPath; the test seam passes a fixture folder.
         /// </summary>
-        private void ScanAndProcess(string folder)
+        private void ScanAndProcess(string folder, Func<string, bool> fileFilter = null)
         {
             try
             {
                 var files = Directory.Exists(folder)
                     ? Directory.GetFiles(folder, "*.mp3", SearchOption.AllDirectories)
                     : Array.Empty<string>();
+                // Files the caller declines are never scanned or touched.
+                if (fileFilter != null) files = files.Where(fileFilter).ToArray();
 
                 foreach (var path in files)
                 {
@@ -167,10 +169,10 @@ namespace AudioManager
         /// Test-only: runs the same scan and processing as the public constructor against folder instead of
         /// Constants.NewMusicPath, so the plan JSON can be exercised on a temp fixture folder.
         /// </summary>
-        internal static TagFixer ScanFolderForTesting(string folder, bool dryRun, string customRulesPath = null, string quarantineRoot = null)
+        internal static TagFixer ScanFolderForTesting(string folder, bool dryRun, string customRulesPath = null, string quarantineRoot = null, Func<string, bool> fileFilter = null)
         {
             var tagFixer = new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot);
-            tagFixer.ScanAndProcess(folder);
+            tagFixer.ScanAndProcess(folder, fileFilter);
             return tagFixer;
         }
 
