@@ -59,6 +59,9 @@ namespace AudioManager
                 throw new ArgumentException(msg);
             }
 
+            // One mirror build at a time: RecoverLeftovers deletes staging, so a second run would destroy a running build's work.
+            using (AcquireBuildLock(mirrorPath))
+            {
             // Heal any interrupted swap before touching anything (every run, incremental too)
             RecoverLeftovers(mirrorPath);
 
@@ -87,6 +90,28 @@ namespace AudioManager
 
             // Print statistics
             PrintStats(statisticsInfo);
+            }
+        }
+
+        /// <summary>
+        /// Exclusive lock for one mirror build, kept in the temp folder (never inside the mirror repo, where it would show as
+        /// an untracked file). Held by an open handle, so a crashed run releases it. Throws IOException when another build holds it.
+        /// </summary>
+        internal static FileStream AcquireBuildLock(string mirrorPath)
+        {
+            string full = Path.GetFullPath(mirrorPath).TrimEnd('\\', '/').ToLowerInvariant();
+            string name;
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                name = BitConverter.ToString(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(full))).Replace("-", "").Substring(0, 16);
+            string path = Path.Combine(Path.GetTempPath(), "AudioManager-mirror-build-" + name + ".lock");
+            try
+            {
+                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
+            }
+            catch (IOException)
+            {
+                throw new IOException("Another mirror build (integrate, analysis or --mirror-retry) is already running for this mirror; wait for it to finish.");
+            }
         }
 
 

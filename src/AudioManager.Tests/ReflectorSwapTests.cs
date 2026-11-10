@@ -221,6 +221,34 @@ namespace AudioManager
             finally { AgeChecker.RegenMirror = saved; Cleanup(root); }
         }
 
+        public static void Reflector_SecondBuildWhileFirstRuns_RefusesAndLeavesStagingAlone()
+        {
+            string root = NewTempRoot();
+            bool saved = AgeChecker.RegenMirror;
+            try
+            {
+                string audio = MakeAudio(root);
+                string mirror = Path.Combine(root, "AUDIO_MIRROR");
+                Directory.CreateDirectory(mirror);
+                string staging = mirror + Reflector.StagingSuffix;
+                Directory.CreateDirectory(staging);
+                File.WriteAllText(Path.Combine(staging, "other-run.xml"), "in progress");
+                AgeChecker.RegenMirror = true;
+
+                bool threw = false;
+                using (Reflector.AcquireBuildLock(mirror)) // stands in for a running build
+                {
+                    try { new Reflector(audio, mirror, RepoRootFor(root), null); }
+                    catch (IOException) { threw = true; }
+                }
+
+                Assert.True(threw, "a second build must refuse while another holds the lock");
+                Assert.True(File.Exists(Path.Combine(staging, "other-run.xml")), "the running build's staging is not deleted");
+                using (Reflector.AcquireBuildLock(mirror)) { } // released afterwards
+            }
+            finally { AgeChecker.RegenMirror = saved; Cleanup(root); }
+        }
+
         public static void Reflector_ForcedRegen_EmptyAudioRoot_RefusesAndKeepsLiveMirror()
         {
             string root = NewTempRoot();
