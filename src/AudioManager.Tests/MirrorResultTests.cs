@@ -46,6 +46,26 @@ namespace AudioManager
             }
         }
 
+        public static void PendingMirrorRetryHint_AfterFailedMirror_PointsAtMirrorRetry_AndClearsOnOk()
+        {
+            string logsDir = NewTempLogsDir();
+            try
+            {
+                Assert.True(Program.PendingMirrorRetryHint(logsDir) == null, "no result file: no hint");
+                Program.RunPostIntegrationMirrorWith(logsDir, false, () => true, () => false);
+                string hint = Program.PendingMirrorRetryHint(logsDir);
+                Assert.True(hint != null && hint.Contains("--mirror-retry") && hint.Contains("do not integrate again"), "failed mirror points at --mirror-retry");
+                Program.RunPostIntegrationMirrorWith(logsDir, false, () => true, () => true);
+                Assert.True(Program.PendingMirrorRetryHint(logsDir) == null, "an ok result clears the hint");
+                File.WriteAllText(Path.Combine(logsDir, "mirror-result.json"), "not json");
+                Assert.True(Program.PendingMirrorRetryHint(logsDir) == null, "an unreadable file gives no hint");
+            }
+            finally
+            {
+                if (Directory.Exists(logsDir)) Directory.Delete(logsDir, true);
+            }
+        }
+
         public static void MirrorResult_StepThrows_GivesMirrorCommitFailedWithExceptionText()
         {
             string logsDir = NewTempLogsDir();

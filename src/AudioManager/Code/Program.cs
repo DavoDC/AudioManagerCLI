@@ -444,6 +444,26 @@ namespace AudioManager
             return sb.ToString();
         }
 
+        /// <summary>
+        /// When the last post-integration mirror step did not finish (mirror_commit_failed or libchecker_issues), returns
+        /// the line telling the user to run --mirror-retry rather than integrate again; otherwise null (also for a missing
+        /// or unreadable mirror-result.json).
+        /// </summary>
+        internal static string PendingMirrorRetryHint(string logsDir)
+        {
+            try
+            {
+                string path = Path.Combine(logsDir, MirrorResultJsonFileName);
+                if (!File.Exists(path)) return null;
+                var m = System.Text.RegularExpressions.Regex.Match(File.ReadAllText(path), "\"status\"\\s*:\\s*\"([a-z_]+)\"");
+                if (!m.Success) return null;
+                string status = m.Groups[1].Value;
+                if (status != "mirror_commit_failed" && status != "libchecker_issues") return null;
+                return $"The last integrate already moved its files but its mirror step ended as {status}; do not integrate again, run {MirrorRetryCommand} instead.";
+            }
+            catch (Exception) { return null; }
+        }
+
         /// <summary>Runs ONLY the post-integration mirror step. Never constructs MusicIntegrator and never moves files.</summary>
         internal static int RunMirrorRetry(string mirrorPath, bool noAutoCommit)
         {
@@ -509,6 +529,8 @@ namespace AudioManager
         private static bool RunPreIntegrationGate(string mirrorPath, bool jsonOutput)
         {
             Console.WriteLine("\nPre-integration validation...");
+            string retryHint = PendingMirrorRetryHint(Constants.LogsPath);
+            if (retryHint != null) Console.WriteLine(" - NOTE: " + retryHint);
 
             try
             {
