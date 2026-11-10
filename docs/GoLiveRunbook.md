@@ -26,7 +26,7 @@ The files have ALREADY MOVED. Do not re-run integrate. Fix the cause (shorten a 
 - **A library file replaced by decision L is kept, not deleted.** Once the new file lands, the old one moves (a rename) to `NewMusic-Quarantine\Replaced\<yyyyMMdd-HHmmss>\`, next to the NewMusic folder. It is never pruned automatically. The execution JSON lists each one under `replacedOriginals` (fields: [RoutingJSONFormat.md](Contracts/RoutingJSONFormat.md)). **Restore:** move the `held` file back to its `original` path (the replacement is at that path now, so move or rename the replacement first, then re-run the mirror step). If the holding folder is on a different volume than the library, integrate refuses to start and nothing moves.
 
 ## Known limits
-- Two NewMusic files can share one filename (for example `Lukis Mac - Intro.mp3`, different albums): do not decline just one of the pair; accept both or neither (the manifest matches by filename).
+- Two NewMusic files can share one filename (for example `Lukis Mac - Intro.mp3`, different albums): rows are keyed by `sourceRel` (path under NewMusic), so each is accepted or declined on its own. A manifest row without `sourceRel` still matches by filename in any folder; clients should send `sourceRel` ([RoutingJSONFormat.md](Contracts/RoutingJSONFormat.md)).
 - A second `tagfix --apply-plan` while one is running is refused (`apply_locked`); details in [TagFixApplyJSONFormat.md](Contracts/TagFixApplyJSONFormat.md).
 
 ## Stop and ask when

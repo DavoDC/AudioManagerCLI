@@ -2,6 +2,12 @@
 
 The routing record written to `logs/routing-<timestamp>.json` by an integrate run (dry run or real). `recordType` is `routing`, `schemaVersion` 1. Row fields are produced in `MusicIntegrator.BuildJson`.
 
+## Row key: `sourceRel`, and the `--manifest` file
+
+Each `files` row carries `filename` and, when the source is under NewMusic, `sourceRel`: the file's path relative to NewMusic (backslashes). Two files can share a filename in different folders, so `sourceRel` is the unique row key.
+
+`integrate --manifest <accepted.json>` takes an array of accepted rows: `filename`, `sourceRel` (optional), `artist`, `title`, `dupResolution` (optional, `D`/`L`/`K`). A row with `sourceRel` matches only that exact file (or its Tag Fix rename in the same folder), so a same-named file in another folder stays declined. A row without `sourceRel` matches by filename in any folder (older manifests keep working). Clients should send `sourceRel` for every row.
+
 ## summary.counts
 
 Stage counts so a client does not have to scan the rows. All integers, derived from the same rows written to `files`.
