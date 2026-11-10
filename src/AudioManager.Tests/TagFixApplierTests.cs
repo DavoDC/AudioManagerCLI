@@ -308,6 +308,29 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void Revert_JournalPathsOutsideFolder_AreRefusedAndNothingIsWritten()
+        {
+            var e = NewEnv();
+            try
+            {
+                Messy(e);
+                var r = TagFixApplier.Apply(e.Folder, Plan(e), e.Logs, e.Backups, e.Quarantine, Now);
+                string victim = Path.Combine(Path.GetDirectoryName(e.Folder.TrimEnd('\\', '/')), "outside-victim.mp3");
+                File.WriteAllText(victim, "precious");
+                string j = File.ReadAllText(r.JournalPath);
+                string fixedName = Path.GetFileName(Directory.GetFiles(e.Folder, "*.mp3").Single());
+                // A tampered journal: the file name climbs out of the folder and points at the victim.
+                File.WriteAllText(r.JournalPath, j.Replace("\"newName\": \"" + fixedName + "\"", "\"newName\": \"..\\\\outside-victim.mp3\""));
+
+                var rev = TagFixApplier.Revert(r.JournalPath, e.Folder, e.Quarantine);
+
+                Assert.True(rev.Reverted == 0 && rev.Failed == 1, "an entry that escapes the folder is refused");
+                Assert.True(rev.Notes.Any(n => n.Contains("outside")), "note says why");
+                Assert.Equal("precious", File.ReadAllText(victim), "the file outside the folder is untouched");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void Revert_FileEditedSinceApply_IsLeftAlone()
         {
             var e = NewEnv();

@@ -238,6 +238,12 @@ namespace AudioManager
                 try
                 {
                     string original = Path.Combine(folder, e.File);
+                    string escape = FirstEscapingPath(e, original, folder, quarantineRoot);
+                    if (escape != null)
+                    {
+                        res.Failed++; res.Notes.Add(e.File + ": journal path is outside the allowed folder, refused: " + escape);
+                        continue;
+                    }
                     if (e.Status == "quarantined")
                     {
                         if (!File.Exists(e.QuarantinedTo)) { res.Failed++; res.Notes.Add(e.File + ": quarantined file missing"); continue; }
@@ -271,6 +277,30 @@ namespace AudioManager
             }
             RewriteJournalStatuses(journalPath, entries);
             return res;
+        }
+
+        // A journal is a plain file anyone can edit; revert must never write or move outside the folder it was applied to.
+        private static string FirstEscapingPath(JournalEntry e, string original, string folder, string quarantineRoot)
+        {
+            if (!IsUnder(original, folder)) return original;
+            if (!string.IsNullOrEmpty(e.NewName))
+            {
+                string current = Path.Combine(Path.GetDirectoryName(original) ?? folder, e.NewName);
+                if (!IsUnder(current, folder)) return current;
+            }
+            if (!string.IsNullOrEmpty(e.QuarantinedTo) && !IsUnder(e.QuarantinedTo, quarantineRoot)) return e.QuarantinedTo;
+            return null;
+        }
+
+        private static bool IsUnder(string path, string root)
+        {
+            try
+            {
+                string full = Path.GetFullPath(path);
+                string r = Path.GetFullPath(root).TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+                return full.StartsWith(r, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception) { return false; }
         }
 
         // ---- journal ----
