@@ -34,6 +34,9 @@ namespace AudioManager
         // Accumulates hits from all checks to determine IsClean
         private int grandTotalHits = 0;
 
+        /// <summary>Total issue count across all checks (0 when clean).</summary>
+        public int TotalHits => grandTotalHits;
+
         /// <summary>
         /// Construct a library checker
         /// </summary>

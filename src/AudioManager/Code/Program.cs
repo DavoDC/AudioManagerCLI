@@ -184,7 +184,7 @@ namespace AudioManager
                         }
 
                         // Integrate mode - run pre-integration gate first
-                        if (!RunPreIntegrationGate(mirrorPath))
+                        if (!RunPreIntegrationGate(mirrorPath, jsonOutput))
                         {
                             Console.WriteLine("\nFix library issues before adding new songs.\n");
                             teeWriter.CloseLogFile(); // Exit skips finally, so close the log first
@@ -300,7 +300,7 @@ namespace AudioManager
         /// </summary>
         /// <param name="mirrorPath">Path to the AudioMirror folder.</param>
         /// <returns>true if gate passes (mirror fresh and LibChecker clean), false otherwise.</returns>
-        private static bool RunPreIntegrationGate(string mirrorPath)
+        private static bool RunPreIntegrationGate(string mirrorPath, bool jsonOutput)
         {
             Console.WriteLine("\nPre-integration validation...");
 
@@ -313,6 +313,8 @@ namespace AudioManager
                 // The steps run lazily inside DecidePreIntegrationGate, in the same order as before:
                 // repo check, then regen + status, then LibChecker only when the mirror is fresh.
                 Parser p = null;
+                string statusOutput = "";
+                int libIssues = 0;
                 PreIntegrationGateResult result = DecidePreIntegrationGate(
                     Directory.Exists(mirrorRepoPath),
                     () =>
@@ -324,15 +326,23 @@ namespace AudioManager
 
                         // Step 2: Check if AudioMirror XMLs changed (is it fresh?)
                         Console.WriteLine(" - Checking if AudioMirror is fresh...");
-                        return RunGitStatus(mirrorRepoPath);
+                        statusOutput = RunGitStatus(mirrorRepoPath);
+                        return statusOutput;
                     },
                     () =>
                     {
                         // Step 3: Verify LibChecker is clean
                         Console.WriteLine(" - Running library validation...");
                         LibChecker lc = new LibChecker(p.audioTags);
+                        libIssues = lc.TotalHits;
                         return lc.IsClean;
                     });
+
+                if (jsonOutput)
+                {
+                    var statusLines = statusOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                    Console.WriteLine($" - Gate JSON written: {GateResultJson.Write(result, statusLines, libIssues)}");
+                }
 
                 switch (result)
                 {
