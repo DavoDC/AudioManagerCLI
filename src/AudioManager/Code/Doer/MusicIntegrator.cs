@@ -226,6 +226,15 @@ namespace AudioManager
 
             try
             {
+                // Fingerprint NewMusic before Tag Fix can touch anything: this is the state the user's preview was (or was not) made on.
+                _startFingerprint = NewMusicFingerprint(Constants.NewMusicPath);
+                if (!dryRun)
+                {
+                    _previewFingerprint = ReadLatestPreviewFingerprint(Constants.LogsPath);
+                    if (_previewFingerprint != null && _previewFingerprint != _startFingerprint)
+                        Console.WriteLine(" - [WARN] preview_stale: NewMusic changed since the last dry run; the decisions you reviewed may not match what is integrated now.");
+                }
+
                 // Step 1: Fix tags in NewMusic folder
                 // A manifest declines files before Tag Fix too: declined files are never rewritten, renamed or quarantined.
                 var tagFixer = new TagFixer(dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))));
@@ -1287,7 +1296,8 @@ namespace AudioManager
         /// unchanged; a real run passes dryRun: false and a populated ConfidenceRecord.
         /// </summary>
         internal static string BuildJson(List<LogEntry> entries, BatchSummary summary = null, bool dryRun = true, ConfidenceRecord confidence = null,
-            MirrorPathBlock blocked = null, IList<(string original, string held)> replaced = null)
+            MirrorPathBlock blocked = null, IList<(string original, string held)> replaced = null,
+            string newMusicFingerprint = null, string previewFingerprint = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine("{");
@@ -1295,6 +1305,17 @@ namespace AudioManager
             sb.AppendLine($"  \"recordType\": {JStr(dryRun ? "routing" : "execution")},");
             sb.AppendLine($"  \"dryRun\": {(dryRun ? "true" : "false")},");
             sb.AppendLine($"  \"generatedAt\": {JStr(DateTime.Now.ToString("s", CultureInfo.InvariantCulture))},");
+            // Preview stamp: a dry run records the NewMusic fingerprint it saw; a real run records whether the folder it started
+            // on still matches the latest preview (null when no stamped preview exists), so a client can flag a stale preview.
+            if (dryRun && newMusicFingerprint != null)
+                sb.AppendLine($"  \"newMusicFingerprint\": {JStr(newMusicFingerprint)},");
+            else if (!dryRun)
+            {
+                sb.AppendLine($"  \"previewFingerprint\": {JStr(previewFingerprint)},");
+                string stale = previewFingerprint == null || newMusicFingerprint == null ? "null"
+                    : (string.Equals(previewFingerprint, newMusicFingerprint, StringComparison.Ordinal) ? "false" : "true");
+                sb.AppendLine($"  \"previewStale\": {stale},");
+            }
             AppendSummaryBlock(sb, entries, summary);
             AppendConfidenceBlock(sb, confidence);
             AppendBlockedBlock(sb, blocked);
@@ -1440,6 +1461,50 @@ namespace AudioManager
         /// <summary>Builds the BatchSummary from the integrator's current batch-level state
         /// (Misc auto-migration candidates, detected compilation albums). Shared by WriteJsonOutput
         /// and WriteExecutionRecord so both emit an identical summary block for the same run.</summary>
+        /// <summary>
+        /// SHA-256 (hex) over the sorted mp3 files under folder: relative path, size and last-write ticks per file.
+        /// A missing folder hashes as empty. Any add, remove, rename, resize or touch changes the value.
+        /// </summary>
+        internal static string NewMusicFingerprint(string folder)
+        {
+            var lines = new List<string>();
+            try
+            {
+                if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+                {
+                    string root = folder.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+                    foreach (string p in Directory.GetFiles(folder, "*.mp3", SearchOption.AllDirectories))
+                    {
+                        var fi = new FileInfo(p);
+                        string rel = p.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? p.Substring(root.Length) : Path.GetFileName(p);
+                        lines.Add($"{rel}|{fi.Length}|{fi.LastWriteTimeUtc.Ticks}");
+                    }
+                }
+            }
+            catch (Exception) { lines.Add("unreadable"); }
+            lines.Sort(StringComparer.Ordinal);
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(string.Join("\n", lines)))).Replace("-", "").ToLowerInvariant();
+        }
+
+        /// <summary>newMusicFingerprint of the newest routing-*.json in logsDir; null when there is none or it carries no stamp.</summary>
+        internal static string ReadLatestPreviewFingerprint(string logsDir)
+        {
+            try
+            {
+                if (!Directory.Exists(logsDir)) return null;
+                string newest = Directory.GetFiles(logsDir, "routing-*.json")
+                    .OrderBy(f => Path.GetFileName(f), StringComparer.Ordinal).LastOrDefault();
+                if (newest == null) return null;
+                var m = System.Text.RegularExpressions.Regex.Match(File.ReadAllText(newest), "\"newMusicFingerprint\"\\s*:\\s*\"([0-9a-zA-Z]+)\"");
+                return m.Success ? m.Groups[1].Value : null;
+            }
+            catch (Exception) { return null; }
+        }
+
+        private string _startFingerprint;
+        private string _previewFingerprint;
+
         private BatchSummary BuildCurrentSummary()
         {
             var summary = new BatchSummary();
@@ -1459,7 +1524,7 @@ namespace AudioManager
                     Directory.CreateDirectory(Constants.LogsPath);
                 string jsonPath = Path.Combine(Constants.LogsPath, $"routing-{timestamp}.json");
 
-                AtomicFile.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary(), dryRun: dryRun, blocked: blocked), System.Text.Encoding.UTF8);
+                AtomicFile.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary(), dryRun: dryRun, blocked: blocked, newMusicFingerprint: _startFingerprint), System.Text.Encoding.UTF8);
                 Console.WriteLine($"\n  JSON: {jsonPath}");
             }
             catch (Exception ex)
@@ -1488,7 +1553,8 @@ namespace AudioManager
         private void WriteExecutionRecord(List<LogEntry> entries, ConfidenceRecord confidence)
         {
             string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-            string json = BuildJson(entries, BuildCurrentSummary(), dryRun: false, confidence: confidence, replaced: ReplaceGuard.Retired);
+            string json = BuildJson(entries, BuildCurrentSummary(), dryRun: false, confidence: confidence, replaced: ReplaceGuard.Retired,
+                newMusicFingerprint: _startFingerprint, previewFingerprint: _previewFingerprint);
             WriteExecutionRecordWithRetry(Constants.LogsPath, timestamp, json, Console.WriteLine);
         }
 

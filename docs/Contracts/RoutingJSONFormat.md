@@ -51,3 +51,7 @@ Top-level array, present only on an execution record (`recordType` `execution`) 
 | `held` | where the original now lives, under `NewMusic-Quarantine\Replaced\<yyyyMMdd-HHmmss>\` (the `Constants.ReplacedHoldingPath` folder) |
 
 Held originals are never auto-pruned. To restore one, move the `held` file back to its `original` path. A replacement that fails and is rolled back restores the original in place and records nothing here.
+
+## Preview stamp: `newMusicFingerprint`, `previewStale`
+
+A dry-run routing record carries top-level `newMusicFingerprint`: SHA-256 over every mp3 under NewMusic (relative path, size, last-write ticks), taken before Tag Fix runs. A real run's execution record carries `previewFingerprint` (the stamp of the newest `routing-*.json`, or null when there is none) and `previewStale`: `false` when NewMusic still matches that preview, `true` when it changed since (the run also prints a `[WARN] preview_stale` line), `null` when no stamped preview exists. A client that shows a reviewed preview should treat `previewStale: true` as "the decisions were made on a different folder".
