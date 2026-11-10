@@ -135,7 +135,7 @@ namespace AudioManager
             public int SanityChecked;
             public List<(string Destination, string Reason)> SanityFailures = new List<(string Destination, string Reason)>();
             public List<string> NewFolders = new List<string>();
-            public List<(string Filename, string Detail)> Errors = new List<(string Filename, string Detail)>();
+            public List<(string Filename, string Detail, string SourceRel)> Errors = new List<(string Filename, string Detail, string SourceRel)>();
         }
 
         /// <summary>
@@ -1404,7 +1404,7 @@ namespace AudioManager
             var failures = confidence.SanityFailures ?? new List<(string Destination, string Reason)>();
             var newFolders = (confidence.NewFolders ?? new List<string>())
                 .OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
-            var errors = confidence.Errors ?? new List<(string Filename, string Detail)>();
+            var errors = confidence.Errors ?? new List<(string Filename, string Detail, string SourceRel)>();
             bool sanityOk = failures.Count == 0;
 
             sb.AppendLine("  \"confidence\": {");
@@ -1430,7 +1430,9 @@ namespace AudioManager
             sb.AppendLine($"    \"errorCount\": {errors.Count},");
             sb.Append("    \"errors\": [");
             sb.Append(string.Join(", ", errors.Select(e =>
-                $"{{\"filename\": {JStr(e.Filename)}, \"detail\": {JStr(e.Detail)}}}")));
+                $"{{\"filename\": {JStr(e.Filename)}, " +
+                (string.IsNullOrEmpty(e.SourceRel) ? "" : $"\"sourceRel\": {JStr(e.SourceRel)}, ") +
+                $"\"detail\": {JStr(e.Detail)}}}")));
             sb.AppendLine("]");
             sb.AppendLine("  },");
         }
@@ -1669,7 +1671,7 @@ namespace AudioManager
 
             // 5. Error summary
             var errors = entries.Where(e => e.Status == "error").ToList();
-            record.Errors = errors.Select(e => (e.Filename, e.Detail ?? "")).ToList();
+            record.Errors = errors.Select(e => (e.Filename, e.Detail ?? "", e.SourceRel)).ToList();
             if (errors.Count > 0)
             {
                 Console.WriteLine($"[ERRORS: {errors.Count}]");

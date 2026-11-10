@@ -30,7 +30,7 @@ namespace AudioManager
             };
             c.SanityFailures.Add(("Artists\\Dave\\Singles\\Dave - Titanium.mp3", "missing"));
             c.NewFolders.Add("Artists\\Dave\\Singles");
-            c.Errors.Add(("Foo - Bar.mp3", "Access to the path is denied."));
+            c.Errors.Add(("Foo - Bar.mp3", "Access to the path is denied.", @"Album A\Foo - Bar.mp3"));
             return c;
         }
 
@@ -68,6 +68,8 @@ namespace AudioManager
             Assert.True(json.Contains("\"errorCount\": 1"), "confidence.errorCount");
             Assert.True(json.Contains("\"filename\": \"Foo - Bar.mp3\""), "confidence.errors[].filename");
             Assert.True(json.Contains("\"detail\": \"Access to the path is denied.\""), "confidence.errors[].detail");
+            Assert.True(json.Contains("{\"filename\": \"Foo - Bar.mp3\", \"sourceRel\": \"Album A\\\\Foo - Bar.mp3\""),
+                "confidence.errors[].sourceRel sits beside filename so a client can key the failed row");
         }
 
         public static void BuildJson_RealRun_SanityOkFalseWhenFailuresPresent()
