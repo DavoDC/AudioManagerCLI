@@ -235,5 +235,63 @@ namespace AudioManager
                 if (Directory.Exists(newMusic)) Directory.Delete(newMusic, recursive: true);
             }
         }
+
+        /// <summary>
+        /// Real run, batch order K (keep) file B before L (replace) file A, both for the same library copy.
+        /// 3a stages the library copy (frees its path). B routes first and must not take the staged slot:
+        /// the staged L slot is reserved, so B is skipped as a duplicate, then A replaces the library copy.
+        /// Asserts no .replaced.bak is stranded and the library path holds A's bytes, not B's.
+        /// </summary>
+        public static void RouteAllFiles_KFileBeforeReplacement_DoesNotTakeStagedSlot()
+        {
+            string lib = RoutingFixtures.CreateLibraryFixture();
+            string newMusic = Path.Combine(Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            Directory.CreateDirectory(newMusic);
+            try
+            {
+                // Library copy sits exactly where both files route ("Bad Artist" has no folder, so Misc).
+                string miscDir = Path.Combine(lib, Constants.MiscDir);
+                Directory.CreateDirectory(miscDir);
+                string libPath = Path.Combine(miscDir, "Bad Artist - Bad Song.mp3");
+                File.WriteAllBytes(libPath, new byte[] { 1, 2, 3 });
+
+                // B: keep decision, enumerated first. Zero bytes, so a B-over-library result is detectable.
+                string keepPath = Path.Combine(newMusic, "Bad Artist - Bad Song (keep).mp3");
+                var kFile = MakeGoodFile(keepPath, "Bad Artist", "Bad Song");
+                kFile.Duplicate = new MusicIntegrator.DupData
+                {
+                    Decision = 'K',
+                    LibraryFilePath = libPath,
+                    RelLibraryPath = "Miscellaneous Songs/Bad Artist - Bad Song.mp3",
+                    RelNewPath = Path.GetFileName(keepPath)
+                };
+
+                // A: replace decision, enumerated second. Two bytes, distinct from B and from the library copy.
+                string replPath = Path.Combine(newMusic, "Bad Artist - Bad Song.mp3");
+                var lFile = MakeReplacementDuplicate(replPath, "Bad Artist", "Bad Song", libPath);
+                File.WriteAllBytes(replPath, new byte[] { 9, 9 });
+
+                var integrator = new MusicIntegrator(lib);
+                var scannedFiles = new List<MusicIntegrator.ScannedFile> { kFile, lFile };
+                var logEntries = new List<MusicIntegrator.LogEntry>();
+                int moved = 0, skipped = 0;
+
+                integrator.ExecuteDuplicateDecisions(scannedFiles, new HashSet<string>(), logEntries, ref skipped);
+                integrator.RouteAllFiles(scannedFiles, new HashSet<string>(), logEntries, ref moved, ref skipped);
+
+                Assert.Equal("0", Directory.GetFiles(lib, "*.replaced.bak", SearchOption.AllDirectories).Length.ToString(),
+                    "no staged .replaced.bak may be stranded when a K file is enumerated before the L file");
+                Assert.True(File.Exists(libPath), "the library path must be occupied after the batch");
+                Assert.Equal("2", new FileInfo(libPath).Length.ToString(),
+                    "the library path must hold the replacement (A, 2 bytes), not the keep file (B, 0 bytes)");
+                Assert.True(File.Exists(keepPath), "the keep file must stay in NewMusic when its destination is reserved");
+                Assert.Equal("1", moved.ToString(), "only the replacement may route into the staged slot");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(lib);
+                if (Directory.Exists(newMusic)) Directory.Delete(newMusic, recursive: true);
+            }
+        }
     }
 }

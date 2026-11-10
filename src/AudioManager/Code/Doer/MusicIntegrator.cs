@@ -64,6 +64,9 @@ namespace AudioManager
         // Dry run only: library paths an L-decision would replace (not blocked in 3a). Their copy is staged
         // aside in the real run, so 3b treats their destination as free, as the real run does.
         private HashSet<string> _dryReplacedLibPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Both modes: library path of each L-decision slot -> SourcePath of the replacement that owns it (first owner wins).
+        // While a slot is reserved, 3b blocks every other file routed to that path, so a K file cannot take the freed slot.
+        private Dictionary<string, string> _lSlotOwners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
 
         /// <summary>Per-file integration result for the log and JSON output.</summary>
@@ -546,6 +549,7 @@ namespace AudioManager
                             entry.Status = "would-replace";
                             entry.Detail = "duplicate (would replace)";
                             _dryReplacedLibPaths.Add(dup.LibraryFilePath);
+                            RegisterSlotOwner(dup.LibraryFilePath, sf.SourcePath);
                             // SkipRouting stays false: 3b routes the new file and logs the would-move, as the real run does
                         }
                     }
@@ -559,6 +563,7 @@ namespace AudioManager
                                 string bakPath = ReplaceGuard.Stage(dup.LibraryFilePath);
                                 _lStaged[dup.LibraryFilePath] = bakPath;
                                 _lStagedBySource[sf.SourcePath] = dup.LibraryFilePath;
+                                RegisterSlotOwner(dup.LibraryFilePath, sf.SourcePath);
                                 _lDeletedLibraryPaths.Add(dup.LibraryFilePath);
                                 Console.WriteLine($"  Staged library copy for replacement: {dup.RelLibraryPath}");
                                 Console.WriteLine($"  Integrating replacement: {dup.RelNewPath}");
@@ -621,6 +626,22 @@ namespace AudioManager
             }
             _lStaged.Clear();
             _lStagedBySource.Clear();
+        }
+
+        /// <summary>Records sourcePath as the owner of the L slot at libPath. The first owner wins.</summary>
+        private void RegisterSlotOwner(string libPath, string sourcePath)
+        {
+            if (!_lSlotOwners.ContainsKey(libPath)) _lSlotOwners[libPath] = sourcePath;
+        }
+
+        /// <summary>
+        /// True when destPath is an L slot owned by a different replacement. Such a slot is reserved for its
+        /// owner even while its library copy is staged aside, so no other file may land there in this batch.
+        /// </summary>
+        private bool IsReservedForOtherReplacement(string destPath, string sourcePath)
+        {
+            return _lSlotOwners.TryGetValue(destPath, out string owner)
+                && !string.Equals(owner, sourcePath, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -721,7 +742,9 @@ namespace AudioManager
                     string routeNewNote = isNewFolder ? " *" : "";
 
                     // Dry run: a destination occupied only by the library copy this run replaces counts as free (staged in the real run)
-                    if (IsDestBlocked(destPath, dryRun && _dryReplacedLibPaths.Contains(destPath) ? destPath : null, plannedDests))
+                    // An L slot owned by another replacement is reserved (staged in the real run, planned in dry run): this file is a duplicate here.
+                    if (IsReservedForOtherReplacement(destPath, sf.SourcePath)
+                        || IsDestBlocked(destPath, dryRun && _dryReplacedLibPaths.Contains(destPath) ? destPath : null, plannedDests))
                     {
                         Console.WriteLine(FormatSkipLine(track.Artists, track.Title));
                         Console.WriteLine();
