@@ -163,7 +163,13 @@ namespace AudioManager
             return tagFixer;
         }
 
-        private TagFixer(bool dryRun, bool skipScan, string customRulesPath = null, string quarantineRoot = null)
+        /// <summary>Scans and processes an arbitrary folder (used by TagFixApplier and tests); same logic as the public constructor.</summary>
+        internal static TagFixer ForFolder(string folder, bool dryRun, string quarantineRoot = null)
+        {
+            return ScanFolderForTesting(folder, dryRun, quarantineRoot: quarantineRoot);
+        }
+
+        private TagFixer(bool dryRun, bool skipScan,string customRulesPath = null, string quarantineRoot = null)
         {
             this.dryRun = dryRun;
             this.customRules = TagFixCustomRuleSet.Load(customRulesPath);

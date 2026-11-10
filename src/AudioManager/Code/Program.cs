@@ -254,6 +254,26 @@ namespace AudioManager
                     }
                     else if (mode == 3)
                     {
+                        // Guarded apply of the reviewed plan, or revert of a journal (no plain scan in these modes).
+                        int revertIdx = Array.FindIndex(args, a => a.Equals("--revert", StringComparison.OrdinalIgnoreCase));
+                        if (revertIdx >= 0 && revertIdx + 1 < args.Length)
+                        {
+                            var rev = TagFixApplier.Revert(args[revertIdx + 1], Constants.NewMusicPath, Constants.QuarantinePath);
+                            Console.WriteLine($" - Revert: {rev.Reverted} reverted, {rev.SkippedModified} left alone (edited since), {rev.Failed} failed");
+                            foreach (string note in rev.Notes) Console.WriteLine($"   {note}");
+                            if (rev.Failed > 0) { teeWriter.CloseLogFile(); Environment.Exit(1); }
+                            return;
+                        }
+                        if (args.Any(a => a.Equals("--apply-plan", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            string planFp = TagFixApplier.ReadPlanFingerprint(Path.Combine(Constants.LogsPath, TagFixPlanJson.OutputFileName));
+                            var ar = TagFixApplier.Apply(Constants.NewMusicPath, planFp, Constants.LogsPath, Constants.BackupsPath, Constants.QuarantinePath, DateTime.Now);
+                            Console.WriteLine($" - Tag Fix apply: {ar.Status} (applied {ar.Applied}, already done {ar.AlreadyDone}, quarantined {ar.Quarantined}, failed {ar.Failed}, pending after {ar.PendingAfter})");
+                            Console.WriteLine($" - Result JSON written: {Path.Combine(Constants.LogsPath, TagFixApplier.ResultFileName)}");
+                            if (ar.Status != "applied" && ar.Status != "nothing_to_do") { teeWriter.CloseLogFile(); Environment.Exit(1); }
+                            return;
+                        }
+
                         // TagFix mode - clean tags in NewMusic folder
                         TagFixer tf = new TagFixer(dryRun);
                         // Plan JSON is read-only and only written for a dry run; a real run never writes it.

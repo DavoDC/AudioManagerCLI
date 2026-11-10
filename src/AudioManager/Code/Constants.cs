@@ -51,7 +51,9 @@ namespace AudioManager
         public static readonly string ArtistAliasesPath = Path.Combine(RepoRoot, "config", "artist-aliases.xml");
 
         // Path to the integration logs folder (gitignored, written by MusicIntegrator)
-        public static readonly string LogsPath = Path.Combine(RepoRoot, "data", "logs");
+        /// <summary>Tag Fix byte backups, one folder per apply run (gitignored; pruned after 7 days at the next apply).</summary>
+        public static readonly string BackupsPath = Path.Combine(RepoRoot, "data", "backups");
+        public static readonly string LogsPath =Path.Combine(RepoRoot, "data", "logs");
 
         // Path to the parser result cache (gitignored, in data/logs/)
         public static readonly string ParseCachePath = Path.Combine(LogsPath, "parse-cache.txt");

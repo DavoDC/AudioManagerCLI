@@ -65,6 +65,7 @@
   <ItemGroup>
     <Compile Include="Code\Doer\AtomicFile.cs" />
     <Compile Include="Code\Doer\GateResultJson.cs" />
+    <Compile Include="Code\Doer\TagFixApplier.cs" />
     <Compile Include="Code\Doer\TagFixPlanJson.cs" />
     <Compile Include="Code\Doer\Analyser\Analyser.cs" />
     <Compile Include="Code\Doer\Analyser\Statistic.cs" />

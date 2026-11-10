@@ -361,3 +361,6 @@ data/reports/
 # Runtime logs (Constants.LogsPath). Only .gitkeep is tracked.
 data/logs/*
 !data/logs/.gitkeep
+
+# Tag Fix byte backups (apply-plan)
+data/backups/
