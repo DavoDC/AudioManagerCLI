@@ -4,6 +4,7 @@ One page for the first real integration through the GUI. The library and NewMusi
 
 ## Before you start
 - Close anything that holds music files open (players, taggers, sync clients).
+- Titles: a credit at the end of a title ("featuring X & Y", "ft. X") is moved to the artist by the Tag Fix plan; check the before/after in the plan.
 - Make sure the AudioMirror repo has no uncommitted changes (the gate checks this and blocks with `mirror_stale`).
 - Note the baseline: music files in NewMusic (desktop.ini files are ignored by the engine, so 189 files on disk is 187 music files plus 2 desktop.ini).
 

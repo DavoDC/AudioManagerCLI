@@ -65,6 +65,7 @@ For listening statistics, visit [LastFM](https://www.last.fm/user/david369music)
 Cleans raw MP3s before integration:
 - Removes parenthetical phrases from titles (e.g., `(feat. Artist)`, `(Remix)`)
 - Extracts featured artists and adds to the artist tag
+- Moves a trailing bare credit (`360 featuring A & B`, `Song ft. A`) out of the title into the artist tag (never mid-title, never bare `with`)
 - Renames files per convention: `{artists} - {title}.mp3`
 - Sets `TCMP=1` on all tracks
 - Sets genre for special artists (Akira The Don → Musivation)

@@ -41,6 +41,7 @@ Audio/
   - ✅ Right: Remove entire phrase `(feat. Akon)` → clean title
   - Phrases to remove: `(feat. ...)`, `(ft. ...)`, `(Album Version)`, `(Explicit)`, `(Edit)`, `(Radio Edit)`, `(Original)`, `(Remix)`, `(Version)` 
   - Example: `"Cool Song (feat. Akon)"` → `"Cool Song"` (entire `(feat. Akon)` removed)
+  - **Trailing bare credit (BL-65):** a credit at the END of a title with no brackets is also moved to the artist: `"360 featuring robyn & yung lean"` becomes title `"360"` plus artists Robyn, Yung Lean (split once, no recase, deduped). Only `featuring`, `feat.`, `ft.` at the end, or `(featuring X)`; never mid-title, and never a bare `with` (`Stay With Me` and `Dancing With Myself` stay). `(with X)` in brackets still works. Curly apostrophes stay in the tag; only the new file name uses a straight one. `keep=title` skips all of it.
   - **CRITICAL:** Never strip just "feat." or "ft." - they may be part of other words (e.g., "LEFT" contains "ft.", "Safety" contains "feat.")
   - Move featured artist info to TPE1 tag instead: extract artist name from parenthetical and add to artist field as semicolon-separated
   - **AutoFixed:** TagFixer removes full phrases from Title and Album tags, moves featured artists to TPE1

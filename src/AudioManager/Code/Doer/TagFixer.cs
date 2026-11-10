@@ -261,7 +261,7 @@ namespace AudioManager
                 bool keepCasing = exceptions.Keeps(originalName, "casing");
 
                 // Apply built-in tag cleanup rules (unchanged - custom rules run after these)
-                string cleanTitle = keepTitle ? title : RemoveParentheticals(title);
+                string cleanTitle = keepTitle ? title : StripTrailingCredit(RemoveParentheticals(title));
                 string cleanAlbum = keepAlbum ? album : StripAlbumSuffixes(RemoveParentheticals(album));
                 // keep=artist: artists stay exactly as read (no feat. split from the title).
                 var artistList = keepArtist ? new List<string>() : ExtractAndFixArtists(title, artists, applyCasing: !keepCasing);
@@ -611,6 +611,20 @@ namespace AudioManager
             return result.Trim();
         }
 
+        // BL-65: a bare credit at the END of a title ("360 featuring A & B", "Song ft. A"). Never mid-title, never bare "with"
+        // ("Stay With Me" is a real title; "(with X)" is already handled in parentheses).
+        private static readonly Regex BareTrailingCredit = new Regex(@"\S\s+(?:featuring|feat\.?|ft\.?)\s+(\S.*)$", RegexOptions.IgnoreCase);
+        private static readonly Regex BareTrailingCreditCut = new Regex(@"\s+(?:featuring|feat\.?|ft\.?)\s+\S.*$", RegexOptions.IgnoreCase);
+
+        /// <summary>Title cleanup: the built-in parenthetical strip plus a trailing bare credit and "(featuring X)".</summary>
+        internal static string StripTrailingCredit(string title)
+        {
+            if (string.IsNullOrEmpty(title)) return title;
+            string result = Regex.Replace(title, @"\s*[\(\[]\s*featuring\s+[^)\]]+[\)\]]", "", RegexOptions.IgnoreCase);
+            if (BareTrailingCredit.IsMatch(result)) result = BareTrailingCreditCut.Replace(result, "");
+            return Regex.Replace(result, @"\s+", " ").Trim();
+        }
+
         private static Dictionary<string, string> _artistOverrides;
 
         // shortcut: static cache plus reset seam for tests, upgrade to an injected provider if overrides ever need a per-run path.
@@ -736,6 +750,8 @@ namespace AudioManager
                 @"\(with\s+([^)]+)\)",    // (with Artist)
                 @"\[feat\.\s+([^\]]+)\]", // [feat. Artist]
                 @"\[ft\.\s+([^\]]+)\]",   // [ft. Artist]
+                @"[\(\[]\s*featuring\s+([^)\]]+)[\)\]]", // (featuring Artist)  BL-65
+                @"\S\s+(?:featuring|feat\.?|ft\.?)\s+(\S.*)$", // trailing bare credit  BL-65
             };
 
             foreach (var pattern in featPatterns)

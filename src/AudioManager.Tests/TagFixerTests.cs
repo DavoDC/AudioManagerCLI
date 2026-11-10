@@ -74,6 +74,34 @@ namespace AudioManager
                 "Featured artist should be extracted from (feat. X) parenthetical");
         }
 
+        // ---- BL-65: trailing credit in a title ----
+        public static void StripTrailingCredit_BareFeaturingAtEnd()
+        {
+            Assert.True(TagFixer.StripTrailingCredit("360 featuring robyn & yung lean") == "360", "bare featuring credit removed");
+            Assert.True(TagFixer.StripTrailingCredit("Song ft. Some Artist") == "Song", "bare ft. credit removed");
+            Assert.True(TagFixer.StripTrailingCredit("Song feat. Some Artist") == "Song", "bare feat. credit removed");
+            Assert.True(TagFixer.StripTrailingCredit("Song (featuring Some Artist)") == "Song", "parenthesised featuring removed");
+        }
+
+        public static void StripTrailingCredit_LeavesRealTitles()
+        {
+            foreach (string t in new[] { "Dancing With Myself", "Stay With Me", "Ft. Lauderdale Blues", "Song (Live)", "Featuring Nobody Yet", "Song (Remix)" })
+                Assert.True(TagFixer.StripTrailingCredit(t) == t, "unchanged: " + t);
+        }
+
+        public static void ExtractAndFixArtists_BareFeaturingMovesNamesToArtists()
+        {
+            List<string> result = TagFixer.ExtractAndFixArtists("360 featuring robyn & yung lean", "Charli xcx");
+            Assert.True(result.SequenceEqual(new[] { "Charli xcx", "robyn", "yung lean" }), "names split once, not recased: " + string.Join("|", result));
+            List<string> dedup = TagFixer.ExtractAndFixArtists("360 featuring robyn & yung lean", "Charli xcx; Robyn; Yung Lean");
+            Assert.True(dedup.Count == 3, "no duplicates when the artist already lists the names");
+        }
+
+        public static void StripTrailingCredit_CurlyApostropheKept()
+        {
+            Assert.True(TagFixer.StripTrailingCredit(TagFixer.RemoveParentheticals("Because I’m Me (ft. Camp Lo)")) == "Because I’m Me", "curly apostrophe stays in the title");
+        }
+
         public static void ExtractAndFixArtists_SplitsAmpersandInFeat()
         {
             // Perry Como class of bug: "(feat. Alpha & Beta)" must produce Alpha and Beta separately
