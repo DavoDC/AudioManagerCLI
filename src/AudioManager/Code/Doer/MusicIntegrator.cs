@@ -163,7 +163,8 @@ namespace AudioManager
             public Exception ReadException;
             public LogEntry LogEntry;
             public DupData Duplicate; // null if no duplicate found
-            public bool InBatchDuplicate; // true if another file in the batch shares normalised artist+title
+            public bool InBatchDuplicate; // true if another file in the batch shares normalised artist+title and is not a distinct recording
+            public double LengthSec; // 0 = unknown
         }
 
         /// <summary>
@@ -1786,7 +1787,7 @@ namespace AudioManager
         /// Flags ScannedFile entries where the same normalised artist+title appears more than once
         /// in the batch. Sets InBatchDuplicate = true on all files sharing a key. Non-blocking.
         /// </summary>
-        private void MarkInBatchDuplicates(List<ScannedFile> scannedFiles)
+        internal static void MarkInBatchDuplicates(List<ScannedFile> scannedFiles)
         {
             var keyGroups = new Dictionary<string, List<ScannedFile>>(StringComparer.Ordinal);
             foreach (var sf in scannedFiles.Where(f => f.IsReadable && f.Track != null))
@@ -1797,7 +1798,8 @@ namespace AudioManager
             }
             foreach (var group in keyGroups.Values.Where(g => g.Count > 1))
                 foreach (var sf in group)
-                    sf.InBatchDuplicate = true;
+                    if (group.Any(o => !ReferenceEquals(o, sf) && !LengthsDiffer(sf.LengthSec, o.LengthSec)))
+                        sf.InBatchDuplicate = true;
         }
 
         /// <summary>
@@ -1865,6 +1867,7 @@ namespace AudioManager
                     entry.Artists = track.Artists;
                     entry.Album = track.Album;
                     sf.Track = track;
+                    sf.LengthSec = ReadLengthSeconds(sourcePath);
                     sf.IsReadable = true;
 
                     // Populate tag changes for combined routing display
@@ -1900,6 +1903,98 @@ namespace AudioManager
             return result;
         }
 
+        /// <summary>Facts the duplicate recommendation needs; a length of 0 or less means unknown.</summary>
+        internal class DupFacts
+        {
+            public string NewAlbum, LibraryAlbum;
+            public bool NewIsAlbum, SameAlbum, LibraryIsSingle, LibraryIsCompilation;
+            public int IncomingAlbumTracks, LibraryAlbumTracks, IncomingArtists, LibraryArtists;
+            public double IncomingLengthSec, LibraryLengthSec;
+        }
+
+        /// <summary>Lengths further apart than this (seconds) mean two different recordings.</summary>
+        internal const double DistinctLengthToleranceSec = 3.0;
+
+        /// <summary>True when both lengths are known and differ by more than the tolerance (remix, edit, other take).</summary>
+        internal static bool LengthsDiffer(double a, double b) =>
+            a > 0 && b > 0 && Math.Abs(a - b) > DistinctLengthToleranceSec;
+
+        /// <summary>
+        /// The one duplicate recommendation. Order: distinct recording (keep both), richer metadata,
+        /// same album, deluxe, single, compilation, then the album-size rule (tie keeps incoming).
+        /// </summary>
+        internal static void RecommendDuplicate(DupFacts f, out char key, out string reason)
+        {
+            key = '\0'; reason = "";
+            if (LengthsDiffer(f.IncomingLengthSec, f.LibraryLengthSec))
+            {
+                reason = $"Different recording: incoming is {f.IncomingLengthSec:F0}s, library copy is {f.LibraryLengthSec:F0}s - keep both";
+                return;
+            }
+            if (f.LibraryArtists > 0 && f.IncomingArtists > f.LibraryArtists)
+            {
+                key = 'L';
+                reason = $"Incoming has richer metadata ({f.IncomingArtists} artists vs {f.LibraryArtists} in library) - keep incoming";
+                return;
+            }
+            if (f.SameAlbum)
+            {
+                key = 'D'; reason = $"Same song from same album ('{f.NewAlbum}') - already in library";
+            }
+            else if (f.NewIsAlbum && IsDeluxeVersionOf(f.NewAlbum, f.LibraryAlbum))
+            {
+                key = 'L'; reason = $"New file album '{f.NewAlbum}' is a deluxe/expanded version of library album '{f.LibraryAlbum}' - deluxe preferred";
+            }
+            else if (f.NewIsAlbum && IsDeluxeVersionOf(f.LibraryAlbum, f.NewAlbum))
+            {
+                key = 'D'; reason = $"Library album '{f.LibraryAlbum}' is a deluxe/expanded version of new file album '{f.NewAlbum}' - keep library deluxe";
+            }
+            else if (f.LibraryIsSingle && f.NewIsAlbum)
+            {
+                key = 'L'; reason = $"Library has single; new file is from album '{f.NewAlbum}' - album preferred";
+            }
+            else if (f.LibraryIsCompilation && f.NewIsAlbum)
+            {
+                key = 'L'; reason = $"Library copy is from a compilation; new file is from artist album '{f.NewAlbum}'";
+            }
+            else if (f.NewIsAlbum && f.IncomingAlbumTracks > 0 && f.LibraryAlbumTracks > 0)
+            {
+                key = f.IncomingAlbumTracks >= f.LibraryAlbumTracks ? 'L' : 'D';
+                string sizeNote = f.IncomingAlbumTracks > f.LibraryAlbumTracks ? "larger album preferred"
+                    : f.IncomingAlbumTracks < f.LibraryAlbumTracks ? "library album is larger, keep library"
+                    : "same size, incoming copy kept";
+                reason = $"New album '{f.NewAlbum}' has {f.IncomingAlbumTracks} tracks, library album '{f.LibraryAlbum}' has {f.LibraryAlbumTracks} tracks - {sizeNote}";
+            }
+        }
+
+        /// <summary>Audio length in seconds from the tags, or 0 when unreadable.</summary>
+        private static double ReadLengthSeconds(string path)
+        {
+            try
+            {
+                using (TagLib.File f = TagLib.File.Create(path))
+                    return f.Properties.Duration.TotalSeconds;
+            }
+            catch { return 0; }
+        }
+
+        /// <summary>Length (seconds) and artist count of a mirror XML; 0 when missing.</summary>
+        private static void ReadMirrorFacts(string xmlPath, out double lengthSec, out int artistCount)
+        {
+            lengthSec = 0; artistCount = 0;
+            try
+            {
+                var doc = new System.Xml.XmlDocument();
+                doc.Load(xmlPath);
+                string len = doc.SelectSingleNode("//Length")?.InnerText;
+                if (TimeSpan.TryParse(len, System.Globalization.CultureInfo.InvariantCulture, out TimeSpan ts)) lengthSec = ts.TotalSeconds;
+                string artists = doc.SelectSingleNode("//Artists")?.InnerText;
+                if (!string.IsNullOrEmpty(artists))
+                    artistCount = Track.ProcessProperty(artists).Count(x => !string.IsNullOrWhiteSpace(x));
+            }
+            catch { /* unknown facts stand the new rules down */ }
+        }
+
         /// <summary>
         /// Builds a DupData object for a duplicate found during pre-scan.
         /// Computes all display strings and the [L]/[D] recommendation.
@@ -1930,44 +2025,17 @@ namespace AudioManager
             int libraryAlbumTracks = CountLibraryAlbumTracks(libraryFilePath);
             int incomingAlbumTracks = newIsAlbum ? CountAlbumSongs(track.PrimaryArtist, track.Album) : 0;
 
-            string dupReason = "";
-            char recommendedKey = '\0';
-            if (sameAlbum)
+            ReadMirrorFacts(duplicatePath, out double libraryLen, out int libraryArtists);
+            var facts = new DupFacts
             {
-                recommendedKey = 'D';
-                dupReason = $"Same song from same album ('{track.Album}') - already in library";
-            }
-            else if (newIsAlbum && IsDeluxeVersionOf(track.Album, libraryAlbum))
-            {
-                // New file is the deluxe/expanded/remastered version; prefer it
-                recommendedKey = 'L';
-                dupReason = $"New file album '{track.Album}' is a deluxe/expanded version of library album '{libraryAlbum}' - deluxe preferred";
-            }
-            else if (newIsAlbum && IsDeluxeVersionOf(libraryAlbum, track.Album))
-            {
-                // Library already has deluxe; keep it
-                recommendedKey = 'D';
-                dupReason = $"Library album '{libraryAlbum}' is a deluxe/expanded version of new file album '{track.Album}' - keep library deluxe";
-            }
-            else if (libraryIsSingle && newIsAlbum)
-            {
-                recommendedKey = 'L';
-                dupReason = $"Library has single; new file is from album '{track.Album}' - album preferred";
-            }
-            else if (libraryIsCompilation && newIsAlbum)
-            {
-                recommendedKey = 'L';
-                dupReason = $"Library copy is from a compilation; new file is from artist album '{track.Album}'";
-            }
-            else if (newIsAlbum && !sameAlbum && incomingAlbumTracks > 0 && libraryAlbumTracks > 0)
-            {
-                // Same song on two different albums: the album with more tracks wins; tie keeps the new copy.
-                recommendedKey = incomingAlbumTracks >= libraryAlbumTracks ? 'L' : 'D';
-                string sizeNote = incomingAlbumTracks > libraryAlbumTracks ? "larger album preferred"
-                    : incomingAlbumTracks < libraryAlbumTracks ? "library album is larger, keep library"
-                    : "same size, incoming copy kept";
-                dupReason = $"New album '{track.Album}' has {incomingAlbumTracks} tracks, library album '{libraryAlbum}' has {libraryAlbumTracks} tracks - {sizeNote}";
-            }
+                NewAlbum = track.Album, LibraryAlbum = libraryAlbum, NewIsAlbum = newIsAlbum, SameAlbum = sameAlbum,
+                LibraryIsSingle = libraryIsSingle, LibraryIsCompilation = libraryIsCompilation,
+                IncomingAlbumTracks = incomingAlbumTracks, LibraryAlbumTracks = libraryAlbumTracks,
+                IncomingArtists = Track.ProcessProperty(track.Artists).Count(x => !string.IsNullOrWhiteSpace(x)),
+                LibraryArtists = libraryArtists,
+                IncomingLengthSec = ReadLengthSeconds(sourcePath), LibraryLengthSec = libraryLen
+            };
+            RecommendDuplicate(facts, out char recommendedKey, out string dupReason);
 
             string optD = "[D] Delete NewMusic copy (keep library)";
             string optL = "[L] Delete library copy (keep new file - will be routed in the next step)";
