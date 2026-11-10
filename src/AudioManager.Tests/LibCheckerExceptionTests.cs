@@ -43,6 +43,31 @@ namespace AudioManager
             finally { if (File.Exists(exPath)) File.Delete(exPath); }
         }
 
+        private static bool CleanWith(string exceptionRow)
+        {
+            string exPath = TempXmlPath();
+            try
+            {
+                File.WriteAllText(exPath, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<Exceptions>\n" + exceptionRow + "\n</Exceptions>");
+                return new LibChecker(new List<TrackTag> { FeatTag() }, exceptionsPath: exPath).IsClean;
+            }
+            finally { if (File.Exists(exPath)) File.Delete(exPath); }
+        }
+
+        public static void LibChecker_MalformedExceptionRows_NeverSuppressAnything()
+        {
+            Assert.True(!CleanWith("<Exception unwanted=\"feat.\"><Title equalz=\"Song (feat. Someone)\"/></Exception>"),
+                "a typo attribute (no equals/contains) must not become Contains(empty) and match everything");
+            Assert.True(!CleanWith("<Exception unwanted=\"feat.\"><Title equals=\"\"/></Exception>"),
+                "an empty equals must not suppress");
+            Assert.True(!CleanWith("<Exception unwanted=\"*\"></Exception>"),
+                "a wildcard row with no conditions must not match every track");
+            Assert.True(!CleanWith("<Exception unwanted=\"feat.\"><Titel equals=\"Song (feat. Someone)\"/></Exception>"),
+                "an unknown field name must not make the condition silently true or empty");
+            Assert.True(!CleanWith("<Exception><Title equals=\"Song (feat. Someone)\"/></Exception>"),
+                "a row with no unwanted attribute must not suppress");
+        }
+
         public static void LibChecker_ExceptionWildcard_SuppressesForMatchingTrack_IsClean()
         {
             // unwanted="*" matches any unwanted string when track conditions match

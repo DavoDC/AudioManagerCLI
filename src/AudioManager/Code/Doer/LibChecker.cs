@@ -393,22 +393,32 @@ namespace AudioManager
             {
                 string exUnwanted = ex.GetAttribute("unwanted");
 
+                // A row without an unwanted attribute never suppresses (fail closed: a typo must not hide gate hits)
+                if (exUnwanted == "") continue;
+
                 // Check if this exception applies to the current unwanted string
                 if (exUnwanted != "*" && !exUnwanted.Equals(unwanted, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                // Check all child conditions (AND logic)
+                // Check all child conditions (AND logic). No conditions at all means the row is unusable, never "match everything".
+                var conds = ex.ChildNodes.OfType<XmlElement>().ToList();
+                if (conds.Count == 0) continue;
                 bool allMatch = true;
-                foreach (XmlElement cond in ex.ChildNodes.OfType<XmlElement>())
+                foreach (XmlElement cond in conds)
                 {
                     string field = cond.Name;           // "Title", "Artists", "Album"
-                    string op = cond.GetAttribute("equals") != "" ? "equals" : "contains";
-                    string value = op == "equals" ? cond.GetAttribute("equals") : cond.GetAttribute("contains");
+                    string equalsVal = cond.GetAttribute("equals");
+                    string containsVal = cond.GetAttribute("contains");
+                    string op = equalsVal != "" ? "equals" : "contains";
+                    string value = op == "equals" ? equalsVal : containsVal;
 
                     string tagValue = field == "Title" ? tag.Title
                                     : field == "Artists" ? tag.Artists
                                     : field == "Album" ? tag.Album
-                                    : "";
+                                    : null;
+
+                    // Unknown field, or no equals/contains value (typo attribute, empty value): this row can never match.
+                    if (tagValue == null || value == "") { allMatch = false; break; }
 
                     bool condMet = op == "equals"
                         ? tagValue.Equals(value)
