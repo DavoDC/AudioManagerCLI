@@ -12,29 +12,29 @@ namespace AudioManager
         // Common user base path from %USERPROFILE% with fallback (e.g. <home>\)
         public static readonly string UserBasePath = GetUserBasePath();
 
-        // The path to the actual audio library (e.g. <home>\Audio\)
-        public static readonly string AudioFolderPath = Path.Combine(UserBasePath, "Audio");
-
-        // The path to the new music folder (e.g. <home>\Downloads\NewMusic\)
-        // Test-only override: env AUDIOMANAGER_TEST_ROOT redirects NewMusic, its quarantine, logs and backups
-        // into that folder (NewMusic, NewMusic-Quarantine, logs, backups). Unset means the real paths, unchanged.
+        // Test-only override: env AUDIOMANAGER_TEST_ROOT redirects NewMusic, its quarantine, logs, backups,
+        // the library (Audio) and the mirror repo (AudioMirror) into that folder. Unset means the real paths, unchanged.
         public static readonly string TestRoot = Environment.GetEnvironmentVariable("AUDIOMANAGER_TEST_ROOT");
         private static bool HasTestRoot => !string.IsNullOrWhiteSpace(TestRoot);
-
-        public static readonly string NewMusicPath = HasTestRoot
-            ? Path.Combine(TestRoot, "NewMusic")
-            : Path.Combine(UserBasePath, "Downloads", "NewMusic");
-
-        // Quarantine sibling of NewMusic (e.g. <home>\Downloads\NewMusic-Quarantine\). Deliberately outside
-        // NewMusicPath because TagFixer scans NewMusicPath recursively.
-        public static readonly string QuarantinePath = Path.Combine(Path.GetDirectoryName(NewMusicPath), "NewMusic-Quarantine");
 
         // Absolute path to the repo root (discovered by walking up from exe directory)
         public static readonly string RepoRoot = FindRepoRoot();
 
-        // Absolute path to the mirror repo (assumed to sit next to this repo in GitHubRepos\)
-        public static readonly string MirrorRepoPath = Path.GetFullPath(
-            Path.Combine(RepoRoot, "..", "AudioMirror")) + Path.DirectorySeparatorChar;
+        // Must come after TestRoot and RepoRoot: static initialisers run in textual order.
+        private static readonly ResolvedRoots Roots = ResolveRoots(TestRoot, UserBasePath, RepoRoot);
+
+        // The path to the actual audio library (e.g. <home>\Audio\; test root: <testRoot>\Audio)
+        public static readonly string AudioFolderPath = Roots.Audio;
+
+        // The path to the new music folder (e.g. <home>\Downloads\NewMusic\; test root: <testRoot>\NewMusic)
+        public static readonly string NewMusicPath = Roots.NewMusic;
+
+        // Quarantine sibling of NewMusic (e.g. <home>\Downloads\NewMusic-Quarantine\). Deliberately outside
+        // NewMusicPath because TagFixer scans NewMusicPath recursively.
+        public static readonly string QuarantinePath = Roots.Quarantine;
+
+        // Absolute path to the mirror repo (assumed to sit next to this repo in GitHubRepos\; test root: <testRoot>\AudioMirror\)
+        public static readonly string MirrorRepoPath = Roots.MirrorRepo;
 
         // Mirror folder name
         public const string MirrorFolderName = "AUDIO_MIRROR";
@@ -135,6 +135,47 @@ namespace AudioManager
             }
 
             return userProfile;
+        }
+
+        /// <summary>Resolved library, new music, quarantine and mirror roots.</summary>
+        internal sealed class ResolvedRoots
+        {
+            public readonly string NewMusic;
+            public readonly string Quarantine;
+            public readonly string MirrorRepo;
+            public readonly string Audio;
+
+            public ResolvedRoots(string newMusic, string quarantine, string mirrorRepo, string audio)
+            {
+                NewMusic = newMusic;
+                Quarantine = quarantine;
+                MirrorRepo = mirrorRepo;
+                Audio = audio;
+            }
+        }
+
+        /// <summary>
+        /// Resolves the library, new music, quarantine and mirror roots. A non-blank testRoot redirects all four
+        /// under it (AUDIOMANAGER_TEST_ROOT); null or blank keeps the real locations under userBase and repoRoot.
+        /// Pure: no filesystem access.
+        /// </summary>
+        internal static ResolvedRoots ResolveRoots(string testRoot, string userBase, string repoRoot)
+        {
+            if (!string.IsNullOrWhiteSpace(testRoot))
+            {
+                return new ResolvedRoots(
+                    Path.Combine(testRoot, "NewMusic"),
+                    Path.Combine(testRoot, "NewMusic-Quarantine"),
+                    Path.Combine(testRoot, "AudioMirror") + Path.DirectorySeparatorChar,
+                    Path.Combine(testRoot, "Audio"));
+            }
+
+            string newMusic = Path.Combine(userBase, "Downloads", "NewMusic");
+            return new ResolvedRoots(
+                newMusic,
+                Path.Combine(Path.GetDirectoryName(newMusic), "NewMusic-Quarantine"),
+                Path.GetFullPath(Path.Combine(repoRoot, "..", "AudioMirror")) + Path.DirectorySeparatorChar,
+                Path.Combine(userBase, "Audio"));
         }
 
         /// <summary>
