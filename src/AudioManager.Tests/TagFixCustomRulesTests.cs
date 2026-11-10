@@ -167,6 +167,28 @@ namespace AudioManager
             finally { Directory.Delete(dir, true); }
         }
 
+        public static void Apply_UnsafeRules_AreSkippedNotRun()
+        {
+            string dir = NewTempDir();
+            try
+            {
+                // bad enabled value, set-value with no replacement attribute, set-value to empty on title
+                string path = WriteRulesFile(dir,
+                    "<Rule id=\"typo-enabled\" field=\"title\" match=\"contains\" value=\"Song\" action=\"set-value\" replacement=\"X\" enabled=\"flase\" />\n" +
+                    "<Rule id=\"no-repl\" field=\"artist\" match=\"contains\" value=\"Ar\" action=\"set-value\" />\n" +
+                    "<Rule id=\"blank-title\" field=\"title\" match=\"contains\" value=\"Song\" action=\"set-value\" replacement=\"\" />");
+                var set = TagFixCustomRuleSet.Load(path);
+                var values = new TagFieldValues { Title = "Song Title", Album = "A", Artists = "Ar", Genre = "G" };
+
+                var changes = set.Apply(values);
+
+                Assert.Equal("Song Title", values.Title, "no unsafe rule may rewrite or blank the title");
+                Assert.Equal("Ar", values.Artists, "a set-value without a replacement must not blank the artist");
+                Assert.True(changes.Count == 0, $"no unsafe rule records a change, got {changes.Count}");
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
         public static void Apply_InvalidRegex_WarnsAndKeepsGoing()
         {
             string dir = NewTempDir();

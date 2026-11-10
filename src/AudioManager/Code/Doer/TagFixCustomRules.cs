@@ -169,7 +169,11 @@ namespace AudioManager
             bool enabled = true;
             string enabledAttr = el.GetAttribute("enabled");
             if (!string.IsNullOrEmpty(enabledAttr) && !bool.TryParse(enabledAttr, out enabled))
-                enabled = true;
+            {
+                // A typo like enabled="flase" must not leave a rule the author meant to switch off running on real files.
+                Console.WriteLine($"  [WARN] Custom tag rule '{id}' skipped: enabled must be true or false, got '{enabledAttr}'");
+                return null;
+            }
 
             return new TagFixCustomRule
             {
@@ -253,7 +257,8 @@ namespace AudioManager
                     return Regex.Replace(replaced, @"\s+", " ").Trim();
 
                 case "set-value":
-                    return rule.Replacement ?? "";
+                    // An empty or missing replacement would blank the tag; never do that.
+                    return string.IsNullOrEmpty(rule.Replacement) ? null : rule.Replacement;
 
                 default:
                     return null;
