@@ -91,6 +91,14 @@ namespace AudioManager
             Assert.Equal("K", sf.Duplicate.Decision.ToString());
         }
 
+        public static void PresentDuplicateAndDecide_NoInput_NoManifestOverride_DowngradesDToKeepBoth()
+        {
+            var integrator = new MusicIntegrator("C:\\fake\\lib", noInput: true, manifest: null);
+            var sf = MakeDupScannedFile('D');
+            integrator.PresentDuplicateAndDecide(sf);
+            Assert.Equal("K", sf.Duplicate.Decision.ToString(), "an unattended run never deletes the new file without an explicit resolution");
+        }
+
         public static void PresentDuplicateAndDecide_NoInput_NoRecommendation_DefaultsToKeepBoth()
         {
             var integrator = new MusicIntegrator("C:\\fake\\lib", noInput: true, manifest: null);

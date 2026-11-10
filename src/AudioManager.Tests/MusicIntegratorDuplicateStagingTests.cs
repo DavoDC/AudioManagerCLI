@@ -114,7 +114,7 @@ namespace AudioManager
             Assert.Equal("0", logs.Count.ToString(), "with no duplicates the review must add no log entries");
         }
 
-        public static void RunDuplicateReview_NoInput_AutoAcceptsRecommendedD()
+        public static void RunDuplicateReview_NoInput_DowngradesRecommendedDToK()
         {
             string lib = RoutingFixtures.CreateLibraryFixture();
             string newMusic = NewMusicDir();
@@ -129,7 +129,7 @@ namespace AudioManager
                 bool keepGoing = InvokeRunDuplicateReview(integrator, files, logs);
 
                 Assert.True(keepGoing, "auto-accept must not stop the review");
-                Assert.Equal("D", sf.Duplicate.Decision.ToString(), "a D recommendation must be auto-accepted as D");
+                Assert.Equal("K", sf.Duplicate.Decision.ToString(), "a D recommendation downgrades to K under no-input");
                 Assert.True(File.Exists(source), "the review itself must not delete the NewMusic file");
             }
             finally

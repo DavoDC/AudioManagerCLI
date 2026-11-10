@@ -2335,18 +2335,19 @@ namespace AudioManager
                 }
 
                 char autoDecision = dup.RecommendedKey != '\0' ? dup.RecommendedKey : 'K';
-                // Safety: L deletes/replaces the library copy and no human confirmed it, so an
-                // unattended run downgrades it to K (Keep Both, non-destructive).
-                if (autoDecision == 'L')
+                // Safety: L replaces the library copy and D sends the new file to the Recycle Bin;
+                // no human confirmed either, so an unattended run downgrades both to K (Keep Both,
+                // non-destructive). Only an explicit manifest resolution (above) can choose D or L.
+                if (autoDecision == 'L' || autoDecision == 'D')
                 {
+                    Console.WriteLine($"  [SAFETY] {autoDecision} not auto-accepted under no-input: {Path.GetFileName(sf.SourcePath)} downgraded to K (keep both)");
                     autoDecision = 'K';
-                    Console.WriteLine($"  [SAFETY] L (delete library copy) not auto-accepted under no-input: {Path.GetFileName(sf.SourcePath)} downgraded to K (keep both)");
                 }
                 dup.Decision = autoDecision;
                 string autoReason = dup.RecommendedKey == '\0'
                     ? "K (no recommendation - defaulting to Keep Both)"
-                    : dup.RecommendedKey == 'L' && autoDecision == 'K'
-                        ? "K (L downgraded - no-input never deletes the library copy)"
+                    : dup.RecommendedKey != 'K' && autoDecision == 'K'
+                        ? $"K ({dup.RecommendedKey} downgraded - no-input never deletes without an explicit resolution)"
                         : $"{autoDecision} (auto-accepted recommended)";
                 Console.WriteLine($"  [AUTO] {autoReason}");
                 Console.WriteLine();
