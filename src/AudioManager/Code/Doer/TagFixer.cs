@@ -392,7 +392,9 @@ namespace AudioManager
                     {
                         string newFilename = $"{sanitisedArtists} - {sanitisedTitle}.mp3";
                         string newPath = Path.Combine(Path.GetDirectoryName(sourcePath), newFilename);
-                        if (newPath != sourcePath && !File.Exists(newPath))
+                        // A case-only rename resolves to the source file on a case-insensitive volume, so File.Exists is true; it must still move.
+                        bool caseOnlyRename = newPath.Equals(sourcePath, StringComparison.OrdinalIgnoreCase);
+                        if (newPath != sourcePath && (caseOnlyRename || !File.Exists(newPath)))
                         {
                             // Tags are already saved, so a failed rename keeps the fixed status and the original name.
                             try
