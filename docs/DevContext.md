@@ -237,7 +237,7 @@ Moved to `Architecture/IntegrationAndParseCacheArchitecture.md` (same folder). R
 
 **Reflector.PruneOrphanedXmls(string mirrorPath, HashSet<string> expectedXmlPaths) is the orphan-cleanup contract.** Called by CreateFiles() at the end of the incremental pass. The HashSet is built inline: for each MP3 processed, compute the expected XML path (apply SanitiseFilename to filename, change extension to .xml). After the main loop, PruneOrphanedXmls deletes any XML in the mirror not in the set.
 
-**Guard is mandatory:** pruning only fires when `!AgeChecker.RegenMirror` (force-regen rebuilds from scratch in `<mirror>.staging`, then swaps it in via `SwapDirectory`; `RecoverLeftovers` heals an interrupted swap on every run) AND `realFiles.Length > 0` (Audio root successfully enumerated - prevents mass-delete if the library is temporarily inaccessible). Any refactor of CreateFiles() must preserve both conditions.
+**Guard is mandatory:** pruning only fires when `!AgeChecker.RegenMirror` (force-regen rebuilds from scratch in `<mirror>.stg`, then swaps it in via `SwapDirectory`; `RecoverLeftovers` heals an interrupted swap on every run) AND `realFiles.Length > 0` (Audio root successfully enumerated - prevents mass-delete if the library is temporarily inaccessible). Any refactor of CreateFiles() must preserve both conditions.
 
 ## GetRelativePath: URI Slash Normalization (Critical)
 

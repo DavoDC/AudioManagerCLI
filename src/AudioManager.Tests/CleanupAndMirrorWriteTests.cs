@@ -108,7 +108,7 @@ namespace AudioManager
             {
                 Assert.True(threw, "a missing audio root must fail the build");
                 Assert.True(!Directory.Exists(mirror), "no mirror folder is created before the audio root enumeration fails");
-                Assert.True(!Directory.Exists(mirror + ".staging"), "no staging folder is created either");
+                Assert.True(!Directory.Exists(mirror + Reflector.StagingSuffix), "no staging folder is created either");
             }
             finally { Cleanup(root); }
         }

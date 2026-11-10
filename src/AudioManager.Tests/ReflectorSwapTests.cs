@@ -22,7 +22,7 @@ namespace AudioManager
             try
             {
                 string target = Path.Combine(root, "mirror");
-                string staging = Path.Combine(root, "mirror.staging");
+                string staging = Path.Combine(root, "mirror" + Reflector.StagingSuffix);
                 Directory.CreateDirectory(target);
                 File.WriteAllText(Path.Combine(target, "old.xml"), "old");
                 Directory.CreateDirectory(staging);
@@ -44,7 +44,7 @@ namespace AudioManager
             try
             {
                 string target = Path.Combine(root, "mirror");
-                string staging = Path.Combine(root, "mirror.staging");
+                string staging = Path.Combine(root, "mirror" + Reflector.StagingSuffix);
                 Directory.CreateDirectory(staging);
                 File.WriteAllText(Path.Combine(staging, "new.xml"), "new");
 
@@ -63,7 +63,7 @@ namespace AudioManager
             try
             {
                 string target = Path.Combine(root, "mirror");
-                string missingStaging = Path.Combine(root, "never.staging");
+                string missingStaging = Path.Combine(root, "never" + Reflector.StagingSuffix);
                 Directory.CreateDirectory(target);
                 File.WriteAllText(Path.Combine(target, "old.xml"), "old");
 
@@ -84,13 +84,13 @@ namespace AudioManager
             try
             {
                 string target = Path.Combine(root, "mirror");
-                string staging = target + ".staging";
+                string staging = target + Reflector.LegacyStagingSuffix;
                 Directory.CreateDirectory(staging);
                 File.WriteAllText(Path.Combine(staging, "junk.xml"), "junk");
 
                 Reflector.RecoverLeftovers(target);
 
-                Assert.True(!Directory.Exists(staging), "a stale .staging folder is always disposable and removed");
+                Assert.True(!Directory.Exists(staging), "a stale legacy .staging folder is always disposable and removed");
                 Assert.True(!Directory.Exists(target), "target is not created by the sweep");
             }
             finally { Cleanup(root); }
@@ -144,7 +144,7 @@ namespace AudioManager
 
         public static void IsInsideMirrorRepo_StagingAndOldCountAsInside()
         {
-            Assert.True(Reflector.IsInsideMirrorRepo(Constants.MirrorFolderPath + ".staging"), ".staging sibling is inside the mirror repo");
+            Assert.True(Reflector.IsInsideMirrorRepo(Constants.MirrorFolderPath + Reflector.StagingSuffix), "staging sibling is inside the mirror repo");
             Assert.True(Reflector.IsInsideMirrorRepo(Constants.MirrorFolderPath + ".old"), ".old sibling is inside the mirror repo");
         }
 
@@ -160,7 +160,7 @@ namespace AudioManager
                 Reflector.RecoverLeftovers(target);
 
                 Assert.True(File.Exists(Path.Combine(target, "backup.xml")), "crash after parking .old restores it when staging is gone");
-                Assert.True(!Directory.Exists(target + ".staging"), "no staging folder appears");
+                Assert.True(!Directory.Exists(target + Reflector.StagingSuffix), "no staging folder appears");
             }
             finally { Cleanup(root); }
         }
@@ -190,7 +190,7 @@ namespace AudioManager
 
                 Assert.True(File.Exists(Path.Combine(mirror, "Artist", "a.xml")), "new XML is in the target");
                 Assert.True(!File.Exists(Path.Combine(mirror, "stale.xml")), "stale XML is gone after a regen");
-                Assert.True(!Directory.Exists(mirror + ".staging"), "no .staging left");
+                Assert.True(!Directory.Exists(mirror + Reflector.StagingSuffix), "no staging folder left");
                 Assert.True(!Directory.Exists(mirror + ".old"), "no .old left");
                 Assert.True(File.Exists(stamp), "stamp is written after the swap");
                 DateTime parsed;

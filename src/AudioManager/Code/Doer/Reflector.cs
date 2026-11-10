@@ -12,10 +12,16 @@ namespace AudioManager
     /// </summary>
     internal class Reflector : Doer
     {
+        // Staging folder suffix for a regen build. Short on purpose: widens the MAX_PATH margin for staged temp files.
+        internal const string StagingSuffix = ".stg";
+
+        // Old staging suffix, still swept by RecoverLeftovers so a leftover from before the rename is cleared.
+        internal const string LegacyStagingSuffix = ".staging";
+
         // Mirror path variable
         string mirrorPath;
 
-        // Folder the XMLs are written into: mirrorPath.staging on a regen, else mirrorPath
+        // Folder the XMLs are written into: mirrorPath.stg on a regen, else mirrorPath
         string buildPath;
 
         // Audio library root being mirrored
@@ -54,7 +60,7 @@ namespace AudioManager
             RecoverLeftovers(mirrorPath);
 
             bool regen = AgeChecker.RegenMirror;
-            buildPath = regen ? mirrorPath + ".staging" : mirrorPath;
+            buildPath = regen ? mirrorPath + StagingSuffix : mirrorPath;
             DateTime builtAt = DateTime.Now;
 
             // Setup folder structure
@@ -483,20 +489,23 @@ namespace AudioManager
         }
 
         /// <summary>
-        /// Clears leftovers from an interrupted swap: a .staging folder is always disposable, and an
-        /// orphaned .old is moved back to target when target is missing, otherwise deleted.
+        /// Clears leftovers from an interrupted swap: a staging folder (current or legacy suffix) is always
+        /// disposable, and an orphaned .old is moved back to target when target is missing, otherwise deleted.
         /// </summary>
         internal static void RecoverLeftovers(string target)
         {
-            string staging = target + ".staging";
             string old = target + ".old";
-            try
+            foreach (string suffix in new[] { StagingSuffix, LegacyStagingSuffix })
             {
-                if (Directory.Exists(staging)) Directory.Delete(staging, true);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"  [WARN] Could not delete stale staging '{staging}': {ex.Message}");
+                string staging = target + suffix;
+                try
+                {
+                    if (Directory.Exists(staging)) Directory.Delete(staging, true);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"  [WARN] Could not delete stale staging '{staging}': {ex.Message}");
+                }
             }
             try
             {
