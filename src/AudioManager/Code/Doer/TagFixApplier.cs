@@ -30,7 +30,8 @@ namespace AudioManager
         {
             public string Status;            // applied | partial | nothing_to_do | stale_plan | insufficient_disk
             public string PlanFingerprint;   // fingerprint stored in the reviewed plan
-            public string CurrentFingerprint;// fingerprint of NewMusic now
+            public string CurrentFingerprint;// fingerprint of NewMusic when the apply started
+            public string NewFingerprint;    // fingerprint of NewMusic after the apply (null when nothing was applied)
             public int Applied, AlreadyDone, Failed, Quarantined, NeedsManual, PendingAfter;
             public string JournalPath;
             public long BytesNeeded, BytesFree;
@@ -155,6 +156,7 @@ namespace AudioManager
 
             var after = TagFixer.ForFolder(folder, dryRun: true, quarantineRoot: quarantineRoot);
             result.PendingAfter = after.Results.Count(l => l.Status == "would-fix" || l.WouldQuarantine);
+            result.NewFingerprint = TagFixPlanJson.Fingerprint(folder, after.Scanned);
             result.Status = result.Failed == 0 ? "applied" : "partial";
             WriteResult(logsDir, result, now);
             return result;
@@ -323,7 +325,7 @@ namespace AudioManager
             sb.AppendLine($"  \"generatedAt\": {J(now.ToString("s", CultureInfo.InvariantCulture))},");
             sb.AppendLine($"  \"status\": {J(r.Status)},");
             sb.AppendLine($"  \"oldFingerprint\": {J(r.PlanFingerprint)},");
-            sb.AppendLine($"  \"newFingerprint\": {J(r.CurrentFingerprint)},");
+            sb.AppendLine($"  \"newFingerprint\": {J(r.NewFingerprint ?? r.CurrentFingerprint)},");
             sb.AppendLine($"  \"journal\": {J(r.JournalPath)},");
             sb.AppendLine($"  \"bytesNeeded\": {r.BytesNeeded},");
             sb.AppendLine($"  \"bytesFree\": {r.BytesFree},");

@@ -87,6 +87,26 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void Apply_Applied_NewFingerprintIsPostApplyAndOldPlanThenGoesStale()
+        {
+            var e = NewEnv();
+            try
+            {
+                Messy(e);
+                string oldPlan = Plan(e);
+                var r = TagFixApplier.Apply(e.Folder, oldPlan, e.Logs, e.Backups, e.Quarantine, Now);
+                Assert.Equal("applied", r.Status, "status");
+                string after = Plan(e);
+                Assert.True(r.NewFingerprint != r.PlanFingerprint, "applying changes must change the fingerprint: " + r.NewFingerprint);
+                Assert.Equal(after, r.NewFingerprint, "newFingerprint is the folder fingerprint after the apply");
+                string json = File.ReadAllText(Path.Combine(e.Logs, TagFixApplier.ResultFileName));
+                Assert.True(json.Contains("\"newFingerprint\": \"" + after + "\""), "result json carries the post-apply fingerprint");
+                var again = TagFixApplier.Apply(e.Folder, oldPlan, e.Logs, e.Backups, e.Quarantine, Now.AddMinutes(1));
+                Assert.Equal("stale_plan", again.Status, "re-applying the old plan is stale");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void Apply_SecondRunAfterReplan_IsIdempotentPendingZero()
         {
             var e = NewEnv();

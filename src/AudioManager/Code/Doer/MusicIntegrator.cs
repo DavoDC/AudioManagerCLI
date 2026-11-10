@@ -2556,12 +2556,17 @@ namespace AudioManager
         /// Reads a menu key using ReadLine so the user must press Enter to confirm.
         /// Prevents right-click paste in Windows Terminal from silently triggering actions.
         /// </summary>
-        private ConsoleKey ReadMenuKey()
+        private ConsoleKey ReadMenuKey() => ReadMenuKeyFrom(Console.In, Console.Out);
+
+        /// <summary>Testable core. End of input (closed stdin) quits instead of re-prompting forever.</summary>
+        internal static ConsoleKey ReadMenuKeyFrom(TextReader reader, TextWriter writer)
         {
             while (true)
             {
-                Console.Write("> ");
-                string input = (Console.ReadLine() ?? "").Trim().ToUpperInvariant();
+                writer.Write("> ");
+                string line = reader.ReadLine();
+                if (line == null) { writer.WriteLine(); writer.WriteLine("[INPUT] stdin closed, quitting."); return ConsoleKey.Q; }
+                string input = line.Trim().ToUpperInvariant();
                 switch (input)
                 {
                     case "Y": return ConsoleKey.Y;
