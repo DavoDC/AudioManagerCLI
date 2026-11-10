@@ -183,5 +183,158 @@ namespace AudioManager
                 if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
             }
         }
+
+        public static void Commit_WithHoldingRoot_MovesBakIntoHolding()
+        {
+            string dir = MakeTempDir();
+            string holding = Path.Combine(dir, "Holding");
+            try
+            {
+                string libPath = Path.Combine(dir, "Track.mp3");
+                string bakPath = libPath + ".replaced.bak";
+                byte[] origBytes = new byte[] { 4, 5, 6 };
+                File.WriteAllBytes(bakPath, origBytes);
+
+                ReplaceGuard.HoldingRoot = holding;
+                ReplaceGuard.ResetRetired();
+                ReplaceGuard.Commit(bakPath);
+
+                Assert.True(!File.Exists(bakPath), "commit with a holding root must move the bak out of the library");
+                Assert.Equal("1", ReplaceGuard.Retired.Count.ToString(), "commit must record exactly one retired original");
+                Assert.Equal(libPath, ReplaceGuard.Retired[0].original, "retired entry must name the original library path");
+                string held = ReplaceGuard.Retired[0].held;
+                Assert.True(held.StartsWith(Path.GetFullPath(holding) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase), "held file must live under the holding root");
+                Assert.Equal("Track.mp3", Path.GetFileName(held), "held file must keep the original file name");
+                Assert.True(File.Exists(held), "held file must exist on disk");
+                Assert.Equal(Convert.ToBase64String(origBytes), Convert.ToBase64String(File.ReadAllBytes(held)), "held file must hold the original bytes");
+            }
+            finally
+            {
+                ReplaceGuard.HoldingRoot = null;
+                ReplaceGuard.ResetRetired();
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
+        }
+
+        public static void Retire_NameCollision_KeepsBothNeverOverwrites()
+        {
+            string dir = MakeTempDir();
+            string holding = Path.Combine(dir, "Holding");
+            try
+            {
+                // Pre-create the folder Retire will pick for this second, plus a same-named file in it.
+                string stampDir = Path.Combine(holding, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+                Directory.CreateDirectory(stampDir);
+                File.WriteAllBytes(Path.Combine(stampDir, "Track.mp3"), new byte[] { 9 });
+
+                string libPath = Path.Combine(dir, "Track.mp3");
+                string bakPath = libPath + ".replaced.bak";
+                File.WriteAllBytes(bakPath, new byte[] { 1, 2 });
+
+                ReplaceGuard.HoldingRoot = holding;
+                ReplaceGuard.ResetRetired();
+                string held = ReplaceGuard.Retire(bakPath);
+
+                Assert.True(held != null, "retire must succeed when the name is taken");
+                Assert.Equal(Path.Combine(stampDir, "Track (2).mp3"), held, "colliding name must gain a ' (2)' suffix before the extension");
+                Assert.Equal("2", new FileInfo(held).Length.ToString(), "retired file must hold the bak's bytes (length 2)");
+                Assert.Equal("1", new FileInfo(Path.Combine(stampDir, "Track.mp3")).Length.ToString(), "existing file must not be overwritten (it is length 1)");
+                Assert.Equal("9", File.ReadAllBytes(Path.Combine(stampDir, "Track.mp3"))[0].ToString(), "existing file bytes must be untouched");
+                Assert.True(!File.Exists(bakPath), "retire must move the bak out of the library");
+            }
+            finally
+            {
+                ReplaceGuard.HoldingRoot = null;
+                ReplaceGuard.ResetRetired();
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
+        }
+
+        public static void Commit_HoldingRootNull_DeletesAsBefore()
+        {
+            string dir = MakeTempDir();
+            try
+            {
+                string bakPath = Path.Combine(dir, "Track.mp3.replaced.bak");
+                File.WriteAllBytes(bakPath, new byte[] { 1 });
+
+                ReplaceGuard.HoldingRoot = null;
+                ReplaceGuard.ResetRetired();
+                ReplaceGuard.Commit(bakPath);
+
+                Assert.True(!File.Exists(bakPath), "with no holding root, commit must delete the bak as before");
+                Assert.Equal("0", ReplaceGuard.Retired.Count.ToString(), "with no holding root, nothing may be recorded as retired");
+                Assert.True(!Directory.Exists(Path.Combine(dir, "Holding")), "no holding folder may be created");
+            }
+            finally
+            {
+                ReplaceGuard.HoldingRoot = null;
+                ReplaceGuard.ResetRetired();
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
+        }
+
+        public static void SameVolume_ComparesRootsCaseInsensitively()
+        {
+            Assert.True(ReplaceGuard.SameVolume(@"C:\Music\Lib\a.mp3", @"c:\Holding\x"), "same drive letter in different case must be the same volume");
+            Assert.True(!ReplaceGuard.SameVolume(@"C:\Music\Lib\a.mp3", @"Z:\Holding\x"), "different drive letters must not be the same volume");
+            Assert.True(!ReplaceGuard.SameVolume(@"C:\Music\a.mp3", @"\\server\share\Holding"), "a UNC root must not match a drive root");
+        }
+
+        public static void Retire_DifferentVolume_LeavesBakAndCreatesNothing()
+        {
+            string dir = MakeTempDir();
+            try
+            {
+                string bakPath = Path.Combine(dir, "Track.mp3.replaced.bak");
+                File.WriteAllBytes(bakPath, new byte[] { 3 });
+                string otherRoot = string.Equals(Path.GetPathRoot(dir), "Z:\\", StringComparison.OrdinalIgnoreCase) ? "Y:\\" : "Z:\\";
+                string holding = otherRoot + "AudioManagerTest_Holding_NeverCreated";
+
+                ReplaceGuard.HoldingRoot = holding;
+                ReplaceGuard.ResetRetired();
+                string held = ReplaceGuard.Retire(bakPath);
+
+                Assert.True(held == null, "retire must refuse a holding root on another volume");
+                Assert.True(File.Exists(bakPath), "the bak must stay in place when the volume differs");
+                Assert.Equal("0", ReplaceGuard.Retired.Count.ToString(), "a refused retire must record nothing");
+                Assert.True(!Directory.Exists(holding), "a refused retire must not create the holding folder");
+            }
+            finally
+            {
+                ReplaceGuard.HoldingRoot = null;
+                ReplaceGuard.ResetRetired();
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
+        }
+
+        public static void Rollback_WithHoldingRoot_RestoresOriginalAndHoldsNothing()
+        {
+            string dir = MakeTempDir();
+            string holding = Path.Combine(dir, "Holding");
+            try
+            {
+                string libPath = Path.Combine(dir, "Track.mp3");
+                string bakPath = libPath + ".replaced.bak";
+                byte[] origBytes = new byte[] { 7, 7 };
+                File.WriteAllBytes(bakPath, origBytes);
+
+                ReplaceGuard.HoldingRoot = holding;
+                ReplaceGuard.ResetRetired();
+                ReplaceGuard.Rollback(bakPath, libPath);
+
+                Assert.True(File.Exists(libPath), "rollback must restore the original into the library");
+                Assert.Equal(Convert.ToBase64String(origBytes), Convert.ToBase64String(File.ReadAllBytes(libPath)), "restored original must hold its own bytes");
+                Assert.True(!File.Exists(bakPath), "rollback must consume the bak");
+                Assert.True(!Directory.Exists(holding) || Directory.GetFiles(holding, "*", SearchOption.AllDirectories).Length == 0, "rollback must leave the holding folder empty or absent");
+                Assert.Equal("0", ReplaceGuard.Retired.Count.ToString(), "rollback must record nothing as retired");
+            }
+            finally
+            {
+                ReplaceGuard.HoldingRoot = null;
+                ReplaceGuard.ResetRetired();
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
+        }
     }
 }

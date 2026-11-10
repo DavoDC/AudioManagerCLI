@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 
@@ -17,6 +18,20 @@ namespace AudioManager
     {
         private const string BakSuffix = ".replaced.bak";
         private const string MarkerSuffix = ".replaced.dest";
+
+        /// <summary>
+        /// Holding folder for retired originals. Null (the default) keeps the legacy behaviour: the bak is
+        /// deleted. When set, a landed bak is moved into a timestamped folder under it instead (see Retire).
+        /// </summary>
+        internal static string HoldingRoot;
+
+        /// <summary>Each retired original: original = the library path, held = where the bak now lives.</summary>
+        internal static readonly List<(string original, string held)> Retired = new List<(string original, string held)>();
+
+        internal static void ResetRetired()
+        {
+            Retired.Clear();
+        }
 
         /// <summary>
         /// Moves libPath to libPath + ".replaced.bak" and returns the bak path. A stale bak is first
@@ -44,20 +59,88 @@ namespace AudioManager
         }
 
         /// <summary>
-        /// Deletes the staged bak once the replacement has landed, then the landing marker. The bak
-        /// delete is tried up to 3 times; on final failure a WARN is printed and the marker is kept.
-        /// A missing bak is a no-op.
+        /// True when both paths are on the same volume (same rooted drive or UNC share, case-insensitive).
+        /// </summary>
+        internal static bool SameVolume(string a, string b)
+        {
+            return string.Equals(Path.GetPathRoot(Path.GetFullPath(a)), Path.GetPathRoot(Path.GetFullPath(b)), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Moves a landed bak into a timestamped folder under HoldingRoot (yyyyMMdd-HHmmss, created on
+        /// demand) and returns the held path. The held name is the original file name; a clash gets
+        /// " (2)", " (3)" before the extension, never an overwrite. A rename, so the bak must be on the
+        /// same volume as HoldingRoot: otherwise an [ERROR] is printed and nothing is moved or deleted.
+        /// Returns null on any failure (a WARN or ERROR is printed). Never throws.
+        /// </summary>
+        internal static string Retire(string bakPath)
+        {
+            try
+            {
+                if (!bakPath.EndsWith(BakSuffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"  [WARN] Not a staged backup, not retired: {bakPath}");
+                    return null;
+                }
+                string full = Path.GetFullPath(bakPath);
+                string root = Path.GetFullPath(HoldingRoot);
+                if (!SameVolume(full, root))
+                {
+                    Console.WriteLine($"  [ERROR] Holding root {root} is on a different volume ({Path.GetPathRoot(root)}) than {full} ({Path.GetPathRoot(full)}); staged backup left in place, not moved or deleted.");
+                    return null;
+                }
+                string original = full.Substring(0, full.Length - BakSuffix.Length);
+                string folder = Path.Combine(root, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+                Directory.CreateDirectory(folder);
+
+                string name = Path.GetFileName(original);
+                string stem = Path.GetFileNameWithoutExtension(name);
+                string ext = Path.GetExtension(name);
+                string held = Path.Combine(folder, name);
+                for (int n = 2; File.Exists(held) || Directory.Exists(held); n++)
+                    held = Path.Combine(folder, $"{stem} ({n}){ext}");
+
+                File.Move(full, held);
+                Retired.Add((original, held));
+                Console.WriteLine($"  [RETIRE] Held original: {held}");
+                return held;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [WARN] Could not retire staged backup {bakPath}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Commit once the replacement has landed. With HoldingRoot set, the bak is retired into the
+        /// holding folder (a failed retire keeps the bak and marker, with its WARN or ERROR). Otherwise
+        /// the bak is deleted as before, tried up to 3 times; on final failure a WARN is printed and the
+        /// marker is kept. A missing bak is a no-op. On success the landing marker is deleted.
         /// </summary>
         internal static void Commit(string bakPath)
         {
-            bool deleted = false;
+            if (HoldingRoot != null && File.Exists(bakPath))
+            {
+                if (Retire(bakPath) == null) return;
+            }
+            else if (!DeleteBak(bakPath))
+            {
+                return;
+            }
+            DeleteLandingMarker(bakPath);
+        }
+
+        /// <summary>Deletes the bak (up to 3 tries). Returns false after a printed WARN on final failure.</summary>
+        private static bool DeleteBak(string bakPath)
+        {
             Exception last = null;
-            for (int attempt = 1; attempt <= 3 && !deleted; attempt++)
+            for (int attempt = 1; attempt <= 3; attempt++)
             {
                 try
                 {
                     if (File.Exists(bakPath)) File.Delete(bakPath);
-                    deleted = true;
+                    return true;
                 }
                 catch (Exception ex)
                 {
@@ -65,11 +148,13 @@ namespace AudioManager
                     if (attempt < 3) Thread.Sleep(100);
                 }
             }
-            if (!deleted)
-            {
-                Console.WriteLine($"  [WARN] Could not delete staged backup {bakPath}: {last?.Message}");
-                return;
-            }
+            Console.WriteLine($"  [WARN] Could not delete staged backup {bakPath}: {last?.Message}");
+            return false;
+        }
+
+        /// <summary>Deletes the landing marker that belongs to bakPath, if present. A failure is a WARN.</summary>
+        private static void DeleteLandingMarker(string bakPath)
+        {
             if (!bakPath.EndsWith(BakSuffix, StringComparison.OrdinalIgnoreCase)) return;
             string markerPath = bakPath.Substring(0, bakPath.Length - BakSuffix.Length) + MarkerSuffix;
             try
@@ -132,7 +217,11 @@ namespace AudioManager
                     string destPath = File.ReadAllText(markerPath).Trim();
                     if (destPath.Length > 0 && File.Exists(destPath) && !string.Equals(destPath, bakPath, StringComparison.OrdinalIgnoreCase))
                     {
-                        File.Delete(bakPath);
+                        if (HoldingRoot != null)
+                        {
+                            if (Retire(bakPath) == null) return 0;
+                        }
+                        else File.Delete(bakPath);
                         File.Delete(markerPath);
                         Console.WriteLine($"  [SWEEP] Completed interrupted replace: {bakPath}");
                         return 0;
