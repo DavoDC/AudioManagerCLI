@@ -43,7 +43,11 @@ namespace AudioManager
         public static readonly string MirrorFolderPath = Path.Combine(MirrorRepoPath, MirrorFolderName);
 
         // Path to the reports folder (data/reports/, tracked except data/reports/with-issues/)
-        public static readonly string ReportsPath = Path.Combine(RepoRoot, "data", "reports");
+        public static readonly string ReportsPath = ReportsPathFor(TestRoot, RepoRoot);
+
+        /// <summary>Reports live under the test root when one is set, so a test run never writes data/reports in the real repo.</summary>
+        internal static string ReportsPathFor(string testRoot, string repoRoot) =>
+            string.IsNullOrWhiteSpace(testRoot) ? Path.Combine(repoRoot, "data", "reports") : Path.Combine(testRoot, "reports");
 
         // Path to the LibChecker exceptions config file
         public static readonly string LibCheckerExceptionsPath = Path.Combine(RepoRoot, "config", "libchecker-exceptions.xml");
