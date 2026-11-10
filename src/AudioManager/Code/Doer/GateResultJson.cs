@@ -64,6 +64,7 @@ namespace AudioManager
                 case Program.PreIntegrationGateResult.MirrorRepoMissing: return "mirror_repo_missing";
                 case Program.PreIntegrationGateResult.MirrorStale: return "mirror_stale";
                 case Program.PreIntegrationGateResult.LibCheckerDirty: return "libchecker_dirty";
+                case Program.PreIntegrationGateResult.GitStatusFailed: return "git_error";
                 default: return "passed";
             }
         }
@@ -75,6 +76,7 @@ namespace AudioManager
                 case Program.PreIntegrationGateResult.MirrorRepoMissing: return "restore_mirror_repo";
                 case Program.PreIntegrationGateResult.MirrorStale: return "commit_mirror";
                 case Program.PreIntegrationGateResult.LibCheckerDirty: return "fix_library_issues";
+                case Program.PreIntegrationGateResult.GitStatusFailed: return "fix_git";
                 default: return "none";
             }
         }

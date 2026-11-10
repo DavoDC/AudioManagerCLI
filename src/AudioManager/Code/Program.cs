@@ -374,6 +374,9 @@ namespace AudioManager
                         Console.WriteLine("   AudioMirror is the source of truth for all library validation.");
                         Console.WriteLine("   Commit the mirror changes (git commit in AudioMirror/) before integrating new songs.");
                         return false;
+                    case PreIntegrationGateResult.GitStatusFailed:
+                        Console.WriteLine(" - ERROR: Could not read AudioMirror git status (git failed or is not a repo). Fix git in the AudioMirror folder, then retry.");
+                        return false;
                     case PreIntegrationGateResult.LibCheckerDirty:
                         Console.WriteLine(" - ERROR: LibChecker found issues in the library.");
                         return false;
@@ -398,6 +401,7 @@ namespace AudioManager
             MirrorRepoMissing,
             MirrorStale,
             LibCheckerDirty,
+            GitStatusFailed,
         }
 
         /// <summary>
@@ -408,7 +412,9 @@ namespace AudioManager
             bool mirrorRepoExists, Func<string> mirrorStatus, Func<bool> libCheckerClean)
         {
             if (!mirrorRepoExists) return PreIntegrationGateResult.MirrorRepoMissing;
-            if (IsMirrorStale(mirrorStatus())) return PreIntegrationGateResult.MirrorStale;
+            string status = mirrorStatus();
+            if (status == "error") return PreIntegrationGateResult.GitStatusFailed;
+            if (IsMirrorStale(status)) return PreIntegrationGateResult.MirrorStale;
             if (!libCheckerClean()) return PreIntegrationGateResult.LibCheckerDirty;
             return PreIntegrationGateResult.Passed;
         }

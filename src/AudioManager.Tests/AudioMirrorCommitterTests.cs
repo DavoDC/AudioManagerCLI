@@ -421,14 +421,14 @@ namespace AudioManager
             Assert.True(result == Program.PreIntegrationGateResult.Passed, "LastRunInfo.txt alone should not be stale");
         }
 
-        public static void DecidePreIntegrationGate_GitErrorSentinel_ReturnsMirrorStale()
+        public static void DecidePreIntegrationGate_GitErrorSentinel_ReturnsGitStatusFailed()
         {
-            // RunGitStatus returns "error" when git cannot run: the gate must fail closed
+            // RunGitStatus returns "error" when git cannot run: the gate must fail closed with a git-specific result (ENG-13)
             Program.PreIntegrationGateResult result = Program.DecidePreIntegrationGate(
                 mirrorRepoExists: true,
                 mirrorStatus: () => "error",
                 libCheckerClean: () => true);
-            Assert.True(result == Program.PreIntegrationGateResult.MirrorStale, "git error sentinel should fail closed as MirrorStale");
+            Assert.True(result == Program.PreIntegrationGateResult.GitStatusFailed, "git error sentinel should fail closed as GitStatusFailed");
         }
     }
 }
