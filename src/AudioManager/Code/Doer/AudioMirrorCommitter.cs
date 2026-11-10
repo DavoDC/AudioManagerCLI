@@ -47,24 +47,26 @@ namespace AudioManager
 
         /// <param name="libCheckerClean">Whether LibChecker reported zero issues.</param>
         /// <param name="trigger">What triggered this commit attempt.</param>
-        public static void TryCommit(bool libCheckerClean, CommitTrigger trigger)
+        /// <returns>false when a commit could not be made (repo missing, git add or git commit failed); true otherwise.</returns>
+        public static bool TryCommit(bool libCheckerClean, CommitTrigger trigger)
         {
             string repoPath = Path.GetFullPath(Path.Combine(
                 AppDomain.CurrentDomain.BaseDirectory, Constants.MirrorRepoPath));
-            TryCommitAt(repoPath, libCheckerClean, trigger);
+            return TryCommitAt(repoPath, libCheckerClean, trigger);
         }
 
         /// <summary>
         /// TryCommit against an explicit repo path. TryCommit resolves the real mirror path and calls this;
         /// tests pass a throwaway repo here.
         /// </summary>
-        internal static void TryCommitAt(string repoPath, bool libCheckerClean, CommitTrigger trigger)
+        /// <returns>false when the commit could not be made (repo missing, git add or git commit failed); true otherwise.</returns>
+        internal static bool TryCommitAt(string repoPath, bool libCheckerClean, CommitTrigger trigger)
         {
             // Incremental analysis produces an unreliable mirror state - skip
             if (trigger == CommitTrigger.AnalysisIncremental)
             {
                 Console.WriteLine("\nAudioMirror: skipping auto-commit (incremental mirror - run force regen for auto-commit).");
-                return;
+                return true;
             }
 
             Console.WriteLine("\nAudioMirror auto-commit:");
@@ -72,13 +74,13 @@ namespace AudioManager
             if (!libCheckerClean)
             {
                 Console.WriteLine(" - Skipped: LibChecker reported issues. Fix them first, then re-run.");
-                return;
+                return true;
             }
 
             if (!Directory.Exists(repoPath))
             {
                 Console.WriteLine($" - ERROR: AudioMirror repo not found at: {repoPath}");
-                return;
+                return false;
             }
 
             // Check if there are uncommitted changes
@@ -86,7 +88,7 @@ namespace AudioManager
             if (string.IsNullOrWhiteSpace(statusOutput))
             {
                 Console.WriteLine(" - Clean (no changes to commit).");
-                return;
+                return true;
             }
 
             // Build commit message with artist breakdown
@@ -106,7 +108,7 @@ namespace AudioManager
                 string addFirstLine = addOutput.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? string.Empty;
                 Console.WriteLine($" - FAILED: git add exited {add.ExitCode}. {addFirstLine}");
                 Console.WriteLine(" - Nothing was committed. Fix the git error above, then re-run.");
-                return;
+                return false;
             }
             GitRunResult commit = RunGitDetailed(repoPath, $"commit -m \"{fullMessage.Replace("\"", "\\\"")}\"");
             string commitResult = commit.Stdout + commit.Stderr;
@@ -115,7 +117,7 @@ namespace AudioManager
             if (outcome == CommitOutcome.NothingToCommit)
             {
                 Console.WriteLine(" - Nothing staged to commit.");
-                return;
+                return true;
             }
 
             if (outcome == CommitOutcome.Failure)
@@ -123,13 +125,14 @@ namespace AudioManager
                 string firstLine = commitResult.Trim().Split('\n')[0].Trim();
                 Console.WriteLine($" - FAILED: git commit exited {commit.ExitCode}. {firstLine}");
                 Console.WriteLine(" - Nothing was committed. Fix the git error above, then re-run.");
-                return;
+                return false;
             }
 
             Console.WriteLine($" - Committed: {commitTitle}");
             if (!string.IsNullOrWhiteSpace(commitBody))
                 Console.WriteLine(commitBody);
             Console.WriteLine(" - Push AudioMirror manually when ready.");
+            return true;
         }
 
         /// <summary>

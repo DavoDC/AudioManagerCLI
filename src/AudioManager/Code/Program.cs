@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace AudioManager
 {
@@ -25,6 +26,15 @@ namespace AudioManager
                 string mirrorPath = Path.GetFullPath(Path.Combine(progExecPath, Constants.MirrorFolderPath));
 
                 // Test entry points (--test, --verify) live in the separate AudioManager.Tests project, not in this exe.
+
+                // --mirror-retry: re-run ONLY the post-integration mirror step after a failed one. Returns before
+                // any mode parsing and never constructs MusicIntegrator, so no file is moved again.
+                if (args.Any(a => a.Equals("--mirror-retry", StringComparison.OrdinalIgnoreCase)))
+                {
+                    int retryCode = RunMirrorRetry(mirrorPath, args.Any(a => a.Equals("--no-auto-commit", StringComparison.OrdinalIgnoreCase)));
+                    if (retryCode != 0) Environment.Exit(retryCode);
+                    return;
+                }
 
                 // Detect CLI args: "analysis [--force-regen]" or "integrate [--dry-run] [--no-input]"
                 int mode;
@@ -225,37 +235,12 @@ namespace AudioManager
                         if (!dryRun)
                         {
                             Console.WriteLine("\nPost-integration validation...");
-                            try
+                            PostIntegrationMirrorResult pim = RunPostIntegrationMirror(mirrorPath, noAutoCommit);
+                            if (pim.Status != "ok" && pim.Status != "skipped")
                             {
-                                // Force-regen: integration deleted/moved library files, so incremental
-                                // Reflector would leave orphaned XMLs that trigger ghost LibChecker warnings.
-                                AgeChecker.ForceRegen();
-
-                                // Regenerate mirror (force-regen mode now active via AgeChecker.RegenMirror)
-                                Console.WriteLine(" - Regenerating AudioMirror XMLs (force)...");
-                                Reflector r = new Reflector(mirrorPath);
-                                Parser p = new Parser(mirrorPath);
-
-                                // Run LibChecker to validate the updated library
-                                Console.WriteLine(" - Running library validation...");
-                                LibChecker lc = new LibChecker(p.audioTags);
-
-                                if (lc.IsClean)
-                                {
-                                    Console.WriteLine(" - Post-integration validation: CLEAN (no issues found)\n");
-                                    if (noAutoCommit)
-                                        Console.WriteLine("AudioMirror auto-commit: skipped (--no-auto-commit).");
-                                    else
-                                        AudioMirrorCommitter.TryCommit(libCheckerClean: true, CommitTrigger.Integration);
-                                }
-                                else
-                                {
-                                    Console.WriteLine(" - Post-integration validation: ISSUES FOUND (see above)\n");
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($" - WARNING: Could not run post-integration validation: {ex.Message}\n");
+                                // Integration already moved files; only the mirror step failed. Say so, machine- and human-readable.
+                                Console.WriteLine($" - Mirror status: {pim.Status}. Integration files ALREADY MOVED; do not re-run integrate.");
+                                Console.WriteLine($" - Retry the mirror step only with: AudioManagerCLI.exe --mirror-retry (result in {Path.Combine(Constants.LogsPath, MirrorResultJsonFileName)})\n");
                             }
                         }
                     }
@@ -313,6 +298,158 @@ namespace AudioManager
                 Console.WriteLine("\n");
                 Environment.Exit(123);
             }
+        }
+
+        internal const string MirrorResultJsonFileName = "mirror-result.json";
+        internal const string MirrorRetryCommand = "AudioManagerCLI.exe --mirror-retry";
+
+        /// <summary>
+        /// Outcome of the post-integration mirror step. Status: ok, mirror_commit_failed, libchecker_issues or skipped.
+        /// </summary>
+        internal sealed class PostIntegrationMirrorResult
+        {
+            public string Status;
+            public string Error;
+            public string Detail;
+        }
+
+        /// <summary>
+        /// Post-integration mirror step with the real regenerate, LibChecker and commit. Writes logs/mirror-result.json.
+        /// </summary>
+        internal static PostIntegrationMirrorResult RunPostIntegrationMirror(string mirrorPath, bool noAutoCommit)
+        {
+            return RunPostIntegrationMirrorWith(
+                Constants.LogsPath,
+                noAutoCommit,
+                () => RegenerateAndValidateMirror(mirrorPath),
+                () => AudioMirrorCommitter.TryCommit(libCheckerClean: true, CommitTrigger.Integration));
+        }
+
+        /// <summary>
+        /// Seamed core of the post-integration mirror step. regenerateAndValidate returns LibChecker clean;
+        /// commit returns true when no commit failure was reported. Any exception maps to mirror_commit_failed.
+        /// </summary>
+        internal static PostIntegrationMirrorResult RunPostIntegrationMirrorWith(string logsDir, bool noAutoCommit, Func<bool> regenerateAndValidate, Func<bool> commit)
+        {
+            PostIntegrationMirrorResult r;
+            try
+            {
+                if (!regenerateAndValidate())
+                {
+                    Console.WriteLine(" - Post-integration validation: ISSUES FOUND (see above)\n");
+                    r = new PostIntegrationMirrorResult { Status = "libchecker_issues", Detail = "LibChecker reported issues; AudioMirror was not committed." };
+                }
+                else
+                {
+                    Console.WriteLine(" - Post-integration validation: CLEAN (no issues found)\n");
+                    if (noAutoCommit)
+                    {
+                        Console.WriteLine("AudioMirror auto-commit: skipped (--no-auto-commit).");
+                        r = new PostIntegrationMirrorResult { Status = "skipped", Detail = "--no-auto-commit was given." };
+                    }
+                    else if (!commit())
+                    {
+                        r = new PostIntegrationMirrorResult { Status = "mirror_commit_failed", Error = "AudioMirror commit failed; see the git error above.", Detail = "git commit reported a failure." };
+                    }
+                    else
+                    {
+                        r = new PostIntegrationMirrorResult { Status = "ok", Detail = "" };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($" - WARNING: Could not run post-integration validation: {ex.Message}\n");
+                r = new PostIntegrationMirrorResult { Status = "mirror_commit_failed", Error = ex.Message, Detail = ex.GetType().Name };
+            }
+
+            try
+            {
+                string jsonPath = WriteMirrorResult(logsDir, r);
+                Console.WriteLine($" - Mirror result JSON written: {jsonPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($" - WARNING: Could not write {MirrorResultJsonFileName}: {ex.Message}");
+            }
+            return r;
+        }
+
+        /// <summary>Force-regenerates the mirror and returns whether LibChecker is clean.</summary>
+        private static bool RegenerateAndValidateMirror(string mirrorPath)
+        {
+            // Force-regen: integration deleted/moved library files, so incremental
+            // Reflector would leave orphaned XMLs that trigger ghost LibChecker warnings.
+            AgeChecker.ForceRegen();
+
+            // Regenerate mirror (force-regen mode now active via AgeChecker.RegenMirror)
+            Console.WriteLine(" - Regenerating AudioMirror XMLs (force)...");
+            Reflector r = new Reflector(mirrorPath);
+            Parser p = new Parser(mirrorPath);
+
+            // Run LibChecker to validate the updated library
+            Console.WriteLine(" - Running library validation...");
+            LibChecker lc = new LibChecker(p.audioTags);
+            return lc.IsClean;
+        }
+
+        /// <summary>Writes logs/mirror-result.json atomically and returns its path.</summary>
+        internal static string WriteMirrorResult(string logsDir, PostIntegrationMirrorResult r)
+        {
+            if (!Directory.Exists(logsDir))
+                Directory.CreateDirectory(logsDir);
+            string outPath = Path.Combine(logsDir, MirrorResultJsonFileName);
+            AtomicFile.WriteAllText(outPath, BuildMirrorResultJson(r, DateTime.Now), new UTF8Encoding(false));
+            return outPath;
+        }
+
+        /// <summary>Pure builder for mirror-result.json (schemaVersion 1).</summary>
+        internal static string BuildMirrorResultJson(PostIntegrationMirrorResult r, DateTime generatedAt)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine("  \"recordType\": \"mirrorResult\",");
+            sb.AppendLine("  \"schemaVersion\": 1,");
+            sb.AppendLine($"  \"generatedAt\": {JsonString(generatedAt.ToString("s", CultureInfo.InvariantCulture))},");
+            sb.AppendLine($"  \"status\": {JsonString(r.Status)},");
+            sb.AppendLine($"  \"error\": {JsonString(r.Error)},");
+            sb.AppendLine($"  \"retry\": {JsonString(MirrorRetryCommand)}");
+            sb.AppendLine("}");
+            return sb.ToString();
+        }
+
+        /// <summary>Runs ONLY the post-integration mirror step. Never constructs MusicIntegrator and never moves files.</summary>
+        internal static int RunMirrorRetry(string mirrorPath, bool noAutoCommit)
+        {
+            Console.WriteLine("\n###### Mirror retry (post-integration mirror step only; no files are moved) ######");
+            PostIntegrationMirrorResult r = RunPostIntegrationMirror(mirrorPath, noAutoCommit);
+            Console.WriteLine($"Mirror retry status: {r.Status}");
+            return MirrorRetryExitCode(r);
+        }
+
+        /// <summary>Exit code for the retry: 0 only when the status is ok, otherwise 1.</summary>
+        internal static int MirrorRetryExitCode(PostIntegrationMirrorResult r)
+        {
+            return r != null && r.Status == "ok" ? 0 : 1;
+        }
+
+        private static string JsonString(string s)
+        {
+            if (s == null) return "null";
+            var sb = new StringBuilder("\"");
+            foreach (char c in s)
+            {
+                switch (c)
+                {
+                    case '\\': sb.Append("\\\\"); break;
+                    case '"': sb.Append("\\\""); break;
+                    case '\n': sb.Append("\\n"); break;
+                    case '\r': sb.Append("\\r"); break;
+                    case '\t': sb.Append("\\t"); break;
+                    default: sb.Append(c); break;
+                }
+            }
+            return sb.Append('"').ToString();
         }
 
         /// <summary>
