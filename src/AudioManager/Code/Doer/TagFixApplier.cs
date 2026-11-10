@@ -163,7 +163,8 @@ namespace AudioManager
                 try
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(e.Backup));
-                    File.Copy(src, e.Backup, true);
+                    // Never overwrite an existing backup: it holds the earlier original bytes.
+                    if (!File.Exists(e.Backup)) File.Copy(src, e.Backup, false);
                     var log = fixer.ProcessFile(src);
                     if (log.Status == "error")
                     {

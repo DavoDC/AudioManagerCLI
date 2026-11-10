@@ -484,12 +484,19 @@ namespace AudioManager
 
         /// <summary>
         /// Copies sourcePath to sourcePath + ".tagfix.bak" before a tag write. Any stale backup from an
-        /// earlier crashed run is removed first. The .bak suffix keeps it out of the *.mp3 scan.
+        /// earlier crashed run is moved aside (.stale-N), never deleted. The .bak suffix keeps it out of the *.mp3 scan.
         /// </summary>
         private static string BackupBeforeWrite(string sourcePath)
         {
             string backupPath = sourcePath + ".tagfix.bak";
-            if (File.Exists(backupPath)) File.Delete(backupPath);
+            if (File.Exists(backupPath))
+            {
+                // A stale backup may be the only good copy (crash mid-save): move it aside, never delete.
+                string aside;
+                int n = 1;
+                do { aside = backupPath + ".stale-" + n++; } while (File.Exists(aside));
+                File.Move(backupPath, aside);
+            }
             File.Copy(sourcePath, backupPath, false);
             return backupPath;
         }

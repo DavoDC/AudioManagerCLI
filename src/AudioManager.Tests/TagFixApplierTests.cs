@@ -43,6 +43,38 @@ namespace AudioManager
 
         private static void Cleanup(Env e) { try { Directory.Delete(e.Root, true); } catch (IOException) { } }
 
+        public static void ProcessFile_StaleTagfixBak_IsNeverDeleted()
+        {
+            var e = NewEnv();
+            try
+            {
+                string path = Messy(e);
+                string stale = path + ".tagfix.bak";
+                File.WriteAllText(stale, "ONLY-GOOD-COPY");
+                TagFixer.ForTesting(dryRun: false, quarantineRoot: e.Quarantine).ProcessFile(path);
+                bool kept = Directory.GetFiles(e.Folder, "*.tagfix.bak*").Any(f => File.ReadAllText(f) == "ONLY-GOOD-COPY");
+                Assert.True(kept, "a stale .tagfix.bak from a crashed run must be kept (moved aside), never deleted");
+            }
+            finally { Cleanup(e); }
+        }
+
+        public static void Apply_ExistingBackupOfSameStamp_IsNotOverwritten()
+        {
+            var e = NewEnv();
+            try
+            {
+                string path = Messy(e);
+                string fp = Plan(e);
+                string stamp = Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+                string backup = Path.Combine(e.Backups, stamp, "messy.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(backup));
+                File.WriteAllText(backup, "FIRST-RUN-ORIGINAL");
+                TagFixApplier.Apply(e.Folder, fp, e.Logs, e.Backups, e.Quarantine, Now);
+                Assert.Equal("FIRST-RUN-ORIGINAL", File.ReadAllText(backup), "an existing backup in the same run folder must not be overwritten");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void Apply_StalePlan_RefusesAndTouchesNothing()
         {
             var e = NewEnv();
