@@ -54,6 +54,16 @@ namespace AudioManager
             Assert.True(!Program.AnalysisRejectsDryRun(3, true), "tagfix --dry-run must not be affected");
         }
 
+        public static void AddIndexKey_SameKeyAnyOrder_KeepsSmallestPath()
+        {
+            var a = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
+            MusicIntegrator.AddIndexKey(a, "k", @"C:\m\B.xml"); MusicIntegrator.AddIndexKey(a, "k", @"C:\m\A.xml");
+            var b = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
+            MusicIntegrator.AddIndexKey(b, "k", @"C:\m\A.xml"); MusicIntegrator.AddIndexKey(b, "k", @"C:\m\B.xml");
+            Assert.Equal(@"C:\m\A.xml", a["k"], "duplicate pick must not depend on arrival order");
+            Assert.Equal(@"C:\m\A.xml", b["k"], "duplicate pick must not depend on arrival order");
+        }
+
         public static void FindUnknownFlag_MistypedDryRun_IsReported()
         {
             Assert.Equal("--dryrun", Program.FindUnknownFlag(new[] { "integrate", "--dryrun", "--no-input" }),

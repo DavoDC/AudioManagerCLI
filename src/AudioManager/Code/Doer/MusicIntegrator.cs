@@ -1749,6 +1749,13 @@ namespace AudioManager
         /// Called once before PreScanFiles so duplicate detection is O(1) per file instead of O(mirror_size).
         /// Also indexes alias-expanded keys so artist-rename scenarios (Ye/Kanye West) are caught.
         /// </summary>
+        internal static void AddIndexKey(ConcurrentDictionary<string, string> index, string key, string xmlFile)
+        {
+            // Deterministic under Parallel.ForEach: the smallest path wins, whatever order threads arrive in.
+            index.AddOrUpdate(key, xmlFile,
+                (k, existing) => string.Compare(xmlFile, existing, StringComparison.OrdinalIgnoreCase) < 0 ? xmlFile : existing);
+        }
+
         private Dictionary<string, string> BuildMirrorIndex()
         {
             if (!Directory.Exists(Constants.MirrorFolderPath)) return new Dictionary<string, string>(StringComparer.Ordinal);
@@ -1782,7 +1789,7 @@ namespace AudioManager
                     if (string.IsNullOrEmpty(primary) || string.IsNullOrEmpty(title)) return;
 
                     foreach (var key in GetAliasExpandedKeys(primary, title, aliases, reverseAliases))
-                        concurrentIndex.TryAdd(key, xmlFile);
+                        AddIndexKey(concurrentIndex, key, xmlFile);
                 }
                 catch (Exception ex)
                 {
