@@ -39,6 +39,9 @@ namespace AudioManager
         /// </summary>
         public Dictionary<string, List<string>> FileChanges { get; } = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>Full fix log per file (keyed by original and new name), for the structured tagFix object in routing JSON.</summary>
+        public Dictionary<string, FixLog> LogsByFile { get; } = new Dictionary<string, FixLog>(StringComparer.OrdinalIgnoreCase);
+
         internal class FixLog
         {
             public string Filename;
@@ -68,6 +71,8 @@ namespace AudioManager
             public string Artists;
             public string Genre;
             public bool Compilation;
+            /// <summary>Count of embedded cover pictures. TagFixer never changes art, so old and new carry the same value.</summary>
+            public int ArtCount;
         }
 
         /// <summary>One NewMusic mp3 as found by the scan, before any processing. Input to the plan fingerprint.</summary>
@@ -201,7 +206,7 @@ namespace AudioManager
                 string artists = tag.JoinedPerformers ?? "";
                 string album = tag.Album ?? "";
                 string genres = tag.JoinedGenres ?? "";
-                log.OldTags = new TagState { Title = title, Album = album, Artists = artists, Genre = genres, Compilation = id3.IsCompilation };
+                log.OldTags = new TagState { Title = title, Album = album, Artists = artists, Genre = genres, Compilation = id3.IsCompilation, ArtCount = tag.Pictures.Length };
 
                 // QUARANTINE: Akira The Don instrumentals (Rule from STAGE_3B). Never deleted; moved to quarantineRoot.
                 // Match if: artist = "Akira The Don" AND title contains/ends with "Instrumental"
@@ -284,7 +289,7 @@ namespace AudioManager
                 }
 
                 // Tag values this fix would write (the plan JSON reads these; the real run writes the same values).
-                log.NewTags = new TagState { Title = finalTitle, Album = finalAlbum, Artists = finalArtists, Genre = finalGenres, Compilation = true };
+                log.NewTags = new TagState { Title = finalTitle, Album = finalAlbum, Artists = finalArtists, Genre = finalGenres, Compilation = true, ArtCount = log.OldTags.ArtCount };
 
                 // Check if any changes needed (built-in plus custom)
                 bool titleChanged = finalTitle != title;
@@ -433,6 +438,12 @@ namespace AudioManager
                     if (!string.IsNullOrEmpty(log.Filename) && !log.Filename.Equals(log.OriginalFilename, StringComparison.OrdinalIgnoreCase))
                         FileChanges[log.Filename] = nonFilenameChanges;
                 }
+
+                // GUI-54: every file that reaches the apply stage (tag fix, TCMP-only, or a filename-only
+                // rename that adds no change text in a dry run) gets its structured before/after registered.
+                LogsByFile[log.OriginalFilename] = log;
+                if (!string.IsNullOrEmpty(log.Filename) && !log.Filename.Equals(log.OriginalFilename, StringComparison.OrdinalIgnoreCase))
+                    LogsByFile[log.Filename] = log;
 
                 return log;
             }

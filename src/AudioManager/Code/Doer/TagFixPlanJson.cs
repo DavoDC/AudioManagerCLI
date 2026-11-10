@@ -135,7 +135,7 @@ namespace AudioManager
                 : Path.GetFileName(sourcePath);
         }
 
-        private static string TagsJson(TagFixer.TagState t)
+        internal static string TagsJson(TagFixer.TagState t)
         {
             if (t == null) return "null";
             return "{" +
@@ -143,7 +143,8 @@ namespace AudioManager
                 $"\"album\": {JStr(t.Album)}, " +
                 $"\"artists\": {JStr(t.Artists)}, " +
                 $"\"genre\": {JStr(t.Genre)}, " +
-                $"\"compilation\": {(t.Compilation ? "true" : "false")}" +
+                $"\"compilation\": {(t.Compilation ? "true" : "false")}, " +
+                $"\"artCount\": {t.ArtCount}" +
                 "}";
         }
 

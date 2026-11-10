@@ -58,8 +58,9 @@ real apply and its revert journal are not part of this contract yet.
   A file with nothing to fix is not listed. A tag fix that only sets the compilation flag is still a row, so
   `pending` counts it.
 - **`oldTags` and `newTags`** hold `title`, `album`, `artists` (the `; `-joined artist field), `genre` and
-  `compilation` (boolean). For a would-quarantine row `newTags` equals `oldTags`, because tags are not
-  rewritten before a move.
+  `compilation` (boolean), and `artCount` (integer, the number of embedded cover pictures). TagFix never changes
+  art, so `artCount` is the same in `oldTags` and `newTags`. For a would-quarantine row `newTags` equals `oldTags`,
+  because tags are not rewritten before a move.
 - **`oldName` and `newName`** are file names only. `newName` is the name a real run would give the file.
   When the rename is blocked it equals `oldName`.
 - **`needsManual`** lists two kinds of row. An errored file gives its error text as `reason`. A planned change
@@ -79,6 +80,20 @@ current NewMusic content no longer matches the plan's fingerprint. `fingerprint.
 
 `schemaVersion` starts at 1. It is bumped only when a field is removed or its meaning changes (additive fields do
 not bump it). A consumer must read `schemaVersion` and refuse a mismatch it was not built against.
+
+The GUI-54 additions are additive and do not bump `schemaVersion`: `artCount` inside `oldTags` and `newTags` here,
+and the routing JSON `tagFix` object below.
+
+## Routing JSON: per-track `tagFix` (GUI-54)
+
+The routing JSON (`recordType` routing or execution) carries one `tagFix` key on every `files[]` entry, placed just
+before `tagChanges`. It is `null` when the track has no tag fix. Otherwise it is an object:
+
+`{"oldName": "<original file name>", "newName": "<name after the rename>", "oldTags": {...}, "newTags": {...}}`
+
+`oldTags` and `newTags` use the same shape as above, including `artCount`. `tagChanges` stays as the short
+display strings, so existing consumers keep working. No routing contract doc under `docs/Contracts/` mentions
+`tagChanges`, so this section is the only place the `tagFix` shape is written down.
 
 ## Encoding and line endings
 

@@ -97,6 +97,8 @@ namespace AudioManager
             public string DupRecommendationKey; // "D", "L", or "K"
             public string DupRecommendation;    // "Delete library copy" / "Delete new file" / "Keep both"
             public string DupReason;
+            // Full before/after tag and filename change for this track (GUI-54), from TagFixer.LogsByFile.
+            public TagFixer.FixLog TagFix;
         }
 
         /// <summary>
@@ -233,7 +235,7 @@ namespace AudioManager
                 var newArtistFolders = RunScanAhead(files);
 
                 // Pre-scan all files: read + clean tags, find duplicates (no UI)
-                var scannedFiles = PreScanFiles(files, tagChanges);
+                var scannedFiles = PreScanFiles(files, tagChanges, tagFixer.LogsByFile);
 
                 // Flag in-batch duplicates (same normalised artist+title appearing twice in NewMusic)
                 MarkInBatchDuplicates(scannedFiles);
@@ -1098,7 +1100,7 @@ namespace AudioManager
         /// compilationAlbums}, "confidence": null | {countCheck, sanityCheck, newFolders,
         /// errorCount, errors}, "files": [ {filename, artist, title, album, destination, reason,
         /// isNewFolder, status, detail, inBatchDuplicate, compilationAlbum, libraryDuplicate + dup*
-        /// fields, tagChanges[]} ]}.
+        /// fields, tagFix (null | {oldName, newName, oldTags, newTags}), tagChanges[]} ]}.
         /// </summary>
         /// <summary>
         /// Builds the routing/execution JSON contract text (pure, no I/O) - see the external contract
@@ -1143,6 +1145,10 @@ namespace AudioManager
                 sb.AppendLine($"    \"dupRecommendationKey\": {JStr(e.DupRecommendationKey)},");
                 sb.AppendLine($"    \"dupRecommendation\": {JStr(e.DupRecommendation)},");
                 sb.AppendLine($"    \"dupReason\": {JStr(e.DupReason)},");
+                if (e.TagFix == null || e.TagFix.OldTags == null)
+                    sb.AppendLine("    \"tagFix\": null,");
+                else
+                    sb.AppendLine($"    \"tagFix\": {{\"oldName\": {JStr(e.TagFix.OriginalFilename)}, \"newName\": {JStr(e.TagFix.Filename ?? e.TagFix.OriginalFilename)}, \"oldTags\": {TagFixPlanJson.TagsJson(e.TagFix.OldTags)}, \"newTags\": {TagFixPlanJson.TagsJson(e.TagFix.NewTags)}}},");
                 sb.Append($"    \"tagChanges\": [");
                 if (e.TagChanges?.Count > 0)
                     sb.Append(string.Join(", ", e.TagChanges.Select(t => JStr(t))));
@@ -1806,7 +1812,7 @@ namespace AudioManager
         /// Pre-scans all files in the batch: reads and cleans tags, finds duplicates.
         /// No UI interaction. Returns a ScannedFile list for the duplicate review and routing phases.
         /// </summary>
-        private List<ScannedFile> PreScanFiles(string[] files, Dictionary<string, List<string>> tagChanges)
+        private List<ScannedFile> PreScanFiles(string[] files, Dictionary<string, List<string>> tagChanges, Dictionary<string, TagFixer.FixLog> tagLogs = null)
         {
             var mirrorIndex = BuildMirrorIndex();
             var result = new List<ScannedFile>();
@@ -1873,7 +1879,11 @@ namespace AudioManager
                     // Populate tag changes for combined routing display
                     string filename = Path.GetFileName(sourcePath);
                     if (tagChanges != null && tagChanges.TryGetValue(filename, out var changes))
+                    {
                         entry.TagChanges.AddRange(changes);
+                        if (tagLogs != null && tagLogs.TryGetValue(filename, out var tagLog))
+                            entry.TagFix = tagLog;
+                    }
 
                     string duplicatePath = FindDuplicateInMirror(track, mirrorIndex);
                     if (!string.IsNullOrEmpty(duplicatePath))
