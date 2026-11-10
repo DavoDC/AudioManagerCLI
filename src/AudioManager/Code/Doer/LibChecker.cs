@@ -34,6 +34,22 @@ namespace AudioManager
         // Accumulates hits from all checks to determine IsClean
         private int grandTotalHits = 0;
 
+        /// <summary>One hit as machine-readable data: kind (check name), the track or folder path, and the message.</summary>
+        internal sealed class LibCheckerHit
+        {
+            public string Kind, Path, Detail;
+        }
+
+        private readonly List<LibCheckerHit> hits = new List<LibCheckerHit>();
+
+        /// <summary>Every counted hit, in check order. Count equals TotalHits except for the empty-library hit, which is included too.</summary>
+        internal IReadOnlyList<LibCheckerHit> Hits => hits;
+
+        private void Hit(string kind, string path, string detail)
+        {
+            hits.Add(new LibCheckerHit { Kind = kind, Path = path ?? "", Detail = detail ?? "" });
+        }
+
         /// <summary>Total issue count across all checks (0 when clean).</summary>
         public int TotalHits => grandTotalHits;
 
@@ -78,6 +94,7 @@ namespace AudioManager
                 if(!bool.Parse(tag.Compilation))
                 {
                     Console.WriteLine($"  - '{tag.RelPath}' is not set as a compilation!");
+                    Hit("not_compilation", tag.RelPath, "is not set as a compilation");
                     totalTagHits++;
                 }
             }
@@ -116,6 +133,7 @@ namespace AudioManager
             if (audioTags.Count == 0)
             {
                 Console.WriteLine(" - LibChecker: no tracks found; the Audio folder looks empty or unreadable.");
+                Hit("empty_library", "", "no tracks found; the Audio folder looks empty or unreadable");
                 grandTotalHits++;
             }
 
@@ -182,6 +200,7 @@ namespace AudioManager
             if (!filename.Contains(subStr))
             {
                 Console.WriteLine($"  - '{filename}' should include '{subStr}'");
+                Hit("filename_mismatch", filename, $"should include '{subStr}'");
                 return 1;
             }
 
@@ -238,6 +257,7 @@ namespace AudioManager
             if (fieldValue.Equals(Constants.MissingTag))
             {
                 Console.WriteLine($"  - '{filePath}' has no {fieldName} set!");
+                Hit("missing_tag", filePath, $"has no {fieldName} set");
                 return 1;
             }
             return 0;
@@ -262,11 +282,13 @@ namespace AudioManager
                 if (albumCoverNum == 0)
                 {
                     Console.WriteLine($"  - '{tag.RelPath}' has no album cover!");
+                    Hit("album_cover", tag.RelPath, "has no album cover");
                     return 1;
                 }
                 else if (albumCoverNum != 1)
                 {
                     Console.WriteLine($"  - '{tag.RelPath}' has {albumCoverNum} album covers!");
+                    Hit("album_cover", tag.RelPath, $"has {albumCoverNum} album covers");
                     return 1;
                 }
             }
@@ -346,6 +368,7 @@ namespace AudioManager
                 if (foundUnwanted)
                 {
                     Console.WriteLine($"  - Found '{unwanted}' in {propertyName} of '{tag}'");
+                    Hit("unwanted_text", tag.RelPath, $"found '{unwanted}' in {propertyName}");
                     return 1;
                 }
             }
@@ -467,6 +490,7 @@ namespace AudioManager
                     }
 
                     Console.WriteLine(artistMsg + " (mismatch)");
+                    Hit("artist_folder_mismatch", tag.RelPath, $"a song by '{primaryArtist}' is in the '{artistFolderName}' folder");
                     totalHits++;
                 }
 
@@ -480,6 +504,7 @@ namespace AudioManager
                     }
 
                     Console.WriteLine(artistMsg + " (loose/directly)");
+                    Hit("artist_folder_loose", tag.RelPath, $"a song by '{primaryArtist}' sits loose in the '{artistFolderName}' folder");
                     totalHits++;
                 }
             }
@@ -509,6 +534,7 @@ namespace AudioManager
             foreach (var curDupe in duplicateTracks)
             {
                 Console.WriteLine($"  - '{curDupe.RelPath}' duplicates another track!");
+                Hit("duplicate", curDupe.RelPath, "duplicates another track");
                 totalHits++;
             }
             PrintTotalHits(totalHits);
@@ -542,6 +568,7 @@ namespace AudioManager
                 {
                     string trioMsg = $"  - There are {curMiscArtistCount} songs by '{curMiscArtist}'";
                     Console.WriteLine(trioMsg + $" in the {Constants.MiscDir} folder!");
+                    Hit("misc_earns_artist_folder", Constants.MiscDir, $"{curMiscArtistCount} songs by '{curMiscArtist}' in the {Constants.MiscDir} folder");
                     totalHits++;
                 }
 
@@ -550,6 +577,7 @@ namespace AudioManager
                 {
                     string artistMsg = $"  - '{curMiscArtist}' has an {Constants.ArtistsDir} folder but has a song";
                     Console.WriteLine(artistMsg + $" in the {Constants.MiscDir} folder!");
+                    Hit("misc_has_artist_folder", Constants.MiscDir, $"'{curMiscArtist}' has an {Constants.ArtistsDir} folder but has a song in the {Constants.MiscDir} folder");
                     totalHits++;
                 }
             }
@@ -590,6 +618,7 @@ namespace AudioManager
                 if (artistsWithAudioFolder.Contains(primaryArtist))
                 {
                     Console.WriteLine($"  - '{primaryArtist}' has an {Constants.ArtistsDir} folder but has a track in {Constants.CompilationsDir}/");
+                    Hit("compilation_has_artist_folder", tag.RelPath, $"'{primaryArtist}' has an {Constants.ArtistsDir} folder but has a track in {Constants.CompilationsDir}");
                     totalHits++;
                 }
             }
@@ -618,6 +647,7 @@ namespace AudioManager
                 if (!tag.Genres.Contains(expectedGenre))
                 {
                     Console.WriteLine($"  - {tag.ToString()} does not have the {expectedGenre} genre!");
+                    Hit("genre_missing", tag.RelPath, $"does not have the {expectedGenre} genre");
                     totalHits++;
                 }
             }
@@ -655,6 +685,7 @@ namespace AudioManager
                         if (GetDirectParentFolder(tag).Equals(Constants.SinglesDir, StringComparison.OrdinalIgnoreCase))
                         {
                             Console.WriteLine($"  - '{tag.RelPath}': {count} songs from album '{group.Key.Album}' but in {Constants.SinglesDir}/ (use album subfolder)");
+                            Hit("album_in_singles", tag.RelPath, $"{count} songs from album '{group.Key.Album}' but in {Constants.SinglesDir}/ (use album subfolder)");
                             totalHits++;
                         }
                     }
@@ -671,6 +702,7 @@ namespace AudioManager
                         && !parentFolder.Equals(artistFolderName))
                     {
                         Console.WriteLine($"  - '{tag.RelPath}': only 1 song from album '{group.Key.Album}' but in subfolder '{parentFolder}/' (should be {Constants.SinglesDir}/)");
+                        Hit("single_in_album_folder", tag.RelPath, $"only 1 song from album '{group.Key.Album}' but in subfolder '{parentFolder}/' (should be {Constants.SinglesDir}/)");
                         totalHits++;
                     }
                 }
@@ -695,6 +727,7 @@ namespace AudioManager
                 if (tag.Genres.Contains(genre))
                 {
                     Console.WriteLine($"  - '{tag.RelPath}' has genre '{genre}' but is not in {folderName}/");
+                    Hit("genre_outside_folder", tag.RelPath, $"has genre '{genre}' but is not in {folderName}/");
                     totalHits++;
                 }
             }
@@ -733,6 +766,7 @@ namespace AudioManager
                         if (!tag.Album.Contains("OST"))
                         {
                             Console.WriteLine($"  - '{tag.RelPath}' album mentions '{sourceFolder}' but has no 'OST': '{tag.Album}'");
+                            Hit("source_album_no_ost", tag.RelPath, $"album mentions '{sourceFolder}' but has no 'OST': '{tag.Album}'");
                             totalHits++;
                         }
                     }

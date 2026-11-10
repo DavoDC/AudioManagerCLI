@@ -368,6 +368,10 @@ namespace AudioManager
             public string Status;
             public string Error;
             public string Detail;
+            public int LibCheckerHitCount;
+            public List<LibChecker.LibCheckerHit> Hits = new List<LibChecker.LibCheckerHit>();
+            /// <summary>True only when the AudioMirror git commit was made (status ok).</summary>
+            public bool MirrorCommitted;
         }
 
         /// <summary>
@@ -375,18 +379,20 @@ namespace AudioManager
         /// </summary>
         internal static PostIntegrationMirrorResult RunPostIntegrationMirror(string mirrorPath, bool noAutoCommit)
         {
+            IReadOnlyList<LibChecker.LibCheckerHit> lastHits = new List<LibChecker.LibCheckerHit>();
             return RunPostIntegrationMirrorWith(
                 Constants.LogsPath,
                 noAutoCommit,
-                () => RegenerateAndValidateMirror(mirrorPath),
-                () => AudioMirrorCommitter.TryCommit(libCheckerClean: true, CommitTrigger.Integration));
+                () => RegenerateAndValidateMirror(mirrorPath, h => lastHits = h),
+                () => AudioMirrorCommitter.TryCommit(libCheckerClean: true, CommitTrigger.Integration),
+                () => lastHits);
         }
 
         /// <summary>
         /// Seamed core of the post-integration mirror step. regenerateAndValidate returns LibChecker clean;
         /// commit returns true when no commit failure was reported. Any exception maps to mirror_commit_failed.
         /// </summary>
-        internal static PostIntegrationMirrorResult RunPostIntegrationMirrorWith(string logsDir, bool noAutoCommit, Func<bool> regenerateAndValidate, Func<bool> commit)
+        internal static PostIntegrationMirrorResult RunPostIntegrationMirrorWith(string logsDir, bool noAutoCommit, Func<bool> regenerateAndValidate, Func<bool> commit, Func<IReadOnlyList<LibChecker.LibCheckerHit>> hitsProvider = null)
         {
             PostIntegrationMirrorResult r;
             try
@@ -420,6 +426,15 @@ namespace AudioManager
                 r = new PostIntegrationMirrorResult { Status = "mirror_commit_failed", Error = ex.Message, Detail = ex.GetType().Name };
             }
 
+            r.MirrorCommitted = r.Status == "ok";
+            try
+            {
+                var hits = hitsProvider?.Invoke();
+                if (hits != null && r.Status == "libchecker_issues") r.Hits.AddRange(hits);
+                r.LibCheckerHitCount = r.Hits.Count;
+            }
+            catch (Exception) { /* hits are extra detail; never fail the step over them */ }
+
             try
             {
                 string jsonPath = WriteMirrorResult(logsDir, r);
@@ -433,7 +448,7 @@ namespace AudioManager
         }
 
         /// <summary>Force-regenerates the mirror and returns whether LibChecker is clean.</summary>
-        private static bool RegenerateAndValidateMirror(string mirrorPath)
+        private static bool RegenerateAndValidateMirror(string mirrorPath, Action<IReadOnlyList<LibChecker.LibCheckerHit>> reportHits)
         {
             // Force-regen: integration deleted/moved library files, so incremental
             // Reflector would leave orphaned XMLs that trigger ghost LibChecker warnings.
@@ -447,6 +462,7 @@ namespace AudioManager
             // Run LibChecker to validate the updated library
             Console.WriteLine(" - Running library validation...");
             LibChecker lc = new LibChecker(p.audioTags);
+            reportHits(lc.Hits);
             return lc.IsClean;
         }
 
@@ -470,6 +486,22 @@ namespace AudioManager
             sb.AppendLine($"  \"generatedAt\": {JsonString(generatedAt.ToString("s", CultureInfo.InvariantCulture))},");
             sb.AppendLine($"  \"status\": {JsonString(r.Status)},");
             sb.AppendLine($"  \"error\": {JsonString(r.Error)},");
+            sb.AppendLine($"  \"mirrorCommitted\": {(r.MirrorCommitted ? "true" : "false")},");
+            sb.AppendLine($"  \"libcheckerHitCount\": {r.LibCheckerHitCount.ToString(CultureInfo.InvariantCulture)},");
+            if (r.Hits.Count == 0)
+            {
+                sb.AppendLine("  \"hits\": [],");
+            }
+            else
+            {
+                sb.AppendLine("  \"hits\": [");
+                for (int i = 0; i < r.Hits.Count; i++)
+                {
+                    var h = r.Hits[i];
+                    sb.AppendLine($"    {{\"kind\": {JsonString(h.Kind)}, \"path\": {JsonString(h.Path)}, \"detail\": {JsonString(h.Detail)}}}" + (i < r.Hits.Count - 1 ? "," : ""));
+                }
+                sb.AppendLine("  ],");
+            }
             sb.AppendLine($"  \"retry\": {JsonString(MirrorRetryCommand)}");
             sb.AppendLine("}");
             return sb.ToString();
