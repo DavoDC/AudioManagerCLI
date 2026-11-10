@@ -246,13 +246,36 @@ namespace AudioManager
                 "[feat. X] square bracket form should extract the featured artist");
         }
 
-        public static void ExtractAndFixArtists_NormalizesLowercaseArtistToTitleCase()
+        public static void ExtractAndFixArtists_NeverRecasesArtistNames()
         {
-            // Artists not in the overrides config get ToTitleCase applied
-            List<string> result = TagFixer.ExtractAndFixArtists("Song Title", "lowercase artist name");
-            Assert.True(
-                result.Exists(a => a.Equals("Lowercase Artist Name", System.StringComparison.Ordinal)),
-                "Lowercase artist should be normalized to title case");
+            // BL-61: the source tag is the truth. Recasing turned PARTYNEXTDOOR into Partynextdoor.
+            foreach (string name in new[] { "PARTYNEXTDOOR", "RZA", "MF DOOM", "SZA", "RaisedbyWolvvs", "lowercase artist name" })
+            {
+                List<string> result = TagFixer.ExtractAndFixArtists("Song Title", name);
+                Assert.True(result.Count == 1 && result[0] == name, $"'{name}' must be kept exactly, got '{string.Join("|", result)}'");
+            }
+        }
+
+        public static void RemoveParentheticals_KeepsRemixInTitle()
+        {
+            // GUI-53: (Remix) names a different recording; stripping it merged Ne-Yo's remix into the original.
+            Assert.Equal("Because Of You (Remix)", TagFixer.RemoveParentheticals("Because Of You (Remix)"), "remix marker kept");
+            Assert.Equal("Because Of You (Remix)", TagFixer.RemoveParentheticals("Because Of You (Remix) (feat. X)"), "feat still stripped, remix kept");
+        }
+
+        public static void ExtractAndFixArtists_FeatWithAnd_SplitsOnceNeverCombined()
+        {
+            // BL-60: 'feat. Kim Petras and Jay Park' added a combined 'Kim Petras And Jay Park' extra entry.
+            List<string> result = TagFixer.ExtractAndFixArtists("Charli xcx (feat. Kim Petras and Jay Park)", "Charli xcx; Kim Petras; Jay Park");
+            Assert.Equal("Charli xcx|Kim Petras|Jay Park", string.Join("|", result), "each name once, source casing");
+        }
+
+        public static void ExtractAndFixArtists_CommaJoinedExistingEntryDroppedWhenSplitNamesPresent()
+        {
+            // BL-60 Justice case: 'Tame Impala, SZA, King Gizzard' comma-joined AND split entries.
+            List<string> result = TagFixer.ExtractAndFixArtists("Flower In A Hurricane",
+                "Justice; Tame Impala; SZA; King Gizzard; Tame Impala, SZA, King Gizzard");
+            Assert.Equal("Justice|Tame Impala|SZA|King Gizzard", string.Join("|", result), "combined duplicate dropped");
         }
 
         // ---- Artist name variant override (Unicode diacritics -> canonical) ----
@@ -389,14 +412,11 @@ namespace AudioManager
                 "All-caps override 'XV' must be preserved via artist-name-overrides.xml (not normalized to 'Xv')");
         }
 
-        public static void ExtractAndFixArtists_AllCapsFullName_NormalizedToTitleCase()
+        public static void ExtractAndFixArtists_AllCapsFullName_KeptAsSourceTag()
         {
-            // All-caps non-override names should still be title-cased (normal normalization behavior).
-            // "SCOTT ADAMS" should become "Scott Adams", not stay all-caps.
-            List<string> result = TagFixer.ExtractAndFixArtists("Some Track", "SCOTT ADAMS");
-            Assert.True(
-                result.Any(a => a.Equals("Scott Adams", StringComparison.Ordinal)),
-                "All-caps full name without override must be title-cased: 'SCOTT ADAMS' -> 'Scott Adams'");
+            // BL-61 supersedes the old title-casing rule: an all-caps name is the artist's own styling.
+            List<string> result = TagFixer.ExtractAndFixArtists("Some Track", "NOT IN OVERRIDES");
+            Assert.True(result.Count == 1 && result[0] == "NOT IN OVERRIDES", "all-caps name kept as is");
         }
 
         // ---- ProcessFile (full pipeline: real MP3 file I/O, not pure functions) ----
@@ -568,12 +588,12 @@ namespace AudioManager
             try
             {
                 string fixturePath = CreateSilentMp3Fixture(tempDir, "Primary Artist - Song Title.mp3",
-                    "Song Title", "Album Name", "primary artist");
+                    "Song Title (Explicit)", "Album Name", "Primary Artist");
 
                 var fixer = TagFixer.ForTesting(dryRun: false);
                 var log = fixer.ProcessFile(fixturePath);
 
-                Assert.Equal("fixed", log.Status, "an artist tag needing title case must be fixed");
+                Assert.Equal("fixed", log.Status, "a title needing a parenthetical strip must be fixed");
                 Assert.Equal("Primary Artist - Song Title.mp3", log.Filename, "a file already at its target name must report that name");
                 Assert.True(System.IO.File.Exists(fixturePath), "file must stay at its path when no rename is needed");
             }

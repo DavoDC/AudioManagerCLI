@@ -532,7 +532,6 @@ namespace AudioManager
                 @"\s*\(Radio\s+Edit\)",  // (Radio Edit)
                 @"\s*\(Edit\)",           // (Edit)
                 @"\s*\(Original\)",       // (Original)
-                @"\s*\(Remix\)",          // (Remix)
                 @"\s*\(Version\)",        // (Version)
             };
 
@@ -676,8 +675,8 @@ namespace AudioManager
                         // "&" in title parentheticals is always a separator, never part of a name.
                         // Split "A & B" into individual artists so compound forms don't duplicate
                         // their components (e.g. "X & Y" when "X" and "Y" are already present).
-                        var featParts = match.Groups[1].Value.Trim()
-                            .Split(new[] { " & " }, StringSplitOptions.None)
+                        // " and " and commas separate too (BL-60): the combined string is never added as one artist.
+                        var featParts = Regex.Split(match.Groups[1].Value.Trim(), @"\s+&\s+|\s+and\s+|\s*,\s*", RegexOptions.IgnoreCase)
                             .Select(p => p.Trim())
                             .Where(p => !string.IsNullOrEmpty(p));
                         foreach (var featArtist in featParts)
@@ -697,21 +696,22 @@ namespace AudioManager
                 }
             }
 
-            // Fix casing: "scott adams" -> "Scott Adams" (title-cased by default).
-            // Exception 1: artists in the overrides config keep their canonical casing (e.g. "mike." stays lowercase).
-            // Exception 2: mixed-case names (e.g. "PJ Simas") are preserved as-is.
-            //   Applying .ToLower() first would destroy intentional casing in abbreviations and
-            //   initial-style names. Only normalize all-uppercase or all-lowercase strings.
+            // Casing (BL-61): the source tag is the truth, never recased (PARTYNEXTDOOR, RZA, MF DOOM, SZA).
+            // Only the explicit overrides list (config/artist-name-overrides.xml) maps a name to a canonical form.
             var overrides = GetArtistOverrides();
-            var textInfo = System.Globalization.CultureInfo.InvariantCulture.TextInfo;
-            return artists
-                .Select(a =>
-                {
-                    if (overrides.TryGetValue(a, out string canonical)) return canonical;
-                    bool isMixedCase = a.Any(char.IsUpper) && a.Any(char.IsLower);
-                    return textInfo.ToTitleCase(isMixedCase ? a : a.ToLowerInvariant());
-                })
+            var cased = artists
+                .Select(a => overrides.TryGetValue(a, out string canonical) ? canonical : a)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // A comma-joined entry whose every part is already its own entry is a combined duplicate (BL-60).
+            return cased
+                .Where(a =>
+                {
+                    if (a.IndexOf(',') < 0) return true;
+                    var parts = a.Split(',').Select(p => p.Trim()).Where(p => p.Length > 0).ToList();
+                    return parts.Count < 2 || !parts.All(p => cased.Any(o => !ReferenceEquals(o, a) && o.Equals(p, StringComparison.OrdinalIgnoreCase)));
+                })
                 .ToList();
         }
 

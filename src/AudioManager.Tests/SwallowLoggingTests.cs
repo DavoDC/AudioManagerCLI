@@ -126,7 +126,7 @@ namespace AudioManager
 
         // ---- TagFixer culture-sensitive lowercase (TagFixer.cs ~463) ----
 
-        public static void ExtractAndFixArtists_TurkishCulture_UppercaseNameTitleCasesCorrectly()
+        public static void ExtractAndFixArtists_TurkishCulture_UppercaseNameKeptUnchanged()
         {
             var original = Thread.CurrentThread.CurrentCulture;
             try
@@ -134,7 +134,7 @@ namespace AudioManager
                 Thread.CurrentThread.CurrentCulture = new CultureInfo("tr-TR");
                 List<string> artists = TagFixer.ExtractAndFixArtists("Song Title", "IDIOT");
                 Assert.True(artists.Count == 1, $"Expected one artist, got {artists.Count}");
-                Assert.Equal("Idiot", artists[0], "All-uppercase artist must title-case the same under tr-TR as under invariant");
+                Assert.Equal("IDIOT", artists[0], "Artist names are never recased, under tr-TR or any culture");
             }
             finally { Thread.CurrentThread.CurrentCulture = original; }
         }
