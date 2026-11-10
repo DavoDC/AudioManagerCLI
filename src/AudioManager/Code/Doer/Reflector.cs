@@ -75,6 +75,12 @@ namespace AudioManager
             // Regen: swap the finished staging folder in, then record the run only after success
             if (regen)
             {
+                // An audio root with no mp3 (unmounted volume, wrong folder) must never replace the live mirror with an empty one.
+                if (statisticsInfo.Item1 == 0)
+                {
+                    try { if (Directory.Exists(buildPath)) Directory.Delete(buildPath, true); } catch (Exception) { /* leftover is healed by RecoverLeftovers next run */ }
+                    throw new InvalidOperationException($"No mp3 files found under '{audioRoot}'; refusing to replace the mirror with an empty one.");
+                }
                 SwapDirectory(buildPath, mirrorPath);
                 AgeChecker.MarkRegenerated(builtAt, lastRunInfoPath);
             }

@@ -221,6 +221,32 @@ namespace AudioManager
             finally { AgeChecker.RegenMirror = saved; Cleanup(root); }
         }
 
+        public static void Reflector_ForcedRegen_EmptyAudioRoot_RefusesAndKeepsLiveMirror()
+        {
+            string root = NewTempRoot();
+            bool saved = AgeChecker.RegenMirror;
+            try
+            {
+                string audio = Path.Combine(root, "Audio");
+                Directory.CreateDirectory(audio); // exists but holds no mp3 (unmounted volume, wrong folder)
+                string mirror = Path.Combine(root, "AUDIO_MIRROR");
+                string stamp = Path.Combine(root, "LastRunInfo.txt");
+                Directory.CreateDirectory(mirror);
+                File.WriteAllText(Path.Combine(mirror, "live.xml"), "live");
+                AgeChecker.RegenMirror = true;
+
+                bool threw = false;
+                try { new Reflector(audio, mirror, RepoRootFor(root), stamp); }
+                catch (Exception) { threw = true; }
+
+                Assert.True(threw, "an audio root with no mp3 must not be swapped in as the mirror");
+                Assert.True(File.Exists(Path.Combine(mirror, "live.xml")), "the live mirror survives");
+                Assert.True(!File.Exists(stamp), "no stamp is written");
+                Assert.True(!Directory.Exists(mirror + Reflector.StagingSuffix), "no staging folder left behind");
+            }
+            finally { AgeChecker.RegenMirror = saved; Cleanup(root); }
+        }
+
         public static void Reflector_ForcedRegen_FailedBuild_LeavesStampUntouched()
         {
             string root = NewTempRoot();

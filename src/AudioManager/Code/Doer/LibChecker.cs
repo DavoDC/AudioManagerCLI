@@ -112,6 +112,13 @@ namespace AudioManager
             // Check Sources folder
             CheckSourcesFolder();
 
+            // An empty library is never clean: an unmounted or unreadable Audio folder would otherwise pass and an empty mirror get committed
+            if (audioTags.Count == 0)
+            {
+                Console.WriteLine(" - LibChecker: no tracks found; the Audio folder looks empty or unreadable.");
+                grandTotalHits++;
+            }
+
             // Set clean flag
             IsClean = grandTotalHits == 0;
             if (IsClean) Console.WriteLine(" - LibChecker: Clean");

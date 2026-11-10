@@ -29,6 +29,13 @@ namespace AudioManager
             Assert.True(checker.IsClean, "One fully-valid artist tag should produce IsClean=true");
         }
 
+        public static void LibChecker_EmptyTagList_IsNeverClean()
+        {
+            var checker = new LibChecker(new List<TrackTag>());
+            Assert.True(!checker.IsClean, "an empty library (unmounted or unreadable Audio folder) must not be called clean");
+            Assert.True(checker.TotalHits > 0, "an empty library counts as an issue so no empty mirror gets committed");
+        }
+
         // ---- Per-rule dirty cases ----
 
         public static void LibChecker_CompilationNotSet_IsDirty()
