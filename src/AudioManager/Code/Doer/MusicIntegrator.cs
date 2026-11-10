@@ -469,6 +469,28 @@ namespace AudioManager
 
                 if (decision == 'D')
                 {
+                    // The library duplicate is the only other copy. If it is gone (removed, or staged aside by an
+                    // L decision for another source in this run), sending the NewMusic file would leave no copy: keep it.
+                    if (!File.Exists(dup.LibraryFilePath) || _lStaged.ContainsKey(dup.LibraryFilePath)
+                        || (dryRun && _dryReplacedLibPaths.Contains(dup.LibraryFilePath)))
+                    {
+                        if (dryRun)
+                        {
+                            Console.WriteLine($"[DRY RUN] Library copy missing, would keep NewMusic file: {dup.RelNewPath}");
+                            entry.Status = "would-keep";
+                            entry.Detail = "duplicate (would keep: library copy missing)";
+                        }
+                        else
+                        {
+                            Console.WriteLine($"  [ERROR] Kept NewMusic file {dup.RelNewPath}: library copy missing: {dup.RelLibraryPath}");
+                            entry.Status = "error";
+                            entry.Detail = "duplicate (kept: library copy missing)";
+                        }
+                        logEntries.Add(entry); skippedCount++;
+                        Console.WriteLine();
+                        dup.SkipRouting = true;
+                        continue;
+                    }
                     if (dryRun)
                     {
                         Console.WriteLine($"[DRY RUN] Would send to Recycle Bin from NewMusic: {dup.RelNewPath}");

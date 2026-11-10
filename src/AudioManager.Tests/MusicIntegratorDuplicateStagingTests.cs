@@ -379,6 +379,7 @@ namespace AudioManager
             {
                 string libCopy = LibCopyPath(lib, "Other Artist", "Other Song");
                 WriteLibCopy(libCopy, 2);
+                WriteLibCopy(LibCopyPath(lib, "Good Artist", "Good Song"), 1);
                 var sfD = MakeDup(Path.Combine(newMusic, "Good Artist - Good Song.mp3"), "Good Artist", "Good Song", LibCopyPath(lib, "Good Artist", "Good Song"), 'D');
                 var sfL = MakeDup(Path.Combine(newMusic, "Other Artist - Other Song.mp3"), "Other Artist", "Other Song", libCopy, 'L');
                 var integrator = new MusicIntegrator(lib, dryRun: true);
@@ -407,6 +408,7 @@ namespace AudioManager
             {
                 string libCopy = LibCopyPath(lib, "Other Artist", "Other Song");
                 WriteLibCopy(libCopy, 2);
+                WriteLibCopy(LibCopyPath(lib, "Good Artist", "Good Song"), 1);
                 var sfD = MakeDup(Path.Combine(newMusic, "Good Artist - Good Song.mp3"), "Good Artist", "Good Song", LibCopyPath(lib, "Good Artist", "Good Song"), 'D');
                 var sfL = MakeDup(Path.Combine(newMusic, "Other Artist - Other Song.mp3"), "Other Artist", "Other Song", libCopy, 'L');
                 var integrator = new MusicIntegrator(lib, false, true, null);
