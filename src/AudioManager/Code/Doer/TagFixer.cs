@@ -672,6 +672,48 @@ namespace AudioManager
         }
 
         /// <summary>
+        /// Dedupe key for an artist name: case-insensitive, and every apostrophe form
+        /// (straight, curly, modifier letter, backtick) plus a missing apostrophe compares equal.
+        /// Display strings are never changed; this only decides whether two spellings are one artist.
+        /// </summary>
+        internal static string ArtistKey(string name)
+        {
+            var sb = new StringBuilder(name.Length);
+            foreach (char c in name)
+            {
+                switch (c)
+                {
+                    case '\'':
+                    case '’':
+                    case '‘':
+                    case 'ʼ':
+                    case '`':
+                        break;
+                    default:
+                        sb.Append(char.ToUpperInvariant(c));
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>Equality over <see cref="ArtistKey"/>; one definition used by every artist dedupe step.</summary>
+        internal sealed class ArtistNameComparer : IEqualityComparer<string>
+        {
+            internal static readonly ArtistNameComparer Instance = new ArtistNameComparer();
+
+            public bool Equals(string x, string y)
+            {
+                return string.Equals(ArtistKey(x), ArtistKey(y), StringComparison.Ordinal);
+            }
+
+            public int GetHashCode(string obj)
+            {
+                return ArtistKey(obj).GetHashCode();
+            }
+        }
+
+        /// <summary>
         /// Extracts featured artists from title parentheticals and combines with existing artists.
         /// Returns a list of artists with primary artist first, others semicolon-separated.
         /// </summary>
@@ -713,13 +755,13 @@ namespace AudioManager
                         foreach (var featArtist in featParts)
                         {
                             // Skip exact duplicates
-                            if (artists.Any(a => a.Equals(featArtist, StringComparison.OrdinalIgnoreCase)))
+                            if (artists.Any(a => ArtistNameComparer.Instance.Equals(a, featArtist)))
                                 continue;
                             // Skip "X of BandName" clarifications where BandName is already present.
                             // e.g. "(feat. Macklemore & Patrick Stump of Fall Out Boy)" when "Fall Out Boy"
                             // is already in the artist field - "of BandName" is a descriptor, not a separator.
                             int ofIdx = featArtist.IndexOf(" of ", StringComparison.OrdinalIgnoreCase);
-                            if (ofIdx >= 0 && artists.Any(a => a.Equals(featArtist.Substring(ofIdx + 4).Trim(), StringComparison.OrdinalIgnoreCase)))
+                            if (ofIdx >= 0 && artists.Any(a => ArtistNameComparer.Instance.Equals(a, featArtist.Substring(ofIdx + 4).Trim())))
                                 continue;
                             artists.Add(featArtist);
                         }
@@ -733,7 +775,7 @@ namespace AudioManager
             var overrides = applyCasing ? GetArtistOverrides() : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var cased = artists
                 .Select(a => overrides.TryGetValue(a, out string canonical) ? canonical : a)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Distinct(ArtistNameComparer.Instance)
                 .ToList();
 
             // A comma-joined entry whose every part is already its own entry is a combined duplicate (BL-60).
@@ -742,7 +784,7 @@ namespace AudioManager
                 {
                     if (a.IndexOf(',') < 0) return true;
                     var parts = a.Split(',').Select(p => p.Trim()).Where(p => p.Length > 0).ToList();
-                    return parts.Count < 2 || !parts.All(p => cased.Any(o => !ReferenceEquals(o, a) && o.Equals(p, StringComparison.OrdinalIgnoreCase)));
+                    return parts.Count < 2 || !parts.All(p => cased.Any(o => !ReferenceEquals(o, a) && ArtistNameComparer.Instance.Equals(o, p)));
                 })
                 .ToList();
         }

@@ -317,6 +317,36 @@ namespace AudioManager
                 $"Jay-Z should appear exactly once (got {jayzCount}): variant JAŸ-Z in tag + Jay-Z in feat must deduplicate");
         }
 
+        // ---- Artist apostrophe variants dedupe (first spelling kept) ----
+
+        public static void ExtractAndFixArtists_ApostropheVariantFeat_DroppedWhenTagHasNoApostrophe()
+        {
+            // Real batch: title feat "Lil' Wayne" + tag "Lil Wayne" produced two spellings of one artist.
+            List<string> result = TagFixer.ExtractAndFixArtists("Official Girl (feat. Lil' Wayne)", "Cassie; Lil Wayne");
+            Assert.Equal("Cassie|Lil Wayne", string.Join("|", result), "later apostrophe variant dropped, first spelling kept");
+        }
+
+        public static void ExtractAndFixArtists_ApostropheVariantTag_FirstSpellingKept()
+        {
+            // Tag already has "Lil' Wayne"; title feat "Lil Wayne" must not add a second entry.
+            List<string> result = TagFixer.ExtractAndFixArtists("Official Girl (feat. Lil Wayne)", "Cassie; Lil' Wayne");
+            Assert.Equal("Cassie|Lil' Wayne", string.Join("|", result), "existing apostrophe spelling kept as read");
+        }
+
+        public static void ExtractAndFixArtists_CurlyApostropheTitle_DedupesAgainstStraightTag()
+        {
+            // Curly right single quote U+2019 in title, straight apostrophe in tags.
+            List<string> result = TagFixer.ExtractAndFixArtists("Official Girl (feat. Lil’ Wayne)", "Cassie; Lil' Wayne");
+            Assert.Equal("Cassie|Lil' Wayne", string.Join("|", result), "curly and straight apostrophe are one artist");
+        }
+
+        public static void ExtractAndFixArtists_DistinctArtistNames_NotMergedByApostropheKey()
+        {
+            // Regression: names that differ by more than the apostrophe stay separate.
+            List<string> result = TagFixer.ExtractAndFixArtists("Official Girl (feat. Drake)", "Cassie; Lil Wayne");
+            Assert.Equal("Cassie|Lil Wayne|Drake", string.Join("|", result), "distinct artists untouched");
+        }
+
         // ---- Null/empty input guards ----
 
         public static void RemoveParentheticals_EmptyString_ReturnsEmpty()
