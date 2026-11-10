@@ -1100,9 +1100,34 @@ namespace AudioManager
         /// Runs in both dry-run (shows what would happen) and real mode (moves files).
         /// No-op if no artists were promoted with existing Misc songs.
         /// </summary>
+        /// <summary>Folder the Misc migration journal (misc-migration-*.json) is written to; tests point it at a temp folder.</summary>
+        internal string MigrationJournalDir = null;
+
+        /// <summary>Rewrites the migration journal atomically: every move done so far as {from, to} library paths.</summary>
+        private static void WriteMiscMigrationJournal(string dir, string path, List<KeyValuePair<string, string>> moves)
+        {
+            try
+            {
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine("{\"recordType\": \"miscMigration\", \"schemaVersion\": 1, \"moves\": [");
+                for (int i = 0; i < moves.Count; i++)
+                    sb.AppendLine($"  {{\"from\": {JsonText.Quote(moves[i].Key)}, \"to\": {JsonText.Quote(moves[i].Value)}}}" + (i < moves.Count - 1 ? "," : ""));
+                sb.AppendLine("]}");
+                AtomicFile.WriteAllText(path, sb.ToString(), new System.Text.UTF8Encoding(false));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [WARN] Could not write the Misc migration journal: {ex.Message}");
+            }
+        }
+
         private int RunMiscMigration()
         {
             if (_miscMigrationCandidates.Count == 0) return 0;
+            var journaledMoves = new List<KeyValuePair<string, string>>();
+            string journalDir = MigrationJournalDir ?? Constants.LogsPath;
+            string journalPath = Path.Combine(journalDir, $"misc-migration-{DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.json");
 
             Console.WriteLine("\n===========================================================================");
             Console.WriteLine(dryRun ? "Misc Migration (Dry Run)" : "Misc Migration");
@@ -1153,7 +1178,10 @@ namespace AudioManager
                         try
                         {
                             Directory.CreateDirectory(destFolder);
-                            File.Move(libPath, Path.Combine(destFolder, fileName));
+                            string destPath = Path.Combine(destFolder, fileName);
+                            File.Move(libPath, destPath);
+                            journaledMoves.Add(new KeyValuePair<string, string>(libPath, destPath));
+                            WriteMiscMigrationJournal(journalDir, journalPath, journaledMoves);
                             Console.WriteLine($"  Moved: {fileName}");
                             totalCount++;
                         }
