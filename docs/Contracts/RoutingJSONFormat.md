@@ -34,3 +34,14 @@ Top-level object, present only when the pre-move mirror path gate stopped the ba
 | `files[].limit` | the limit the length was compared against (`Reflector.OverlongPathLimit`, 259; a length at or over it blocks) |
 
 The gate projects one path per planned destination that will route. A file decided as a duplicate delete (`D`) leaves NewMusic and is not planned. The process exits with code 1 after a blocked run.
+
+## replacedOriginals
+
+Top-level array, present only on an execution record (`recordType` `execution`) in which at least one L (replace library copy) decision retired a library original. It is written by `MusicIntegrator.AppendReplacedOriginalsBlock` from `ReplaceGuard.Retired`, and is absent on every other run, including dry runs and real runs with no replacement.
+
+| Field | Meaning |
+|-------|---------|
+| `original` | the library path that was replaced |
+| `held` | where the original now lives, under `NewMusic-Quarantine\Replaced\<yyyyMMdd-HHmmss>\` (the `Constants.ReplacedHoldingPath` folder) |
+
+Held originals are never auto-pruned. To restore one, move the `held` file back to its `original` path. A replacement that fails and is rolled back restores the original in place and records nothing here.

@@ -1250,6 +1250,22 @@ namespace AudioManager
         }
 
         /// <summary>
+        /// Writes the top-level "replacedOriginals" array (execution record only): each library original an L
+        /// replacement retired, with the holding path it now lives at. Absent when null or empty.
+        /// </summary>
+        private static void AppendReplacedOriginalsBlock(StringBuilder sb, IList<(string original, string held)> replaced)
+        {
+            if (replaced == null || replaced.Count == 0) return;
+            sb.AppendLine("  \"replacedOriginals\": [");
+            for (int i = 0; i < replaced.Count; i++)
+            {
+                string comma = i < replaced.Count - 1 ? "," : "";
+                sb.AppendLine($"    {{\"original\": {JStr(replaced[i].original)}, \"held\": {JStr(replaced[i].held)}}}{comma}");
+            }
+            sb.AppendLine("  ],");
+        }
+
+        /// <summary>
         /// Builds the routing/execution JSON contract text (pure, no I/O) - see the external contract
         /// for the client's routing parser. Internal + static so tests can assert on its
         /// output directly, same pattern as TracksJson.Build. `dryRun` defaults to true and
@@ -1257,7 +1273,7 @@ namespace AudioManager
         /// unchanged; a real run passes dryRun: false and a populated ConfidenceRecord.
         /// </summary>
         internal static string BuildJson(List<LogEntry> entries, BatchSummary summary = null, bool dryRun = true, ConfidenceRecord confidence = null,
-            MirrorPathBlock blocked = null)
+            MirrorPathBlock blocked = null, IList<(string original, string held)> replaced = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine("{");
@@ -1268,6 +1284,7 @@ namespace AudioManager
             AppendSummaryBlock(sb, entries, summary);
             AppendConfidenceBlock(sb, confidence);
             AppendBlockedBlock(sb, blocked);
+            AppendReplacedOriginalsBlock(sb, replaced);
             sb.AppendLine("  \"files\": [");
             for (int i = 0; i < entries.Count; i++)
             {
@@ -1454,7 +1471,7 @@ namespace AudioManager
         private void WriteExecutionRecord(List<LogEntry> entries, ConfidenceRecord confidence)
         {
             string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-            string json = BuildJson(entries, BuildCurrentSummary(), dryRun: false, confidence: confidence);
+            string json = BuildJson(entries, BuildCurrentSummary(), dryRun: false, confidence: confidence, replaced: ReplaceGuard.Retired);
             WriteExecutionRecordWithRetry(Constants.LogsPath, timestamp, json, Console.WriteLine);
         }
 

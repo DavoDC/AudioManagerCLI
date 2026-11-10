@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -216,6 +216,23 @@ namespace AudioManager
                             Console.WriteLine();
                             dryRun = false;
                             noInput = false;
+                        }
+
+                        // Replaced library originals are held by rename, so the holding folder must share the library's volume.
+                        // Checked before anything moves; a dry run never retires anything, so HoldingRoot stays null.
+                        if (!dryRun)
+                        {
+                            if (!ReplaceGuard.SameVolume(Constants.AudioFolderPath, Constants.ReplacedHoldingPath))
+                            {
+                                Console.WriteLine($"[ERROR] The replaced-original holding folder must be on the same volume as the library.");
+                                Console.WriteLine($"  Library: {Constants.AudioFolderPath}");
+                                Console.WriteLine($"  Holding folder: {Constants.ReplacedHoldingPath}");
+                                Console.WriteLine("Nothing was moved.");
+                                teeWriter.CloseLogFile(); // Exit skips finally, so close the log first
+                                Environment.Exit(1);
+                            }
+                            ReplaceGuard.HoldingRoot = Constants.ReplacedHoldingPath;
+                            ReplaceGuard.ResetRetired();
                         }
 
                         // Restore any replace interrupted by a previous crash before scanning the library

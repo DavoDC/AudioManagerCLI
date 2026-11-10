@@ -33,6 +33,9 @@ namespace AudioManager
         // NewMusicPath because TagFixer scans NewMusicPath recursively.
         public static readonly string QuarantinePath = Roots.Quarantine;
 
+        // Holding folder for library originals retired by a real L (replace) run: <QuarantinePath>\Replaced\<yyyyMMdd-HHmmss>\.
+        public static readonly string ReplacedHoldingPath = Path.Combine(QuarantinePath, "Replaced");
+
         // Absolute path to the mirror repo (assumed to sit next to this repo in GitHubRepos\; test root: <testRoot>\AudioMirror\)
         public static readonly string MirrorRepoPath = Roots.MirrorRepo;
 
