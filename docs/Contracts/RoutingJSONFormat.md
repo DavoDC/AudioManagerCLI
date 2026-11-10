@@ -55,3 +55,5 @@ Held originals are never auto-pruned. To restore one, move the `held` file back 
 ## Preview stamp: `newMusicFingerprint`, `previewStale`
 
 A dry-run routing record carries top-level `newMusicFingerprint`: SHA-256 over every mp3 under NewMusic (relative path, size, last-write ticks), taken before Tag Fix runs. A real run's execution record carries `previewFingerprint` (the stamp of the newest `routing-*.json`, or null when there is none) and `previewStale`: `false` when NewMusic still matches that preview, `true` when it changed since (the run also prints a `[WARN] preview_stale` line), `null` when no stamped preview exists. A client that shows a reviewed preview should treat `previewStale: true` as "the decisions were made on a different folder".
+
+Read-only probe: `AudioManager.exe --fingerprint` prints one JSON line `{"newMusicFingerprint": "<hex>"}` for the current NewMusic folder (same algorithm as the dry-run stamp), writes nothing and moves nothing. Tag Fix changes mtimes, so a stamp taken before `tagfix --apply-plan` no longer matches after it; take a new dry run (or re-run `--fingerprint`) after applying.

@@ -44,6 +44,21 @@ namespace AudioManager
             finally { Directory.Delete(d, true); }
         }
 
+        public static void FingerprintJsonLine_MatchesNewMusicFingerprint_SingleLineNoWrites()
+        {
+            string d = NewTemp();
+            try
+            {
+                File.WriteAllText(Path.Combine(d, "a.mp3"), "one");
+                string before = string.Join("|", Directory.GetFileSystemEntries(d, "*", SearchOption.AllDirectories));
+                string line = Program.FingerprintJsonLine(d);
+                Assert.Equal("{\"newMusicFingerprint\": \"" + MusicIntegrator.NewMusicFingerprint(d) + "\"}", line, "one json line, same algorithm");
+                Assert.True(!line.Contains("\n"), "single line");
+                Assert.Equal(before, string.Join("|", Directory.GetFileSystemEntries(d, "*", SearchOption.AllDirectories)), "read-only");
+            }
+            finally { Directory.Delete(d, true); }
+        }
+
         public static void BuildJson_DryRunCarriesFingerprint_ExecutionCarriesStaleFlag()
         {
             var none = new List<MusicIntegrator.LogEntry>();

@@ -37,6 +37,14 @@ namespace AudioManager
                     return;
                 }
 
+                // --fingerprint: read-only. Prints one JSON line with the current NewMusic fingerprint (same algorithm as the
+                // dry-run stamp) and returns before any mode parsing; it writes and moves nothing.
+                if (args.Any(a => a.Equals("--fingerprint", StringComparison.OrdinalIgnoreCase)))
+                {
+                    Console.WriteLine(FingerprintJsonLine(Constants.NewMusicPath));
+                    return;
+                }
+
                 // Detect CLI args: "analysis [--force-regen]" or "integrate [--dry-run] [--no-input]"
                 int mode;
                 bool forceMirrorRegen;
@@ -326,6 +334,12 @@ namespace AudioManager
             }
         }
 
+        /// <summary>One-line JSON for --fingerprint: the NewMusic fingerprint of folder (same value a dry run stamps).</summary>
+        internal static string FingerprintJsonLine(string folder)
+        {
+            return "{\"newMusicFingerprint\": \"" + MusicIntegrator.NewMusicFingerprint(folder) + "\"}";
+        }
+
         internal const string MirrorResultJsonFileName = "mirror-result.json";
         internal const string MirrorRetryCommand = "AudioManagerCLI.exe --mirror-retry";
 
@@ -511,7 +525,7 @@ namespace AudioManager
             var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 "--force-regen", "--dry-run", "--no-input", "--json-output", "--no-auto-commit",
-                "--manifest", "--revert", "--apply-plan", "--mirror-retry"
+                "--manifest", "--revert", "--apply-plan", "--mirror-retry", "--fingerprint"
             };
             for (int i = 1; i < args.Length; i++)
             {
