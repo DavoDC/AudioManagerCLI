@@ -16,9 +16,25 @@ namespace AudioManager
         internal static Action<string> Sender = path =>
             FileSystem.DeleteFile(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
 
-        /// <summary>Sends the file at path to the Recycle Bin via Sender. Throws if the send fails.</summary>
+        /// <summary>True when path's volume has a Recycle Bin. Tests swap it.</summary>
+        internal static Func<string, bool> BinCheck = path =>
+        {
+            try
+            {
+                string root = System.IO.Path.GetPathRoot(System.IO.Path.GetFullPath(path));
+                if (string.IsNullOrEmpty(root)) return false;
+                return new System.IO.DriveInfo(root).DriveType == System.IO.DriveType.Fixed
+                    && System.IO.Directory.Exists(System.IO.Path.Combine(root, "$Recycle.Bin"));
+            }
+            catch { return false; }
+        };
+
+        /// <summary>Sends the file at path to the Recycle Bin via Sender. Throws if the volume has no bin
+        /// (the shell would delete permanently) or the send fails.</summary>
         internal static void Send(string path)
         {
+            if (!BinCheck(path))
+                throw new InvalidOperationException("No Recycle Bin on the volume of " + path + "; file kept, not deleted.");
             Sender(path);
         }
     }

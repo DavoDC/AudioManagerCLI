@@ -51,6 +51,23 @@ namespace AudioManager
         /// otherwise removes the file the way the bin would. The first send must fail as an error, and the
         /// second must still be sent and logged.
         /// </summary>
+        public static void RecycleBinSend_VolumeWithoutBin_RefusesAndNeverSends()
+        {
+            var origSender = RecycleBin.Sender;
+            var origCheck = RecycleBin.BinCheck;
+            bool sent = false;
+            try
+            {
+                RecycleBin.Sender = p => sent = true;
+                RecycleBin.BinCheck = p => false;
+                bool threw = false;
+                try { RecycleBin.Send(@"C:\x\a.mp3"); } catch (InvalidOperationException) { threw = true; }
+                Assert.True(threw, "no recycle bin on the volume: Send must throw so the file is kept");
+                Assert.True(!sent, "Sender must not be called when the volume has no bin (it would delete permanently)");
+            }
+            finally { RecycleBin.Sender = origSender; RecycleBin.BinCheck = origCheck; }
+        }
+
         public static void DeleteFailure_ReportsErrorAndContinuesBatch()
         {
             string lib = RoutingFixtures.CreateLibraryFixture();
