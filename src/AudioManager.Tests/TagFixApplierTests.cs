@@ -266,6 +266,25 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void Revert_PendingEntryAfterCrash_IsReportedNeverSilent()
+        {
+            var e = NewEnv();
+            try
+            {
+                Messy(e);
+                var r = TagFixApplier.Apply(e.Folder, Plan(e), e.Logs, e.Backups, e.Quarantine, Now);
+                string j = File.ReadAllText(r.JournalPath);
+                Assert.True(j.Contains("\"status\": \"done\""), "journal has a done entry to simulate a crash with");
+                File.WriteAllText(r.JournalPath, j.Replace("\"status\": \"done\"", "\"status\": \"pending\""));
+
+                var rev = TagFixApplier.Revert(r.JournalPath, e.Folder, e.Quarantine);
+                Assert.True(rev.Failed == 1, "a pending entry (crash mid-apply) must be reported, not skipped silently");
+                Assert.True(rev.Notes.Any(n => n.Contains("pending")), "note names the pending state");
+                Assert.True(File.ReadAllText(r.JournalPath).Contains("\"status\": \"pending\""), "journal entry stays pending");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void Revert_FileEditedSinceApply_IsLeftAlone()
         {
             var e = NewEnv();

@@ -226,6 +226,12 @@ namespace AudioManager
                         File.Move(e.QuarantinedTo, original);
                         e.Status = "reverted"; res.Reverted++;
                     }
+                    else if (e.Status == "pending")
+                    {
+                        // Crash mid-apply: unknown whether the file was changed. Never guess; report and point at the backup.
+                        res.Failed++;
+                        res.Notes.Add(e.File + ": pending (apply did not finish), not reverted; byte backup: " + e.Backup);
+                    }
                     else if (e.Status == "done")
                     {
                         string current = Path.Combine(Path.GetDirectoryName(original), e.NewName);
