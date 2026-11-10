@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -47,6 +48,14 @@ namespace AudioManager
                 string manifestPath = null;
                 if (args.Length > 0)
                 {
+                    string unknownFlag = FindUnknownFlag(args);
+                    if (unknownFlag != null)
+                    {
+                        // A mistyped --dry-run must never fall through to a live run.
+                        Console.WriteLine($" - ERROR: unknown option '{unknownFlag}'. Nothing was run.");
+                        Environment.Exit(1);
+                        return;
+                    }
                     string modeArg = args[0].ToLowerInvariant();
                     bool forceRegen = args.Any(a => a.Equals("--force-regen", StringComparison.OrdinalIgnoreCase));
                     dryRun = args.Any(a => a.Equals("--dry-run", StringComparison.OrdinalIgnoreCase));
@@ -475,6 +484,22 @@ namespace AudioManager
         /// <param name="mode">Parsed mode: 1 = analysis, 2 = integrate, 3 = tagfix.</param>
         /// <param name="dryRun">Whether --dry-run was passed.</param>
         internal static bool AnalysisRejectsDryRun(int mode, bool dryRun) => mode == 1 && dryRun;
+
+        /// <summary>Returns the first dash-prefixed arg that is not a known flag (null when all are known).</summary>
+        internal static string FindUnknownFlag(string[] args)
+        {
+            var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "--force-regen", "--dry-run", "--no-input", "--json-output", "--no-auto-commit",
+                "--manifest", "--revert", "--apply-plan", "--mirror-retry"
+            };
+            for (int i = 1; i < args.Length; i++)
+            {
+                string a = args[i];
+                if (a.StartsWith("-") && !known.Contains(a)) return a;
+            }
+            return null;
+        }
 
         /// <summary>
         /// Pre-integration validation gate: ensures AudioMirror is fresh and LibChecker is clean.

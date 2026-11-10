@@ -54,6 +54,21 @@ namespace AudioManager
             Assert.True(!Program.AnalysisRejectsDryRun(3, true), "tagfix --dry-run must not be affected");
         }
 
+        public static void FindUnknownFlag_MistypedDryRun_IsReported()
+        {
+            Assert.Equal("--dryrun", Program.FindUnknownFlag(new[] { "integrate", "--dryrun", "--no-input" }),
+                "a mistyped --dry-run must be rejected, not run live");
+            Assert.Equal("--dry-run=true", Program.FindUnknownFlag(new[] { "integrate", "--dry-run=true" }), "= form is unknown");
+        }
+
+        public static void FindUnknownFlag_KnownFlagsAndValues_AreAccepted()
+        {
+            Assert.True(Program.FindUnknownFlag(new[] { "integrate", "--dry-run", "--no-input", "--json-output", "--no-auto-commit", "--manifest", @"C:\t\m.xml" }) == null, "known flags + manifest path");
+            Assert.True(Program.FindUnknownFlag(new[] { "tagfix", "--apply-plan" }) == null, "apply-plan");
+            Assert.True(Program.FindUnknownFlag(new[] { "tagfix", "--revert", @"C:\t\j.json" }) == null, "revert with path");
+            Assert.True(Program.FindUnknownFlag(new[] { "analysis", "--force-regen", "--mirror-retry" }) == null, "analysis flags");
+        }
+
         // ---- Item 2a: StatsJson library byte walk (Doer/Analyser/StatsJson.cs) ----
 
         public static void StatsJsonLibraryBytes_MissingFolder_ReturnsZeroAndWarnsWithPath()
