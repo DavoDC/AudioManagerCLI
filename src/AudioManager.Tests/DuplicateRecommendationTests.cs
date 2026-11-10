@@ -62,6 +62,15 @@ namespace AudioManager
             Assert.True(key == 'D' && reason.Contains("keep library"), "Smaller incoming keeps library: " + key + " " + reason);
         }
 
+        public static void Recommend_NoRuleApplies_StillGivesNonEmptyReason()
+        {
+            var f = Facts();
+            f.NewIsAlbum = false; // a single against a library copy, nothing else to compare
+            MusicIntegrator.RecommendDuplicate(f, out char key, out string reason);
+            Assert.True(key == '\0', "No rule applies: no recommendation key, got " + key);
+            Assert.True(!string.IsNullOrWhiteSpace(reason), "Every duplicate row must carry a reason (GUI-54), got empty");
+        }
+
         private static MusicIntegrator.ScannedFile Scanned(string artist, string title, double len) =>
             new MusicIntegrator.ScannedFile
             {

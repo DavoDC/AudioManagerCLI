@@ -1975,6 +1975,11 @@ namespace AudioManager
                     : "same size, incoming copy kept";
                 reason = $"New album '{f.NewAlbum}' has {f.IncomingAlbumTracks} tracks, library album '{f.LibraryAlbum}' has {f.LibraryAlbumTracks} tracks - {sizeNote}";
             }
+            else
+            {
+                // GUI-54: a row with no key still explains itself, so JSON and console agree.
+                reason = "No rule decides this duplicate - keep both or choose manually";
+            }
         }
 
         /// <summary>Audio length in seconds from the tags, or 0 when unreadable.</summary>
