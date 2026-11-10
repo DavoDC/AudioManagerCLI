@@ -319,6 +319,21 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void PruneOldBackups_RunWithPendingJournal_IsKept()
+        {
+            var e = NewEnv();
+            try
+            {
+                string run = Path.Combine(e.Backups, "20260101-000000");
+                Directory.CreateDirectory(run); Directory.CreateDirectory(e.Logs);
+                Directory.SetCreationTime(run, Now.AddDays(-30));
+                File.WriteAllText(Path.Combine(e.Logs, "tagfix-journal-20260101-000000.json"), "{ \"entries\": [ { \"status\": \"pending\" } ] }");
+                TagFixApplier.PruneOldBackups(e.Backups, Now, e.Logs);
+                Assert.True(Directory.Exists(run), "old backup of a journal with pending entries must be kept");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void ReadPlanFingerprint_ReadsValueFromPlanJson()
         {
             var e = NewEnv();

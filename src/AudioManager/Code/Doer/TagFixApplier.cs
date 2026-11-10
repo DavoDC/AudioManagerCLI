@@ -136,7 +136,7 @@ namespace AudioManager
                 return result;
             }
 
-            PruneOldBackups(backupRoot, now);
+            PruneOldBackups(backupRoot, now, logsDir);
 
             string stamp = now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
             string runBackup = Path.Combine(backupRoot, stamp);
@@ -394,7 +394,7 @@ namespace AudioManager
         }
 
         /// <summary>Deletes backup run folders older than BackupRetentionDays. Called only at the start of an apply.</summary>
-        internal static void PruneOldBackups(string backupRoot, DateTime now)
+        internal static void PruneOldBackups(string backupRoot, DateTime now, string logsDir = null)
         {
             if (!Directory.Exists(backupRoot)) return;
             foreach (string dir in Directory.GetDirectories(backupRoot))
@@ -402,6 +402,20 @@ namespace AudioManager
                 DateTime created = Directory.GetCreationTime(dir);
                 if ((now - created).TotalDays > BackupRetentionDays)
                 {
+                    // A run whose journal still has pending entries (crash mid-apply) is the only copy of the original bytes.
+                    if (logsDir != null)
+                    {
+                        string journal = Path.Combine(logsDir, "tagfix-journal-" + Path.GetFileName(dir) + ".json");
+                        try
+                        {
+                            if (File.Exists(journal) && File.ReadAllText(journal).Contains("\"status\": \"pending\""))
+                            {
+                                Console.WriteLine($" - [WARN] Keeping old backup '{dir}': its journal has pending entries.");
+                                continue;
+                            }
+                        }
+                        catch (IOException) { continue; }
+                    }
                     try { Directory.Delete(dir, true); }
                     catch (Exception ex) { Console.WriteLine($" - [WARN] Could not prune old backup '{dir}': {ex.Message}"); }
                 }
