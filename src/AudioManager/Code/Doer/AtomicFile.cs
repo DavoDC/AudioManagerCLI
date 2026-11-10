@@ -14,9 +14,12 @@ namespace AudioManager
     /// </summary>
     internal static class AtomicFile
     {
+        // Sibling suffix of the temp file. Reflector's projected staged path depends on it (MAX_PATH gate).
+        internal const string TempSuffix = ".tmp";
+
         internal static void WriteAllText(string path, string text, Encoding enc)
         {
-            string tmpPath = path + ".tmp";
+            string tmpPath = path + TempSuffix;
             try
             {
                 File.WriteAllText(tmpPath, text, enc);

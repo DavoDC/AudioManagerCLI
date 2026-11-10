@@ -18,6 +18,9 @@ namespace AudioManager
         // Old staging suffix, still swept by RecoverLeftovers so a leftover from before the rename is cleared.
         internal const string LegacyStagingSuffix = ".staging";
 
+        // Longest path (exclusive) the staged temp XML may reach: MAX_PATH is 260 including the terminator.
+        internal const int OverlongPathLimit = 259;
+
         // Mirror path variable
         string mirrorPath;
 
@@ -160,16 +163,11 @@ namespace AudioManager
                     continue;
                 }
 
-                // Compute expected XML path (same logic as CreateFile, for orphan tracking)
-                string fileName = Path.GetFileName(realFilePath);
-                string sanitisedName = SanitiseFilename(fileName);
-                string xmlRelPath = fileName != sanitisedName
-                    ? ReplaceFileNameSegment(relativePath, sanitisedName)
-                    : relativePath;
-                expectedXmlPaths.Add(Path.ChangeExtension(Path.Combine(buildPath, xmlRelPath), ".xml"));
+                // Compute expected XML path (same helper as CreateFile, for orphan tracking)
+                expectedXmlPaths.Add(Path.Combine(buildPath, MirrorXmlRelativePath(audioRoot, realFilePath)));
 
                 // Otherwise, process MP3 file
-                if (CreateFile(realFilePath, relativePath, out bool refreshed))
+                if (CreateFile(realFilePath, out bool refreshed))
                     sanitisationCount++;
                 if (refreshed)
                     refreshedCount++;
@@ -193,35 +191,18 @@ namespace AudioManager
         /// In incremental mode, also refreshes the XML when the MP3 has been modified since last analysis.
         /// </summary>
         /// <param name="realFilePath">The actual MP3 file path</param>
-        /// <param name="relativePath">The relative file path</param>
         /// <param name="refreshed">Output: true if an existing XML was overwritten because the MP3 was newer</param>
         /// <returns>True if the filename was sanitised</returns>
-        private bool CreateFile(string realFilePath, string relativePath, out bool refreshed)
+        private bool CreateFile(string realFilePath, out bool refreshed)
         {
             refreshed = false;
 
-            // Sanitisation flag
-            bool sanitised = false;
-
-            // Get file name and sanitise it
+            // Sanitisation flag: the XML name differs from the MP3 name
             string fileName = Path.GetFileName(realFilePath);
-            string sanitisedFilename = SanitiseFilename(fileName);
+            bool sanitised = fileName != SanitiseFilename(fileName);
 
-            // If file name was sanitised
-            if (fileName != sanitisedFilename)
-            {
-                // Replace filename in path with sanitised version
-                relativePath = ReplaceFileNameSegment(relativePath, sanitisedFilename);
-
-                // Set flag
-                sanitised = true;
-            }
-
-            // Generate the full mirror path
-            string fullMirrorPath = Path.Combine(buildPath, relativePath);
-
-            // Change extension
-            fullMirrorPath = Path.ChangeExtension(fullMirrorPath, ".xml");
+            // Generate the full mirror path (same helper as the orphan tracking and the pre-move gate)
+            string fullMirrorPath = Path.Combine(buildPath, MirrorXmlRelativePath(audioRoot, realFilePath));
 
             if (!File.Exists(fullMirrorPath))
             {
@@ -417,7 +398,7 @@ namespace AudioManager
         /// <param name="basePath">The base path.</param>
         /// <param name="targetPath">The target path.</param>
         /// <returns>The relative path from the base path to the target path.</returns>
-        private string GetRelativePath(string basePath, string targetPath)
+        private static string GetRelativePath(string basePath, string targetPath)
         {
             // Ensure basePath is treated as a directory (trailing separator) so Uri.MakeRelativeUri
             // returns paths relative to the directory rather than including the directory name.
@@ -439,6 +420,47 @@ namespace AudioManager
             // Directory.GetFiles both use backslashes, so a mismatch would cause PruneOrphanedXmls
             // to delete all XMLs (HashSet lookup fails because '/' != '\').
             return Uri.UnescapeDataString(relativeUri.ToString()).Replace('/', Path.DirectorySeparatorChar);
+        }
+
+        /// <summary>
+        /// The XML path relative to the mirror root for one library MP3: the library-relative path with the
+        /// file name sanitised and the extension changed to .xml. Single source for CreateFiles, CreateFile
+        /// and the pre-move MAX_PATH gate, so all three agree on where an XML lands.
+        /// </summary>
+        internal static string MirrorXmlRelativePath(string audioRoot, string libraryFilePath)
+        {
+            string relativePath = GetRelativePath(audioRoot, libraryFilePath);
+            string fileName = Path.GetFileName(libraryFilePath);
+            string sanitisedName = SanitiseFilename(fileName);
+            string xmlRelPath = fileName != sanitisedName
+                ? ReplaceFileNameSegment(relativePath, sanitisedName)
+                : relativePath;
+            return Path.ChangeExtension(xmlRelPath, ".xml");
+        }
+
+        /// <summary>
+        /// The full staged temp path a regen gives one library MP3's XML: mirror.stg\rel.xml.tmp
+        /// (the .stg folder from StagingSuffix, the .tmp from AtomicFile.WriteAllText).
+        /// </summary>
+        internal static string ProjectedStagingTempPath(string mirrorPath, string audioRoot, string libraryFilePath)
+        {
+            return Path.Combine(mirrorPath + StagingSuffix, MirrorXmlRelativePath(audioRoot, libraryFilePath)) + AtomicFile.TempSuffix;
+        }
+
+        /// <summary>
+        /// Planned destinations whose projected staged temp path is at or over the limit. Each entry is the
+        /// planned destination with its projected length. Empty when every destination fits.
+        /// </summary>
+        internal static List<(string file, int length)> FindOverlongMirrorPaths(string mirrorPath, string audioRoot,
+            IEnumerable<string> plannedDestinations, int limit = OverlongPathLimit)
+        {
+            var overlong = new List<(string file, int length)>();
+            foreach (string dest in plannedDestinations ?? Enumerable.Empty<string>())
+            {
+                int length = ProjectedStagingTempPath(mirrorPath, audioRoot, dest).Length;
+                if (length >= limit) overlong.Add((dest, length));
+            }
+            return overlong;
         }
 
         /// <summary>

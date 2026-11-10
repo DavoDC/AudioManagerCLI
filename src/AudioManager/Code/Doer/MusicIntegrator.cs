@@ -155,6 +155,21 @@ namespace AudioManager
             public bool SkipRouting; // true for D-decided duplicates and L-decided ones whose replacement is blocked (3a); dry-run L routes in 3b
         }
 
+        /// <summary>
+        /// Set when the pre-move MAX_PATH gate stops a batch before any file moves. Written as the top-level
+        /// "blocked" object of the routing JSON (see docs/Contracts/RoutingJSONFormat.md).
+        /// </summary>
+        internal class MirrorPathBlock
+        {
+            public string Status = "path_too_long";
+            public string Action = "rename_or_shorten";
+            public int Limit = Reflector.OverlongPathLimit;
+            public List<(string file, int length)> Files = new List<(string file, int length)>();
+        }
+
+        /// <summary>Set by the pre-move MAX_PATH gate. Null when the batch was allowed to proceed.</summary>
+        internal MirrorPathBlock Blocked { get; private set; }
+
         /// <summary>A file pre-scanned from NewMusic with its cleaned tags and duplicate data.</summary>
         internal class ScannedFile
         {
@@ -254,6 +269,14 @@ namespace AudioManager
                 if (dryRun && routeableCount > 1)
                     PrintRouteDistributionPreview(scannedFiles, newArtistFolders);
                 Console.WriteLine();
+
+                // Pre-move MAX_PATH gate: a planned destination whose staged XML temp path would reach the limit
+                // stops the whole batch here, before ExecuteDuplicateDecisions or RouteAllFiles moves anything.
+                if (!RunMirrorPathGate(scannedFiles, newArtistFolders, Constants.MirrorFolderPath))
+                {
+                    WriteJsonOutput(logEntries, Blocked);
+                    return;
+                }
 
                 // 3a: Execute all duplicate decisions together so their outputs are grouped
                 //     before routing output begins. D/L outputs appear consecutively here;
@@ -367,6 +390,53 @@ namespace AudioManager
                 }
             }
             return true;
+        }
+
+        /// <summary>The routed filename for a track: "Artists - Title.mp3", both parts sanitised.</summary>
+        internal static string BuildDestFilename(Track track)
+        {
+            return Reflector.SanitiseFilename(track.Artists) + " - " + Reflector.SanitiseFilename(track.Title) + ".mp3";
+        }
+
+        /// <summary>
+        /// Pre-move MAX_PATH gate, shared by dry and real runs. Projects the staged XML temp path of each planned
+        /// destination (files that will route; D-decided duplicates leave NewMusic and are not planned) and
+        /// records a block when any reaches Reflector.OverlongPathLimit. Moves nothing.
+        /// Returns true when the batch may proceed.
+        /// </summary>
+        internal bool RunMirrorPathGate(List<ScannedFile> scannedFiles, HashSet<string> newArtistFolders, string mirrorPath)
+        {
+            var planned = new List<string>();
+            foreach (var sf in scannedFiles)
+            {
+                if (!sf.IsReadable || sf.Duplicate?.Decision == 'D') continue;
+                Track track = sf.Track;
+                if (track.Title.Equals(Constants.MissingTag) || track.Artists.Equals(Constants.MissingTag)
+                    || track.PrimaryArtist.Equals(Constants.MissingTag)) continue;
+                try
+                {
+                    string destDir = GetDestDir(track, newArtistFolders, _compilationAlbums, out _, out _);
+                    planned.Add(Path.Combine(destDir, BuildDestFilename(track)));
+                }
+                catch (Exception)
+                {
+                    // Projection only: the routing pass reports this file's own failure, so skip it here.
+                    continue;
+                }
+            }
+
+            var overlong = Reflector.FindOverlongMirrorPaths(mirrorPath, _libraryPath, planned);
+            if (overlong.Count == 0) return true;
+
+            Blocked = new MirrorPathBlock { Files = overlong };
+            Console.WriteLine();
+            Console.WriteLine("===========================================================================");
+            Console.WriteLine($"[BLOCKED] {overlong.Count} planned destination(s) exceed the mirror path limit ({Blocked.Limit}).");
+            Console.WriteLine("===========================================================================");
+            foreach (var (file, length) in overlong)
+                Console.WriteLine($" - {length} chars: {file}");
+            Console.WriteLine("Nothing was moved. Rename or shorten the files above, then run again.\n");
+            return false;
         }
 
         /// <summary>
@@ -616,9 +686,7 @@ namespace AudioManager
                     }
 
                     // Build destination filename
-                    string sanitisedArtists = Reflector.SanitiseFilename(track.Artists);
-                    string sanitisedTitle = Reflector.SanitiseFilename(track.Title);
-                    string destFilename = sanitisedArtists + " - " + sanitisedTitle + ".mp3";
+                    string destFilename = BuildDestFilename(track);
 
                     // Determine destination directory and whether it requires creating a new artist folder
                     string destDir = GetDestDir(track, newArtistFolders, _compilationAlbums, out string reason, out bool isNewFolder);
@@ -1117,13 +1185,34 @@ namespace AudioManager
         /// fields, tagFix (null | {oldName, newName, oldTags, newTags}), tagChanges[]} ]}.
         /// </summary>
         /// <summary>
+        /// Writes the top-level "blocked" object when the pre-move MAX_PATH gate stopped the batch. Absent otherwise.
+        /// </summary>
+        private static void AppendBlockedBlock(StringBuilder sb, MirrorPathBlock blocked)
+        {
+            if (blocked == null) return;
+            sb.AppendLine("  \"blocked\": {");
+            sb.AppendLine($"    \"status\": {JStr(blocked.Status)},");
+            sb.AppendLine($"    \"action\": {JStr(blocked.Action)},");
+            sb.AppendLine("    \"files\": [");
+            for (int i = 0; i < blocked.Files.Count; i++)
+            {
+                var (file, length) = blocked.Files[i];
+                string comma = i < blocked.Files.Count - 1 ? "," : "";
+                sb.AppendLine($"      {{\"file\": {JStr(file)}, \"projectedLength\": {length}, \"limit\": {blocked.Limit}}}{comma}");
+            }
+            sb.AppendLine("    ]");
+            sb.AppendLine("  },");
+        }
+
+        /// <summary>
         /// Builds the routing/execution JSON contract text (pure, no I/O) - see the external contract
         /// for the client's routing parser. Internal + static so tests can assert on its
         /// output directly, same pattern as TracksJson.Build. `dryRun` defaults to true and
         /// `confidence` to null so every pre-existing dry-run test call site keeps compiling
         /// unchanged; a real run passes dryRun: false and a populated ConfidenceRecord.
         /// </summary>
-        internal static string BuildJson(List<LogEntry> entries, BatchSummary summary = null, bool dryRun = true, ConfidenceRecord confidence = null)
+        internal static string BuildJson(List<LogEntry> entries, BatchSummary summary = null, bool dryRun = true, ConfidenceRecord confidence = null,
+            MirrorPathBlock blocked = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine("{");
@@ -1133,6 +1222,7 @@ namespace AudioManager
             sb.AppendLine($"  \"generatedAt\": {JStr(DateTime.Now.ToString("s", CultureInfo.InvariantCulture))},");
             AppendSummaryBlock(sb, entries, summary);
             AppendConfidenceBlock(sb, confidence);
+            AppendBlockedBlock(sb, blocked);
             sb.AppendLine("  \"files\": [");
             for (int i = 0; i < entries.Count; i++)
             {
@@ -1281,7 +1371,7 @@ namespace AudioManager
             return summary;
         }
 
-        private void WriteJsonOutput(List<LogEntry> entries)
+        private void WriteJsonOutput(List<LogEntry> entries, MirrorPathBlock blocked = null)
         {
             try
             {
@@ -1290,7 +1380,7 @@ namespace AudioManager
                     Directory.CreateDirectory(Constants.LogsPath);
                 string jsonPath = Path.Combine(Constants.LogsPath, $"routing-{timestamp}.json");
 
-                AtomicFile.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary()), System.Text.Encoding.UTF8);
+                AtomicFile.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary(), dryRun: dryRun, blocked: blocked), System.Text.Encoding.UTF8);
                 Console.WriteLine($"\n  JSON: {jsonPath}");
             }
             catch (Exception ex)

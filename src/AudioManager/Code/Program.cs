@@ -214,6 +214,13 @@ namespace AudioManager
                         // Gate passed - proceed with integration
                         MusicIntegrator mi = new MusicIntegrator(dryRun, noInput, jsonOutput, manifest);
 
+                        // Pre-move MAX_PATH gate blocked the batch: nothing moved, so skip validation and exit nonzero
+                        if (mi.Blocked != null)
+                        {
+                            teeWriter.CloseLogFile(); // Exit skips finally, so close the log first
+                            Environment.Exit(1);
+                        }
+
                         // Post-integration validation: regenerate mirror and run LibChecker
                         if (!dryRun)
                         {
