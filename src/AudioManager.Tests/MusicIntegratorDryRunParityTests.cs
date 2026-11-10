@@ -191,5 +191,129 @@ namespace AudioManager
                 if (Directory.Exists(newMusic)) Directory.Delete(newMusic, recursive: true);
             }
         }
+
+        public static void DryRun_ReplacementWithStaleBak_ReportsStageFailureLikeRealRun()
+        {
+            string lib = RoutingFixtures.CreateLibraryFixture();
+            string newMusic = MakeNewMusicDir();
+            try
+            {
+                // A stale .replaced.bak from an earlier stage blocks ReplaceGuard.Stage in the real run.
+                string libCopy = Path.Combine(lib, "Old Place", "Good Artist - Good Song.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(libCopy));
+                File.WriteAllBytes(libCopy, new byte[] { 1 });
+                string bak = libCopy + ".replaced.bak";
+                File.WriteAllBytes(bak, new byte[] { 3 });
+
+                var integrator = new MusicIntegrator(lib, dryRun: true);
+                var sf = MakeReplacementDuplicate(Path.Combine(newMusic, "Good Artist - Good Song.mp3"), "Good Artist", "Good Song", libCopy);
+                var scannedFiles = new List<MusicIntegrator.ScannedFile> { sf };
+                var logEntries = new List<MusicIntegrator.LogEntry>();
+                int skipped = 0;
+
+                integrator.ExecuteDuplicateDecisions(scannedFiles, new HashSet<string>(), logEntries, ref skipped);
+
+                Assert.Equal("error", sf.LogEntry.Status, "dry-run L with a stale bak must be an error, like the real run's stage failure");
+                Assert.Equal("duplicate (library stage failed)", sf.LogEntry.Detail, "detail must match the real run's stage-failure message");
+                Assert.Equal("1", skipped.ToString(), "stage failure must count as skipped");
+                Assert.True(sf.Duplicate.SkipRouting, "stage failure must skip routing of the replacement");
+                Assert.True(File.Exists(libCopy) && File.Exists(bak), "dry run must leave the library copy and the stale bak untouched");
+                Assert.True(File.Exists(sf.SourcePath), "dry run must leave the replacement source in NewMusic");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(lib);
+                if (Directory.Exists(newMusic)) Directory.Delete(newMusic, recursive: true);
+            }
+        }
+
+        /// <summary>
+        /// Runs the L-replacement path (3a then 3b) where the routed destination is occupied by another file,
+        /// so the replacement is skipped. Reports the final reason, destination and status on the log entry.
+        /// </summary>
+        private static void RunBlockedReplacement(bool dryRun, out string reason, out string destination, out string status)
+        {
+            string lib = RoutingFixtures.CreateLibraryFixture();
+            string newMusic = MakeNewMusicDir();
+            try
+            {
+                string libCopy = Path.Combine(lib, "Old Place", "Good Artist - Good Song.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(libCopy));
+                File.WriteAllBytes(libCopy, new byte[] { 1 });
+
+                // "Good Artist" has no artist folder, so GetDestDir routes the replacement to lib/Miscellaneous Songs.
+                string occupied = Path.Combine(lib, Constants.MiscDir, "Good Artist - Good Song.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(occupied));
+                File.WriteAllBytes(occupied, new byte[] { 2 });
+
+                var integrator = new MusicIntegrator(lib, dryRun: dryRun);
+                var sf = MakeReplacementDuplicate(Path.Combine(newMusic, "Good Artist - Good Song.mp3"), "Good Artist", "Good Song", libCopy);
+                var scannedFiles = new List<MusicIntegrator.ScannedFile> { sf };
+                var logEntries = new List<MusicIntegrator.LogEntry>();
+                int moved = 0, skipped = 0;
+
+                integrator.ExecuteDuplicateDecisions(scannedFiles, new HashSet<string>(), logEntries, ref skipped);
+                integrator.RouteAllFiles(scannedFiles, new HashSet<string>(), logEntries, ref moved, ref skipped);
+
+                reason = sf.LogEntry.Reason;
+                // Each run uses its own temp library, so compare the destination relative to that library.
+                string rawDest = sf.LogEntry.Destination ?? "";
+                destination = rawDest.StartsWith(lib, StringComparison.OrdinalIgnoreCase)
+                    ? rawDest.Substring(lib.Length).TrimStart('\\', '/')
+                    : rawDest;
+                status = sf.LogEntry.Status;
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(lib);
+                if (Directory.Exists(newMusic)) Directory.Delete(newMusic, recursive: true);
+            }
+        }
+
+        public static void DryRun_BlockedReplacement_SetsReasonAndDestinationLikeRealRun()
+        {
+            RunBlockedReplacement(dryRun: true, out string dryReason, out string dryDest, out string dryStatus);
+            RunBlockedReplacement(dryRun: false, out string realReason, out string realDest, out string realStatus);
+
+            Assert.Equal("skipped", realStatus, "real run must skip an L replacement whose destination is occupied");
+            Assert.True(!string.IsNullOrEmpty(realDest), "real run must record the destination on the skipped replacement");
+            Assert.Equal(realReason, dryReason, "dry-run blocked L must record the same reason as the real run");
+            Assert.Equal(realDest, dryDest, "dry-run blocked L must record the same destination as the real run");
+            Assert.Equal("would-skip", dryStatus, "dry-run blocked L must stay would-skip");
+        }
+
+        public static void DryRun_ReplacementWithMissingTag_PinnedSkipKeepsLibraryCopy()
+        {
+            string lib = RoutingFixtures.CreateLibraryFixture();
+            string newMusic = MakeNewMusicDir();
+            try
+            {
+                // Pinned: the real run stages the library copy in 3a, then 3b skips the missing-tag file and rolls back.
+                // The dry run must end in the same status and leave the library copy in place.
+                string libCopy = Path.Combine(lib, "Old Place", "Good Artist - Missing.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(libCopy));
+                File.WriteAllBytes(libCopy, new byte[] { 1 });
+
+                var integrator = new MusicIntegrator(lib, dryRun: true);
+                var sf = MakeReplacementDuplicate(Path.Combine(newMusic, "Good Artist - Missing.mp3"), "Good Artist", Constants.MissingTag, libCopy);
+                var scannedFiles = new List<MusicIntegrator.ScannedFile> { sf };
+                var logEntries = new List<MusicIntegrator.LogEntry>();
+                int moved = 0, skipped = 0;
+
+                integrator.ExecuteDuplicateDecisions(scannedFiles, new HashSet<string>(), logEntries, ref skipped);
+                integrator.RouteAllFiles(scannedFiles, new HashSet<string>(), logEntries, ref moved, ref skipped);
+
+                Assert.Equal("skipped", sf.LogEntry.Status, "dry-run L with a missing required tag must end skipped, like the real run");
+                Assert.Equal("missing required tag", sf.LogEntry.Detail, "detail must match the real run's missing-tag message");
+                Assert.Equal("0", moved.ToString(), "missing-tag replacement must not be counted as moved");
+                Assert.True(File.Exists(libCopy), "dry run must leave the library copy in place");
+                Assert.True(File.Exists(sf.SourcePath), "dry run must leave the replacement source in NewMusic");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(lib);
+                if (Directory.Exists(newMusic)) Directory.Delete(newMusic, recursive: true);
+            }
+        }
     }
 }

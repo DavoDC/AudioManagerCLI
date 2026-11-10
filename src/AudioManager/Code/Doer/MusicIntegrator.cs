@@ -437,17 +437,33 @@ namespace AudioManager
                         Console.WriteLine();
                         dup.SkipRouting = true;
                     }
+                    else if (dryRun && File.Exists(dup.LibraryFilePath + ".replaced.bak"))
+                    {
+                        // Real run: ReplaceGuard.Stage throws while a stale bak exists. Plain check here, since a dry run never calls Stage or ResolveOne.
+                        Console.WriteLine($"  [ERROR] Could not stage library copy {dup.RelLibraryPath}: Refusing to stage: backup already exists: {dup.LibraryFilePath}.replaced.bak");
+                        entry.Status = "error";
+                        entry.Detail = "duplicate (library stage failed)";
+                        logEntries.Add(entry); skippedCount++;
+                        Console.WriteLine();
+                        dup.SkipRouting = true;
+                    }
                     else if (dryRun)
                     {
-                        string lDestDir = GetDestDir(track, newArtistFolders, _compilationAlbums, out _, out _);
+                        string lDestDir = GetDestDir(track, newArtistFolders, _compilationAlbums, out string lReason, out _);
                         string lDestFile = Reflector.SanitiseFilename(track.Artists) + " - " + Reflector.SanitiseFilename(track.Title) + ".mp3";
                         string lDestPath = Path.Combine(lDestDir, lDestFile);
+                        string lRelDest = lDestPath.StartsWith(Constants.AudioFolderPath, StringComparison.OrdinalIgnoreCase)
+                            ? lDestPath.Substring(Constants.AudioFolderPath.Length).TrimStart('\\', '/')
+                            : lDestPath;
                         // Real run: the library copy is staged, then 3b routes with no batch set, so only an occupied
                         // destination (other than the copy being replaced) skips the replacement.
                         if (IsDestBlocked(lDestPath, dup.LibraryFilePath, null))
                         {
                             Console.WriteLine(FormatSkipLine(track.Artists, track.Title));
                             Console.WriteLine();
+                            // Real run sets Reason and Destination in 3b before the skip; mirror them here.
+                            entry.Reason = lReason;
+                            entry.Destination = lRelDest;
                             entry.Status = "would-skip"; entry.Detail = "already exists at destination";
                             logEntries.Add(entry); skippedCount++;
                             dup.SkipRouting = true;
@@ -456,9 +472,6 @@ namespace AudioManager
                         {
                             Console.WriteLine($"[DRY RUN] Would delete from library: {dup.RelLibraryPath}");
                             Console.WriteLine($"[DRY RUN] Would keep new file: {dup.DisplayNewFilename}");
-                            string lRelDest = lDestPath.StartsWith(Constants.AudioFolderPath, StringComparison.OrdinalIgnoreCase)
-                                ? lDestPath.Substring(Constants.AudioFolderPath.Length).TrimStart('\\', '/')
-                                : lDestPath;
                             Console.WriteLine($"[DRY RUN] Would route to: {lRelDest}");
                             entry.Status = "would-replace";
                             entry.Detail = "duplicate (would replace)";
