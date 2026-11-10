@@ -100,6 +100,7 @@ namespace AudioManager
 
         public static void Sweep_BakWithMarkerAndLandedDest_DeletesBakAndMarker()
         {
+            ReplaceGuardTests.UseTempHolding();
             string dir = MakeTempDir();
             try
             {

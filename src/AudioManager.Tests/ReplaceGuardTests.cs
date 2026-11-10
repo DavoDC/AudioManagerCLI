@@ -9,6 +9,12 @@ namespace AudioManager
     /// </summary>
     internal static class ReplaceGuardTests
     {
+        /// <summary>Real runs always have a holding root (Program.cs); tests of the replace flow must too. Same volume as TEMP.</summary>
+        internal static void UseTempHolding()
+        {
+            ReplaceGuard.HoldingRoot = Path.Combine(Path.GetTempPath(), "AudioManagerTest_hold_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        }
+
         private static string MakeTempDir()
         {
             string dir = Path.Combine(Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid().ToString("N").Substring(0, 8));
@@ -64,6 +70,7 @@ namespace AudioManager
 
         public static void Commit_DeletesBak_MissingBakDoesNotThrow()
         {
+            UseTempHolding();
             string dir = MakeTempDir();
             try
             {
@@ -126,6 +133,7 @@ namespace AudioManager
 
         public static void Stage_StaleBakProvenLanded_ResolvesThenStages()
         {
+            UseTempHolding();
             string dir = MakeTempDir();
             try
             {
@@ -250,7 +258,7 @@ namespace AudioManager
             }
         }
 
-        public static void Commit_HoldingRootNull_DeletesAsBefore()
+        public static void Commit_HoldingRootNull_KeepsBakNeverDeletes()
         {
             string dir = MakeTempDir();
             try
@@ -262,7 +270,7 @@ namespace AudioManager
                 ReplaceGuard.ResetRetired();
                 ReplaceGuard.Commit(bakPath);
 
-                Assert.True(!File.Exists(bakPath), "with no holding root, commit must delete the bak as before");
+                Assert.True(File.Exists(bakPath), "with no holding root, commit must KEEP the bak (the library original is never permanently deleted)");
                 Assert.Equal("0", ReplaceGuard.Retired.Count.ToString(), "with no holding root, nothing may be recorded as retired");
                 Assert.True(!Directory.Exists(Path.Combine(dir, "Holding")), "no holding folder may be created");
             }

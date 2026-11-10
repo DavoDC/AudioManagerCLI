@@ -201,6 +201,7 @@ namespace AudioManager
 
         public static void RouteAllFiles_SuccessfulReplacement_LeavesNoBak()
         {
+            ReplaceGuardTests.UseTempHolding();
             string lib = RoutingFixtures.CreateLibraryFixture();
             string newMusic = Path.Combine(Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid().ToString("N").Substring(0, 8));
             Directory.CreateDirectory(newMusic);
@@ -244,6 +245,7 @@ namespace AudioManager
         /// </summary>
         public static void RouteAllFiles_KFileBeforeReplacement_DoesNotTakeStagedSlot()
         {
+            ReplaceGuardTests.UseTempHolding();
             string lib = RoutingFixtures.CreateLibraryFixture();
             string newMusic = Path.Combine(Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid().ToString("N").Substring(0, 8));
             Directory.CreateDirectory(newMusic);

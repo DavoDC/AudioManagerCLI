@@ -241,6 +241,7 @@ namespace AudioManager
 
         public static void CommitIfStaged_AfterRealLStage_DeletesBakAndForgetsStage()
         {
+            ReplaceGuardTests.UseTempHolding();
             string lib = RoutingFixtures.CreateLibraryFixture();
             string newMusic = NewMusicDir();
             try

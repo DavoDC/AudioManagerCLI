@@ -120,14 +120,18 @@ namespace AudioManager
         /// </summary>
         internal static void Commit(string bakPath)
         {
-            if (HoldingRoot != null && File.Exists(bakPath))
+            if (!File.Exists(bakPath))
             {
-                if (Retire(bakPath) == null) return;
-            }
-            else if (!DeleteBak(bakPath))
-            {
+                DeleteLandingMarker(bakPath);
                 return;
             }
+            if (HoldingRoot == null)
+            {
+                // Never permanently delete a library original: with no holding folder keep bak and marker.
+                Console.WriteLine($"  [WARN] No holding folder set; staged library original kept at: {bakPath}");
+                return;
+            }
+            if (Retire(bakPath) == null) return;
             DeleteLandingMarker(bakPath);
         }
 
@@ -217,11 +221,12 @@ namespace AudioManager
                     string destPath = File.ReadAllText(markerPath).Trim();
                     if (destPath.Length > 0 && File.Exists(destPath) && !string.Equals(destPath, bakPath, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (HoldingRoot != null)
+                        if (HoldingRoot == null)
                         {
-                            if (Retire(bakPath) == null) return 0;
+                            Console.WriteLine($"  [WARN] No holding folder set; staged library original kept at: {bakPath}");
+                            return 0;
                         }
-                        else File.Delete(bakPath);
+                        if (Retire(bakPath) == null) return 0;
                         File.Delete(markerPath);
                         Console.WriteLine($"  [SWEEP] Completed interrupted replace: {bakPath}");
                         return 0;

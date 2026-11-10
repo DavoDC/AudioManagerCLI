@@ -158,6 +158,7 @@ namespace AudioManager
 
         public static void ReplaceGuard_RollbackAfterCommit_KeepsReplacement()
         {
+            ReplaceGuardTests.UseTempHolding();
             string dir = MakeTempDir();
             try
             {
