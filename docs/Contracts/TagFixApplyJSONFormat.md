@@ -2,12 +2,12 @@
 
 Commands (both mutate NewMusic; the plan comes from `tagfix --dry-run --json-output`, see `TagFixJSONFormat.md`):
 
-- `AudioManager.exe tagfix --apply-plan` applies the reviewed plan. It refuses (exit 1, `stale_plan`) when the NewMusic fingerprint no longer matches `data/logs/tagfix-plan.json`, and refuses (`insufficient_disk`) when the backup drive cannot hold the planned files plus 10 percent. A refusal changes nothing.
+- `AudioManager.exe tagfix --apply-plan` applies the reviewed plan. It refuses (exit 1, `stale_plan`) when the NewMusic fingerprint no longer matches `data/logs/tagfix-plan.json`, and refuses (`insufficient_disk`) when the backup drive cannot hold the planned files plus 10 percent, and refuses (`files_in_use`, failures name each file) when a planned file is open in another program. A refusal changes nothing.
 - `AudioManager.exe tagfix --revert <journal path>` undoes an apply: tags and names come back and quarantined files move back to NewMusic. A file whose tags no longer equal the journal's `new` tags is left alone and counted as `SkippedModified`.
 
 Always written by `--apply-plan`: `data/logs/tagfix-result.json` (schemaVersion 1):
 
-- `status`: `applied`, `partial` (some files failed), `nothing_to_do` (plan had no pending changes), `stale_plan`, `insufficient_disk`.
+- `status`: `applied`, `partial` (some files failed), `nothing_to_do` (plan had no pending changes), `stale_plan`, `insufficient_disk`, `files_in_use` (a planned file is locked by another program; nothing changed, close it and re-run).
 - `apply_locked` is the one exception: another apply holds `data/logs/tagfix-apply.lock` (or a stale lock could not be removed). It exits 1, changes nothing, and writes no `tagfix-result.json`, so an in-progress result is never overwritten. The lock is held for the whole apply and removed afterwards; a lock left by a crashed run is detected (nobody holds it) and removed by the next apply.
 - `oldFingerprint` (the reviewed plan) and `newFingerprint` (NewMusic now): on `stale_plan` they differ and a client offers a one-click re-plan.
 - `journal`: path of the journal, or null when the apply was refused. `bytesNeeded` and `bytesFree` for the disk check.

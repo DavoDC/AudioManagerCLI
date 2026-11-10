@@ -184,6 +184,29 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void Apply_LockedFile_RefusesWithFilesInUseBeforeTouchingAnything()
+        {
+            var e = NewEnv();
+            try
+            {
+                string a = Messy(e, "a.mp3");
+                string b = Messy(e, "b.mp3");
+                string plan = Plan(e);
+                using (new FileStream(b, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    var r = TagFixApplier.Apply(e.Folder, plan, e.Logs, e.Backups, e.Quarantine, Now);
+                    Assert.Equal("files_in_use", r.Status, "status");
+                    Assert.True(r.Failures.Count == 1 && r.Failures[0].Contains("b.mp3"), "names the locked file only");
+                    Assert.True(r.JournalPath == null, "no journal for a refused apply");
+                    Assert.True(File.Exists(a) && File.Exists(b), "files untouched");
+                    using (var f = TagLib.File.Create(a)) Assert.Equal("Song Title (feat. Guest)", f.Tag.Title, "unlocked file untouched too");
+                }
+                var ok = TagFixApplier.Apply(e.Folder, plan, e.Logs, e.Backups, e.Quarantine, Now.AddMinutes(1));
+                Assert.Equal("applied", ok.Status, "applies once the lock is gone");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void Apply_CrashMidRun_JournalShowsDoneAndPending()
         {
             var e = NewEnv();

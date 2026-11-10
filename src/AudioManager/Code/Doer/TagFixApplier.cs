@@ -29,7 +29,7 @@ namespace AudioManager
 
         internal class ApplyResult
         {
-            public string Status;            // applied | partial | nothing_to_do | stale_plan | insufficient_disk | apply_locked (no tagfix-result.json written)
+            public string Status;            // applied | partial | nothing_to_do | stale_plan | insufficient_disk | files_in_use | apply_locked (no tagfix-result.json written)
             public string PlanFingerprint;   // fingerprint stored in the reviewed plan
             public string CurrentFingerprint;// fingerprint of NewMusic when the apply started
             public string NewFingerprint;    // fingerprint of NewMusic after the apply (null when nothing was applied)
@@ -125,6 +125,17 @@ namespace AudioManager
                 return result;
             }
 
+            // Locked-file preflight: a planned file another program holds open (a player, a sync tool) would fail mid-run.
+            // Refuse up front, naming every such file, so the user closes them and re-runs; nothing is changed.
+            var inUse = planned.Where(l => IsLockedForWrite(l.SourcePath)).Select(l => Rel(folder, l.SourcePath)).ToList();
+            if (inUse.Count > 0)
+            {
+                result.Status = "files_in_use";
+                foreach (string name in inUse) result.Failures.Add(name + ": open in another program; close it and run again");
+                WriteResult(logsDir, result, now);
+                return result;
+            }
+
             // Disk check before anything is touched: backups need the planned files' bytes, plus 10% headroom.
             result.BytesNeeded = planned.Sum(l => SafeLength(l.SourcePath));
             Directory.CreateDirectory(backupRoot);
@@ -206,6 +217,14 @@ namespace AudioManager
             result.Status = result.Failed == 0 ? "applied" : "partial";
             WriteResult(logsDir, result, now);
             return result;
+        }
+
+        // True when the file cannot be opened exclusively for write right now (IO sharing violation or access refused).
+        private static bool IsLockedForWrite(string path)
+        {
+            try { using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { } return false; }
+            catch (IOException) { return true; }
+            catch (UnauthorizedAccessException) { return true; }
         }
 
         /// <summary>Reverts a journal written by Apply. Never touches a file whose tags changed since the apply.</summary>
