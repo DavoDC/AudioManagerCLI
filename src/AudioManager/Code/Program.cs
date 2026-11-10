@@ -545,6 +545,7 @@ namespace AudioManager
             Console.WriteLine("\nPre-integration validation...");
             string retryHint = PendingMirrorRetryHint(Constants.LogsPath);
             if (retryHint != null) Console.WriteLine(" - NOTE: " + retryHint);
+            if (jsonOutput) GateResultJson.ClearStale(Constants.LogsPath);
 
             try
             {
@@ -610,6 +611,11 @@ namespace AudioManager
             catch (Exception ex)
             {
                 Console.WriteLine($" - ERROR during pre-integration validation: {ex.Message}");
+                if (jsonOutput)
+                {
+                    try { GateResultJson.WriteError(Constants.LogsPath, ex.Message); }
+                    catch (Exception) { /* the stale file was already cleared; nothing more to do */ }
+                }
                 return false;
             }
         }

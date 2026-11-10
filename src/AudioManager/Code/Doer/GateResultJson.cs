@@ -31,6 +31,32 @@ namespace AudioManager
             return outPath;
         }
 
+        /// <summary>Removes an older gate file so a crashed gate can never leave a stale "passed". Missing folder or file is fine.</summary>
+        public static void ClearStale(string logsDir)
+        {
+            try
+            {
+                string p = Path.Combine(logsDir, OutputFileName);
+                if (File.Exists(p)) File.Delete(p);
+            }
+            catch (Exception) { /* best effort; WriteError or Write overwrites it anyway */ }
+        }
+
+        /// <summary>Writes status gate_error (the gate threw before it could decide) with the message.</summary>
+        public static void WriteError(string logsDir, string message)
+        {
+            if (!Directory.Exists(logsDir)) Directory.CreateDirectory(logsDir);
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine($"  \"schemaVersion\": {SchemaVersion},");
+            sb.AppendLine($"  \"generatedAt\": {JStr(DateTime.Now.ToString("s", CultureInfo.InvariantCulture))},");
+            sb.AppendLine("  \"status\": \"gate_error\",");
+            sb.AppendLine("  \"action\": \"fix_gate_error\",");
+            sb.AppendLine($"  \"error\": {JStr(message)}");
+            sb.AppendLine("}");
+            AtomicFile.WriteAllText(Path.Combine(logsDir, OutputFileName), sb.ToString(), new UTF8Encoding(false));
+        }
+
         /// <summary>Pure builder. mirrorStatusLines are raw 'git status --porcelain' lines; LastRunInfo.txt is ignored.</summary>
         public static string Build(Program.PreIntegrationGateResult result, IList<string> mirrorStatusLines, int libCheckerIssues, DateTime generatedAt)
         {
