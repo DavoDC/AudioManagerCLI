@@ -278,6 +278,17 @@ namespace AudioManager
             Assert.Equal("Justice|Tame Impala|SZA|King Gizzard", string.Join("|", result), "combined duplicate dropped");
         }
 
+        public static void ExtractAndFixArtists_BandNameWithAndThe_NotSplit()
+        {
+            // Real dry-run finding (SZA / Justice): "King Gizzard & The Lizard Wizard" became two artists.
+            List<string> a = TagFixer.ExtractAndFixArtists("Flower In A Hurricane (feat. SZA, King Gizzard & The Lizard Wizard)",
+                "Justice; Tame Impala");
+            Assert.Equal("Justice|Tame Impala|SZA|King Gizzard & The Lizard Wizard", string.Join("|", a), "feat band name kept whole");
+            List<string> b = TagFixer.ExtractAndFixArtists("Song",
+                "Justice; SZA; King Gizzard & The Lizard Wizard");
+            Assert.Equal("Justice|SZA|King Gizzard & The Lizard Wizard", string.Join("|", b), "existing band entry kept whole");
+        }
+
         // ---- Artist name variant override (Unicode diacritics -> canonical) ----
 
         public static void ExtractAndFixArtists_VariantArtistName_NormalizesToCanonical()

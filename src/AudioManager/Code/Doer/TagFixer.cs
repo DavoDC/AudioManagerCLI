@@ -676,7 +676,7 @@ namespace AudioManager
                         // Split "A & B" into individual artists so compound forms don't duplicate
                         // their components (e.g. "X & Y" when "X" and "Y" are already present).
                         // " and " and commas separate too (BL-60): the combined string is never added as one artist.
-                        var featParts = Regex.Split(match.Groups[1].Value.Trim(), @"\s+&\s+|\s+and\s+|\s*,\s*", RegexOptions.IgnoreCase)
+                        var featParts = Regex.Split(match.Groups[1].Value.Trim(), @"\s+&\s+(?!the\s)|\s+and\s+(?!the\s)|\s*,\s*", RegexOptions.IgnoreCase)
                             .Select(p => p.Trim())
                             .Where(p => !string.IsNullOrEmpty(p));
                         foreach (var featArtist in featParts)
