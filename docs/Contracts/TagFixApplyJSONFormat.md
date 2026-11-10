@@ -8,6 +8,7 @@ Commands (both mutate NewMusic; the plan comes from `tagfix --dry-run --json-out
 Always written by `--apply-plan`: `data/logs/tagfix-result.json` (schemaVersion 1):
 
 - `status`: `applied`, `partial` (some files failed), `nothing_to_do` (plan had no pending changes), `stale_plan`, `insufficient_disk`.
+- `apply_locked` is the one exception: another apply holds `data/logs/tagfix-apply.lock` (or a stale lock could not be removed). It exits 1, changes nothing, and writes no `tagfix-result.json`, so an in-progress result is never overwritten. The lock is held for the whole apply and removed afterwards; a lock left by a crashed run is detected (nobody holds it) and removed by the next apply.
 - `oldFingerprint` (the reviewed plan) and `newFingerprint` (NewMusic now): on `stale_plan` they differ and a client offers a one-click re-plan.
 - `journal`: path of the journal, or null when the apply was refused. `bytesNeeded` and `bytesFree` for the disk check.
 - `counts`: `applied`, `alreadyDone`, `failed`, `quarantined`, `needsManual`, `pendingAfter` (a fresh dry-run scan after the apply, so a second apply reports 0).

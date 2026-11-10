@@ -268,5 +268,56 @@ namespace AudioManager
             }
             finally { Cleanup(e); }
         }
+
+        public static void Apply_HeldLockFile_ReturnsApplyLockedAndTouchesNothing()
+        {
+            var e = NewEnv();
+            try
+            {
+                string path = Messy(e);
+                Directory.CreateDirectory(e.Logs);
+                string fp = Plan(e);
+                using (new FileStream(Path.Combine(e.Logs, "tagfix-apply.lock"), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
+                {
+                    var r = TagFixApplier.Apply(e.Folder, fp, e.Logs, e.Backups, e.Quarantine, Now);
+                    Assert.Equal("apply_locked", r.Status, "status");
+                    Assert.True(r.Failures.Count == 1, "one failure line explains the lock");
+                    Assert.True(!File.Exists(Path.Combine(e.Logs, TagFixApplier.ResultFileName)), "no tagfix-result.json written over an in-progress result");
+                    Assert.True(File.Exists(path), "file untouched");
+                    using (var f = TagLib.File.Create(path)) Assert.Equal("Song Title (feat. Guest)", f.Tag.Title, "tags untouched");
+                    Assert.True(!Directory.Exists(e.Backups) || !Directory.GetDirectories(e.Backups).Any(), "no backup made");
+                }
+            }
+            finally { Cleanup(e); }
+        }
+
+        public static void Apply_StaleUnheldLockFile_IsRemovedAndApplyProceeds()
+        {
+            var e = NewEnv();
+            try
+            {
+                Messy(e);
+                Directory.CreateDirectory(e.Logs);
+                string lockPath = Path.Combine(e.Logs, "tagfix-apply.lock");
+                File.WriteAllText(lockPath, "left behind by a crashed run");
+                var r = TagFixApplier.Apply(e.Folder, Plan(e), e.Logs, e.Backups, e.Quarantine, Now);
+                Assert.Equal("applied", r.Status, "a stale lock does not block the apply");
+                Assert.True(!File.Exists(lockPath), "lock file gone afterwards");
+            }
+            finally { Cleanup(e); }
+        }
+
+        public static void Apply_NormalRun_LeavesNoLockFileBehind()
+        {
+            var e = NewEnv();
+            try
+            {
+                Messy(e);
+                var r = TagFixApplier.Apply(e.Folder, Plan(e), e.Logs, e.Backups, e.Quarantine, Now);
+                Assert.Equal("applied", r.Status, "status");
+                Assert.True(!File.Exists(Path.Combine(e.Logs, "tagfix-apply.lock")), "no lock file after a normal run");
+            }
+            finally { Cleanup(e); }
+        }
     }
 }

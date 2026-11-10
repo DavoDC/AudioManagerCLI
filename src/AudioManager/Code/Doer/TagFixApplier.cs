@@ -25,10 +25,11 @@ namespace AudioManager
         public const int SchemaVersion = 1;
         public const string ResultFileName = "tagfix-result.json";
         public const int BackupRetentionDays = 7;
+        public const string LockFileName = "tagfix-apply.lock";
 
         internal class ApplyResult
         {
-            public string Status;            // applied | partial | nothing_to_do | stale_plan | insufficient_disk
+            public string Status;            // applied | partial | nothing_to_do | stale_plan | insufficient_disk | apply_locked (no tagfix-result.json written)
             public string PlanFingerprint;   // fingerprint stored in the reviewed plan
             public string CurrentFingerprint;// fingerprint of NewMusic when the apply started
             public string NewFingerprint;    // fingerprint of NewMusic after the apply (null when nothing was applied)
@@ -58,6 +59,50 @@ namespace AudioManager
         /// </summary>
         public static ApplyResult Apply(string folder, string planFingerprint, string logsDir, string backupRoot,
             string quarantineRoot, DateTime now, Func<string, long> freeSpace = null)
+        {
+            // One apply at a time: a second run would share the stamp, backups and journal. The lock is held for the whole call.
+            string lockPath = Path.Combine(logsDir, LockFileName);
+            FileStream lockStream = TryAcquireLock(logsDir);
+            if (lockStream == null)
+            {
+                var locked = new ApplyResult { PlanFingerprint = planFingerprint, Status = "apply_locked" };
+                locked.Failures.Add("another tagfix apply is running, or a stale lock file is at " + lockPath + " that could not be removed; nothing was changed");
+                return locked;
+            }
+            try
+            {
+                return ApplyUnderLock(folder, planFingerprint, logsDir, backupRoot, quarantineRoot, now, freeSpace);
+            }
+            finally
+            {
+                lockStream.Dispose();
+                try { File.Delete(lockPath); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+
+        // Returns the open lock on success, or null when a live apply holds it. A lock file nobody holds is stale
+        // (its process crashed): it is deleted and the lock taken again.
+        private static FileStream TryAcquireLock(string logsDir)
+        {
+            Directory.CreateDirectory(logsDir);
+            string lockPath = Path.Combine(logsDir, LockFileName);
+            try { return new FileStream(lockPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { return null; }
+            try
+            {
+                using (new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
+                File.Delete(lockPath);
+                return new FileStream(lockPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException) { return null; }
+            catch (UnauthorizedAccessException) { return null; }
+        }
+
+        private static ApplyResult ApplyUnderLock(string folder, string planFingerprint, string logsDir, string backupRoot,
+            string quarantineRoot, DateTime now, Func<string, long> freeSpace)
         {
             var result = new ApplyResult { PlanFingerprint = planFingerprint };
             var scan = TagFixer.ForFolder(folder, dryRun: true, quarantineRoot: quarantineRoot);
