@@ -320,7 +320,12 @@ namespace AudioManager
                 MarkInBatchDuplicates(scannedFiles);
 
                 // Step 2: Batch duplicate review - all duplicates presented together before routing
-                if (!RunDuplicateReview(scannedFiles, logEntries)) return;
+                if (!RunDuplicateReview(scannedFiles, logEntries))
+                {
+                    // A real run has already rewritten NewMusic tags by now; say so and point at the revertable plan flow.
+                    if (!dryRun) Console.WriteLine(QuitAfterTagFixNote());
+                    return;
+                }
 
                 // Step 3: Route files (all duplicate decisions already made)
                 int routeableCount = scannedFiles.Count(sf => sf.IsReadable && sf.Duplicate?.SkipRouting != true);
@@ -468,6 +473,13 @@ namespace AudioManager
             return true;
         }
 
+        /// <summary>Warning printed when a real run quits at duplicate review, after the real TagFixer has rewritten NewMusic.</summary>
+        internal static string QuitAfterTagFixNote()
+        {
+            return " - [WARN] Quit after tag fixes: NewMusic tags were already rewritten and nothing was routed. " +
+                "Use the tagfix plan flow (tagfix --dry-run --json-output, then --apply-plan) when you need a revertable journal.";
+        }
+
         /// <summary>The routed filename for a track: "Artists - Title.mp3", both parts sanitised.</summary>
         internal static string BuildDestFilename(Track track)
         {
@@ -490,13 +502,41 @@ namespace AudioManager
                 files = files.Where(keep).ToArray();
             if (files.Length == 0) return true; // the real pass reports "nothing to integrate" or the manifest error
 
-            var previewFixer = new TagFixer(newMusicRoot, true, keep, _artistSpellingChoices);
-            var newArtistFolders = RunScanAhead(files);
-            _previewTagFixer = previewFixer;
-            var scannedFiles = PreScanFiles(files, previewFixer.FileChanges, previewFixer.LogsByFile);
+            // The dry steps print their scan lines once here and again in the real pass, so they run quiet.
+            // The TagFixer constructor is included: it prints the dry header and does the dry scan itself.
+            TagFixer previewFixer;
+            HashSet<string> newArtistFolders;
+            List<ScannedFile> scannedFiles;
+            using (new QuietConsole())
+            {
+                previewFixer = new TagFixer(newMusicRoot, true, keep, _artistSpellingChoices);
+                newArtistFolders = RunScanAhead(files);
+                _previewTagFixer = previewFixer;
+                scannedFiles = PreScanFiles(files, previewFixer.FileChanges, previewFixer.LogsByFile);
+            }
             bool clear = RunMirrorPathGate(scannedFiles, newArtistFolders, mirrorPath);
             if (clear) Console.WriteLine(" - Pre-flight: mirror path gate passed on final tag values");
             return clear;
+        }
+
+        /// <summary>
+        /// Swaps Console.Out for TextWriter.Null until disposed. Dispose restores the writer that was current on
+        /// construction, also when the wrapped block throws (the using statement runs Dispose in a finally).
+        /// </summary>
+        private sealed class QuietConsole : IDisposable
+        {
+            private readonly TextWriter _original;
+
+            public QuietConsole()
+            {
+                _original = Console.Out;
+                Console.SetOut(TextWriter.Null);
+            }
+
+            public void Dispose()
+            {
+                Console.SetOut(_original);
+            }
         }
 
         /// <summary>
