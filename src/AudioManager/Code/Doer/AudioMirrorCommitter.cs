@@ -292,11 +292,16 @@ namespace AudioManager
         /// </summary>
         internal static GitRunResult RunGitDetailed(string workingDir, string args)
         {
+            // Git writes UTF-8 regardless of the console. Without an explicit encoding, .NET decodes stdout with the
+            // console code page, which is 850 under Git Bash and 65001 under PowerShell (BL-147: Björk became mojibake).
+            var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
             var psi = new ProcessStartInfo("git", args)
             {
                 WorkingDirectory = workingDir,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                StandardOutputEncoding = utf8,
+                StandardErrorEncoding = utf8,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
