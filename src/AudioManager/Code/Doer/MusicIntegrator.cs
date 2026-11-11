@@ -38,6 +38,8 @@ namespace AudioManager
         // Populated by RunScanAhead; used by GetDestDir to build full routing reason for Misc fallback
         private Dictionary<string, int> _scanAheadBatchCounts;
         private Dictionary<string, string> _scanAheadSpellings;
+        /// <summary>The run's TagFixer, so the dry-run preview applies keep= flags and custom rules like the real run.</summary>
+        private TagFixer _previewTagFixer;
         private Dictionary<string, int> _scanAheadMiscCounts;
         private Dictionary<string, int> _scanAheadSourcesCounts;
         // primaryArtist -> album -> count; avoids O(N*M) TagLib re-reads in CountAlbumSongs batch side
@@ -277,6 +279,7 @@ namespace AudioManager
                 var newArtistFolders = RunScanAhead(files);
 
                 // Pre-scan all files: read + clean tags, find duplicates (no UI)
+                _previewTagFixer = tagFixer;
                 var scannedFiles = PreScanFiles(files, tagChanges, tagFixer.LogsByFile);
 
                 // Flag in-batch duplicates (same normalised artist+title appearing twice in NewMusic)
@@ -2182,13 +2185,27 @@ namespace AudioManager
                     if (dryRun && !track.Title.Equals(Constants.MissingTag) && !track.Artists.Equals(Constants.MissingTag))
                     {
                         string rawTitle = track.Title;
-                        var simArtistList = TagFixer.ExtractAndFixArtists(rawTitle, track.Artists);
-                        track.Title = TagFixer.RemoveParentheticals(rawTitle);
-                        track.Artists = string.Join("; ", simArtistList);
-                        if (!track.Album.Equals(Constants.MissingTag))
-                            track.Album = RulesEngine.NormalizeAlbum(track.Album);
-                        if (TagFixer.ShouldFixGenre(track.Artists, track.Genres))
-                            track.Genres = TagFixer.DetermineGenre(track.Artists);
+                        if (_previewTagFixer != null)
+                        {
+                            // Same keep= flags and custom rules the real run applies.
+                            string rawAlbum = track.Album.Equals(Constants.MissingTag) ? "" : track.Album;
+                            var p = _previewTagFixer.PreviewFields(sourcePath, rawTitle, track.Artists, rawAlbum, track.Genres);
+                            track.Title = p.title;
+                            track.Artists = p.artists;
+                            track.Genres = p.genres;
+                            if (!track.Album.Equals(Constants.MissingTag))
+                                track.Album = RulesEngine.NormalizeAlbum(p.album);
+                        }
+                        else
+                        {
+                            var simArtistList = TagFixer.ExtractAndFixArtists(rawTitle, track.Artists);
+                            track.Title = TagFixer.RemoveParentheticals(rawTitle);
+                            track.Artists = string.Join("; ", simArtistList);
+                            if (!track.Album.Equals(Constants.MissingTag))
+                                track.Album = RulesEngine.NormalizeAlbum(track.Album);
+                            if (TagFixer.ShouldFixGenre(track.Artists, track.Genres))
+                                track.Genres = TagFixer.DetermineGenre(track.Artists);
+                        }
                     }
 
                     entry.Title = track.Title;

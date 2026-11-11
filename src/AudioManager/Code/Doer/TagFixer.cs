@@ -214,6 +214,35 @@ namespace AudioManager
         private readonly string quarantineRoot = Constants.QuarantinePath;
 
         /// <summary>
+        /// The cleaned field values ProcessFile would write for a file with these tags: built-in cleanup, then keep= flags
+        /// (config/tagfix-exceptions.xml) and custom rules. Pure, no file access; the dry-run routing preview uses it so
+        /// it agrees with the real run.
+        /// </summary>
+        internal (string title, string artists, string album, string genres) PreviewFields(string sourcePath, string title, string artists, string album, string genres)
+        {
+            string originalName = Path.GetFileName(sourcePath);
+            string originalRel = MusicIntegrator.RelToNewMusic(sourcePath);
+            bool keepTitle = exceptions.Keeps(originalName, "title", originalRel);
+            bool keepAlbum = exceptions.Keeps(originalName, "album", originalRel);
+            bool keepArtist = exceptions.Keeps(originalName, "artist", originalRel);
+            bool keepCasing = exceptions.Keeps(originalName, "casing", originalRel);
+
+            string cleanTitle = keepTitle ? title : StripTrailingCredit(RemoveParentheticals(title));
+            string cleanAlbum = keepAlbum ? album : StripAlbumSuffixes(RemoveParentheticals(album));
+            var artistList = keepArtist ? new List<string>() : ExtractAndFixArtists(title, artists, applyCasing: !keepCasing);
+            string cleanArtists = keepArtist ? artists : string.Join("; ", artistList);
+            string cleanGenres = ShouldFixGenre(cleanArtists, genres) ? DetermineGenre(cleanArtists) : genres;
+
+            var values = new TagFieldValues { Title = cleanTitle ?? "", Album = cleanAlbum ?? "", Artists = cleanArtists ?? "", Genre = cleanGenres ?? "" };
+            var protectedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (keepTitle) protectedFields.Add("title");
+            if (keepAlbum) protectedFields.Add("album");
+            if (keepArtist) protectedFields.Add("artists");
+            if (customRules != null) customRules.Apply(values, protectedFields);
+            return (values.Title, values.Artists, values.Album, values.Genre);
+        }
+
+        /// <summary>
         /// Reads, cleans, and (if not dry-run) writes ID3 tags for a single MP3 file, renaming
         /// it to match library convention. Returns the FixLog describing what changed.
         /// </summary>
