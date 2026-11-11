@@ -263,6 +263,12 @@ namespace AudioManager
 
                         // Restore any replace interrupted by a previous crash before scanning the library
                         if (!dryRun) ReplaceGuard.SweepOrphans(Constants.AudioFolderPath);
+                        else
+                        {
+                            var orphans = ReplaceGuard.ListOrphans(Constants.AudioFolderPath);
+                            foreach (string o in orphans)
+                                Console.WriteLine($"[DRY RUN] Leftover from an interrupted replace (a real run restores or removes it first): {o}");
+                        }
 
                         // Gate passed - proceed with integration
                         MusicIntegrator mi = new MusicIntegrator(dryRun, noInput, jsonOutput, manifest);

@@ -250,6 +250,27 @@ namespace AudioManager
         }
 
         /// <summary>
+        /// Read-only twin of SweepOrphans for a dry run: the full paths of every true "*.replaced.bak" and
+        /// "*.replaced.dest" under libraryRoot. Changes nothing.
+        /// </summary>
+        internal static List<string> ListOrphans(string libraryRoot)
+        {
+            var found = new List<string>();
+            if (string.IsNullOrEmpty(libraryRoot) || !Directory.Exists(libraryRoot)) return found;
+            try
+            {
+                foreach (string suffix in new[] { BakSuffix, MarkerSuffix })
+                    found.AddRange(Array.FindAll(Directory.GetFiles(libraryRoot, "*" + suffix, SearchOption.AllDirectories),
+                        p => p.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [WARN] Could not scan for staged backups under {libraryRoot}: {ex.Message}");
+            }
+            return found;
+        }
+
+        /// <summary>
         /// Startup sweep over libraryRoot. Every "*.replaced.bak" is resolved by ResolveOne: a bak whose
         /// landing marker proves the replace completed is dropped, a bak whose library sibling is missing
         /// is moved back, and a bak whose sibling exists is left in place with a WARN. Then every
