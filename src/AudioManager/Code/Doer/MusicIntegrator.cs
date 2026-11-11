@@ -811,6 +811,7 @@ namespace AudioManager
                 // Skip files fully resolved during duplicate execution (3a)
                 if (sf.Duplicate?.SkipRouting == true) continue;
 
+                List<string> createdDirs = null; // folders this file's move created; removed again if the move fails
                 try
                 {
                     Track track = sf.Track;
@@ -893,7 +894,7 @@ namespace AudioManager
                     {
                         if (sf.InBatchDuplicate)
                             Console.WriteLine($"[WARN: IN-BATCH DUPLICATE] {Path.GetFileName(sf.SourcePath)}");
-                        Directory.CreateDirectory(destDir);
+                        createdDirs = CreateDirectoryTracked(destDir);
                         if (_lStagedBySource.TryGetValue(sf.SourcePath, out string landingLibPath))
                             ReplaceGuard.MarkLanding(landingLibPath, destPath);
                         File.Move(sf.SourcePath, destPath);
@@ -923,9 +924,35 @@ namespace AudioManager
                     entry.Detail = $"routing failed: {ex.Message}";
                     logEntries.Add(entry); skippedCount++;
                     RollbackIfStaged(sf);
+                    RemoveEmptyCreatedDirs(createdDirs);
                 }
             }
             return dryRunRoutingOutputs;
+        }
+
+        /// <summary>Creates dir and any missing parents. Returns the folders this call created, deepest first.</summary>
+        private static List<string> CreateDirectoryTracked(string dir)
+        {
+            var created = new List<string>();
+            for (string d = dir; d != null && !Directory.Exists(d); d = Path.GetDirectoryName(d))
+                created.Add(d);
+            Directory.CreateDirectory(dir);
+            return created;
+        }
+
+        /// <summary>Removes folders a failed move left behind: only the ones created by its CreateDirectoryTracked call, and only while empty.</summary>
+        private static void RemoveEmptyCreatedDirs(List<string> created)
+        {
+            if (created == null) return;
+            foreach (string d in created)
+            {
+                try
+                {
+                    if (Directory.Exists(d) && Directory.GetFileSystemEntries(d).Length == 0)
+                        Directory.Delete(d);
+                }
+                catch (Exception) { /* best effort: a folder we cannot remove is left as it is */ }
+            }
         }
 
         /// <summary>
@@ -1307,7 +1334,8 @@ namespace AudioManager
 
         /// <summary>
         /// Cleans up empty subdirectories in the NewMusic staging folder after integration.
-        /// Only removes a directory if it contains zero files. If any files remain, warns and skips.
+        /// Removes every subfolder with no file at any depth, deepest first. A folder holding any file, and its
+        /// parents, are kept; the root is never removed. Remaining files are reported, never blocking the cleanup.
         /// No-op if NewMusic doesn't exist or has no subdirectories to clean.
         /// </summary>
         private void CleanupNewMusicFolder() => CleanupNewMusicFolder(Constants.NewMusicPath);
@@ -1360,20 +1388,30 @@ namespace AudioManager
         {
             if (!Directory.Exists(newMusicPath)) return;
 
-            // Gate: abort if any files remain (integration may have skipped some)
+            // A folder is kept when a file sits anywhere under it (its parents included); files that remain
+            // (integration skipped them, or they are leftovers like .tagfix.bak) never block the removal of
+            // folders with no file at any depth.
             var remainingFiles = Directory.GetFiles(newMusicPath, "*", SearchOption.AllDirectories);
-            if (remainingFiles.Length > 0)
+            var nonEmpty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string file in remainingFiles)
             {
-                Console.WriteLine($"\n[INFO] NewMusic cleanup skipped: {remainingFiles.Length} file(s) still remain. Review manually.");
-                return;
+                string dir = Path.GetDirectoryName(file);
+                while (dir != null && dir.Length > newMusicPath.Length && nonEmpty.Add(dir))
+                    dir = Path.GetDirectoryName(dir);
             }
 
             // Collect empty subdirectories, deepest first so parents are empty by the time we reach them
             var emptyDirs = Directory.GetDirectories(newMusicPath, "*", SearchOption.AllDirectories)
+                .Where(d => !nonEmpty.Contains(d))
                 .OrderByDescending(d => d.Length)
                 .ToList();
 
-            if (emptyDirs.Count == 0) return;
+            if (emptyDirs.Count == 0)
+            {
+                if (remainingFiles.Length > 0)
+                    Console.WriteLine($"\n[INFO] NewMusic cleanup: {remainingFiles.Length} file(s) remain, 0 empty folder(s) removed. Review remaining files manually.");
+                return;
+            }
 
             Console.WriteLine("\n===========================================================================");
             Console.WriteLine(dryRun ? "NewMusic Cleanup (Dry Run)" : "NewMusic Cleanup");
@@ -1413,6 +1451,10 @@ namespace AudioManager
             Console.WriteLine(dryRun
                 ? $"Would remove: {cleanedCount} empty folder(s)"
                 : $"Cleaned up: {cleanedCount} empty folder(s)");
+            if (remainingFiles.Length > 0)
+                Console.WriteLine(dryRun
+                    ? $"[INFO] NewMusic cleanup: {remainingFiles.Length} file(s) remain, {cleanedCount} empty folder(s) would be removed. Review remaining files manually."
+                    : $"[INFO] NewMusic cleanup: {remainingFiles.Length} file(s) remain, {cleanedCount} empty folder(s) removed. Review remaining files manually.");
         }
 
         /// <summary>

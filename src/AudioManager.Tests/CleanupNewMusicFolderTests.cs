@@ -5,8 +5,8 @@ namespace AudioManager
 {
     /// <summary>
     /// Covers MusicIntegrator.CleanupNewMusicFolder(string) through the path seam, on temp trees only.
-    /// Pins the real behaviour: the folder is left alone when any file remains (gate), and when it
-    /// holds only empty subdirectories those are removed deepest first. A missing folder is a no-op.
+    /// Pins the real behaviour: every subfolder with no file at any depth is removed deepest first, even
+    /// when files remain elsewhere; a folder holding any file, and the root, are never removed. A missing folder is a no-op.
     /// </summary>
     internal static class CleanupNewMusicFolderTests
     {
@@ -51,7 +51,9 @@ namespace AudioManager
             }
         }
 
-        public static void CleanupNewMusicFolder_FileRemains_SkipsAndKeepsEverything()
+        // Rule (replaces the old skip-everything gate): a folder with a file at any depth and its parents
+        // stay; an unrelated folder with no file anywhere under it is removed even while files remain.
+        public static void CleanupNewMusicFolder_FileRemains_KeepsFileBranchAndRemovesUnrelatedEmptyFolder()
         {
             string root = NewRoot();
             try
@@ -65,9 +67,12 @@ namespace AudioManager
                 string output = RunCleanup(root);
 
                 Assert.True(File.Exists(filePath), "a file still in NewMusic must not be deleted");
-                Assert.True(Directory.Exists(emptySub), "the gate must skip removal of empty folders while files remain");
-                Assert.True(output.Contains("NewMusic cleanup skipped: 1 file(s) still remain"),
-                    "the skip must be reported with the remaining file count, got: " + output);
+                Assert.True(Directory.Exists(Path.GetDirectoryName(filePath)), "a folder holding a file must stay");
+                Assert.True(!Directory.Exists(emptySub), "an unrelated empty folder must be removed even while files remain");
+                Assert.True(output.Contains("1 file(s) remain"),
+                    "the info line must report the remaining file count, got: " + output);
+                Assert.True(output.Contains("1 empty folder(s) removed"),
+                    "the info line must report the removed folder count, got: " + output);
             }
             finally
             {
