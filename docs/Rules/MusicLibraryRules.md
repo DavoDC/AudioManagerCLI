@@ -102,6 +102,13 @@ When an incoming track duplicates a library track and the incoming copy, AFTER T
   - David picks the spelling (2026-11-11): "yes with my approval and i choose name fo exmaple for charli i want the captilised form!!! XCX". The plan lists spelling candidates (`artistSpellingCandidates`, a suggestion only); a tag changes only when the manifest carries `artistSpellings` for that artist, through the normal tag fix path with backup and revert, and the folder then follows the chosen spelling. Unattended runs without a choice never change a tag. Contract: `docs/Contracts/RoutingJSONFormat.md`.
 <!-- /md-block: mirror-and-artist-folder-decisions -->
 
+<!-- md-block: david-decisions-2026-11-11 -->
+## David Decisions 2026-11-11: Versions, Album Counts, Review Values
+- **Version or original text in a title ("Alternate Version", "Multilingual Version", "[From ...: Original Score]") is decided case by case.** The engine never retags it and never allow-lists it; the LibChecker `unwanted_text` hit stays visible so David decides per track.
+- **One song from an album is a Single; two or more, counting the library (album folder AND Singles/) plus the batch, form an album folder.** Routing counts library Singles songs of the same album, so a batch track joins an existing single's album; the single that is already in Singles/ is then an `album_in_singles` hit until it is moved into the album folder (library move, see the fix-command plan).
+- **Every review screen shows the FINAL values** (after tag fixes and normalisation), never pre-fix values. Hence tag fixes run first, then duplicate review, then the MAX_PATH gate, then integrate.
+<!-- /md-block: david-decisions-2026-11-11 -->
+
 ---
 
 ## Folder: Artists
