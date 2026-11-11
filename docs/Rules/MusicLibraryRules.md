@@ -92,6 +92,12 @@ When an incoming track duplicates a library track and the incoming copy, AFTER T
 - Example: library `Miscellaneous Songs\The Avalanches - Frankie Sinatra.mp3` has only The Avalanches; incoming "Frankie Sinatra (ft. Danny Brown & MF DOOM)" becomes artists The Avalanches;Danny Brown;MF DOOM after Tag Fix -> keep incoming. After L the library copy is replaced and the file routes by the normal rules.
 - Status: policy only, not yet built (backlog). Until built, answer the duplicate prompt L for such tracks.
 
+<!-- md-block: mirror-and-artist-folder-decisions -->
+## Mirror Commit And Artist Folder Decisions (David, 2026-11-11)
+- **Mirror commit is blocked by issues.** David: "COMMITS on audioamirror repo shuld be blocked if there are issues!" Any LibChecker hit leaves the mirror files regenerated on disk but uncommitted (`mirror-result.json` status `libchecker_issues`, hits listed in `hits[]`). Pinned by `MirrorResult_LibCheckerIssues_GivesLibcheckerIssuesAndNeverCommits`.
+- **Artist folder matches the artist tag as closely as possible.** David: "artist folder should mathc artist name closely as psosible to keep things simple". An existing folder keeps its on-disk spelling; a new folder takes the most frequent tag spelling in the batch (ordinal-first on a tie). When the folder still cannot equal the tag (case, or a stripped symbol such as the registered mark), the routing reason carries a `[review: tag 'X' but folder 'Y'; ...]` note. The engine never renames a library folder or changes a tag on its own; David fixes the tag or the folder, then LibChecker clears.
+<!-- /md-block: mirror-and-artist-folder-decisions -->
+
 ---
 
 ## Folder: Artists

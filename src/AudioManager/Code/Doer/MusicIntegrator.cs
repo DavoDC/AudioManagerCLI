@@ -37,6 +37,7 @@ namespace AudioManager
         private Dictionary<string, List<string>> _miscMigrationCandidates = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         // Populated by RunScanAhead; used by GetDestDir to build full routing reason for Misc fallback
         private Dictionary<string, int> _scanAheadBatchCounts;
+        private Dictionary<string, string> _scanAheadSpellings;
         private Dictionary<string, int> _scanAheadMiscCounts;
         private Dictionary<string, int> _scanAheadSourcesCounts;
         // primaryArtist -> album -> count; avoids O(N*M) TagLib re-reads in CountAlbumSongs batch side
@@ -867,6 +868,7 @@ namespace AudioManager
             // Count artists in the incoming batch; also map album -> distinct primary artists for compilation detection.
             // Cache raw tag data here so PreScanFiles avoids a second TagLib read per file.
             var batchCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var spellings = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var batchAlbumCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
             var albumArtists = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
             var tagCache = new Dictionary<string, (string artists, string title, string album, string genres, uint year)>(StringComparer.OrdinalIgnoreCase);
@@ -888,6 +890,8 @@ namespace AudioManager
                         string primary = fixedArtists.Count > 0 ? fixedArtists[0].Trim() : Track.ProcessProperty(artists)[0].Trim();
                         if (string.IsNullOrEmpty(primary)) continue;
                         batchCounts[primary] = batchCounts.ContainsKey(primary) ? batchCounts[primary] + 1 : 1;
+                        if (!spellings.TryGetValue(primary, out var spellList)) spellings[primary] = spellList = new List<string>();
+                        spellList.Add(primary);
                         string album = tf.Tag.Album;
                         if (!string.IsNullOrEmpty(album) && !album.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase))
                         {
@@ -1035,6 +1039,8 @@ namespace AudioManager
 
             // Store counts so GetDestDir can build a full routing reason for Misc fallback
             _scanAheadBatchCounts = batchCounts;
+            _scanAheadSpellings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in spellings) _scanAheadSpellings[kv.Key] = ChooseCanonicalSpelling(kv.Value);
             _scanAheadBatchAlbumCounts = batchAlbumCounts;
             _scanAheadMiscCounts = miscCounts;
             _scanAheadSourcesCounts = sourcesCounts;
@@ -2587,15 +2593,25 @@ namespace AudioManager
             }
 
             string primaryArtist2 = track.PrimaryArtist;
-            string artistFolder = Path.Combine(_libraryPath, Constants.ArtistsDir, SanitiseFolderName(primaryArtist2));
+            string artistsRoot = Path.Combine(_libraryPath, Constants.ArtistsDir);
+            string wantedName = SanitiseFolderName(primaryArtist2);
+            string onDiskName = FindDirNameIgnoreCase(artistsRoot, wantedName);
+            bool scanAheadNewFolder = newArtistFolders.Contains(primaryArtist2);
+            // Existing folder keeps its on-disk spelling; a new folder takes the batch's most frequent tag spelling.
+            string folderName = onDiskName
+                ?? (scanAheadNewFolder && _scanAheadSpellings != null && _scanAheadSpellings.TryGetValue(primaryArtist2, out string canon)
+                    ? SanitiseFolderName(canon) : wantedName);
+            string artistFolder = Path.Combine(artistsRoot, folderName);
 
             // Artist folder exists OR scan-ahead says this artist needs a new one
-            bool existingArtistFolder = Directory.Exists(artistFolder);
-            bool scanAheadNewFolder = newArtistFolders.Contains(primaryArtist2);
+            bool existingArtistFolder = onDiskName != null;
             bool routeToArtists = existingArtistFolder || scanAheadNewFolder;
             if (routeToArtists)
             {
                 string scanNote = scanAheadNewFolder ? " [new via scan-ahead]" : "";
+                // The folder cannot match the tag exactly (case or a stripped symbol): say so, never rename anything.
+                if (!folderName.Equals(primaryArtist2, StringComparison.Ordinal))
+                    scanNote += $" [review: tag '{primaryArtist2}' but folder '{folderName}'; the engine never renames a folder or changes a tag]";
 
                 if (!track.Album.Equals(Constants.MissingTag))
                 {
@@ -2649,6 +2665,31 @@ namespace AudioManager
                 : "No artist folder found in library";
             isNewFolder = false;
             return Path.Combine(_libraryPath, Constants.MiscDir);
+        }
+
+        /// <summary>Most frequent spelling among the tags (ordinal compare); a tie picks the ordinal-first spelling.</summary>
+        internal static string ChooseCanonicalSpelling(IEnumerable<string> tags)
+        {
+            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (string t in tags) counts[t] = counts.ContainsKey(t) ? counts[t] + 1 : 1;
+            string best = null;
+            foreach (var kv in counts)
+                if (best == null || kv.Value > counts[best] || (kv.Value == counts[best] && string.CompareOrdinal(kv.Key, best) < 0))
+                    best = kv.Key;
+            return best;
+        }
+
+        /// <summary>The on-disk name of a child folder of parent matching name ignoring case, or null.</summary>
+        private static string FindDirNameIgnoreCase(string parent, string name)
+        {
+            if (!Directory.Exists(parent)) return null;
+            foreach (string d in Directory.GetDirectories(parent))
+            {
+                string n = Path.GetFileName(d);
+                if (n.Equals(name, StringComparison.OrdinalIgnoreCase)) return n;
+            }
+            // Windows normalises some names (a trailing dot is dropped), so the folder exists though no listed name matches.
+            return Directory.Exists(Path.Combine(parent, name)) ? name : null;
         }
 
         /// <summary>
