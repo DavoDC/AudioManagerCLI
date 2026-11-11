@@ -90,6 +90,25 @@ namespace AudioManager
             }
         }
 
+        public static void ProcessFile_NoChoiceForArtist_TagIsNotChangedByTheChoiceMachinery()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            Directory.CreateDirectory(dir);
+            try
+            {
+                TagFixerTests.CreateSilentMp3Fixture(dir, "Other Band - Song.mp3", "Song", "Album", "Other Band");
+                TagFixer.ScanFolderForTesting(dir, dryRun: false, artistSpellingChoices: CharliChoice());
+                using (var tf = TagLib.File.Create(Directory.GetFiles(dir, "*.mp3")[0]))
+                    Assert.Equal("Other Band", tf.Tag.FirstPerformer ?? "", "an artist without a chosen spelling keeps its tag");
+                var none = TagFixer.ForTesting(dryRun: true);
+                Assert.Equal("Charli xcx", none.ApplyChosenSpellings(new List<string> { "Charli xcx" })[0], "no choices: names pass through unchanged");
+            }
+            finally
+            {
+                try { Directory.Delete(dir, true); } catch (Exception) { /* temp cleanup only */ }
+            }
+        }
+
         public static void FolderSpellingFor_ChosenSpellingWinsOverFrequency()
         {
             // The frequency pick (fallback) says "Charli xcx"; the manifest choice must win for the folder.

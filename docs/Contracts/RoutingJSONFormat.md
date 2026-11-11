@@ -65,6 +65,12 @@ Top-level array, present on every routing and execution record and empty (`[]`) 
 
 The target library's own tracks are not scanned for this block.
 
+### Choosing a spelling: `--manifest` object form
+
+The manifest may be the bare array (unchanged, no spelling choices) or an object: `{"tracks": [ ...same entries as the bare array... ], "artistSpellings": [{"key": "<candidate key>", "spelling": "Charli XCX"}]}`. `key` is a candidate's `key`; `spelling` is the exact text David chose, which need not be one of the observed spellings but must reduce to the same key (case and stripped symbols), otherwise the choice is ignored with a warning and nothing changes. A duplicate key keeps the first choice.
+
+A chosen spelling is the only way a tag is changed for spelling reasons. It is written to batch files only, through the normal tag fix path (backup, journal, revert), overrides `keep=artist` for that artist, and makes the artist folder follow it. Misc songs that migrate and library tracks are not retagged, so any that carry another spelling stay LibChecker hits. With no object form, or no choice for an artist, no tag is changed. David's words: "i choose name for example for charli i want the captilised form!!! XCX".
+
 ## Preview stamp: `newMusicFingerprint`, `previewStale`
 
 A dry-run routing record carries top-level `newMusicFingerprint`: SHA-256 over every mp3 under NewMusic (relative path, size, last-write ticks), taken before Tag Fix runs. A real run's execution record carries `previewFingerprint` (the stamp of the newest `routing-*.json`, or null when there is none) and `previewStale`: `false` when NewMusic still matches that preview, `true` when it changed since (the run also prints a `[WARN] preview_stale` line), `null` when no stamped preview exists. A client that shows a reviewed preview should treat `previewStale: true` as "the decisions were made on a different folder".

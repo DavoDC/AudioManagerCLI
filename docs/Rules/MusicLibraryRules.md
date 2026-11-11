@@ -99,6 +99,7 @@ When an incoming track duplicates a library track and the incoming copy, AFTER T
   - The folder name is the tag run through the folder-name sanitiser (a registered mark and similar symbols are stripped), so `BNYX®` lives in `BNYX`; LibChecker compares tag and folder after the same sanitising, so that is not a hit.
   - An existing Artists folder that differs from the tag only by case is renamed to the tag spelling at integrate time: journaled to `artist-folder-rename-*.json` before the first rename, revertable from that journal, listed in the plan. Never a rename across different names.
   - Mixed spellings of one artist (batch tags plus the Misc songs that migrate with them): the folder takes the most frequent spelling (ordinal-first on a tie). Tracks tagged otherwise get a `[review: tag 'X' but folder 'Y'; tag not edited, fix the tag]` note in their routing reason and stay LibChecker hits until David fixes the tag. Tags are never edited silently.
+  - David picks the spelling (2026-11-11): "yes with my approval and i choose name fo exmaple for charli i want the captilised form!!! XCX". The plan lists spelling candidates (`artistSpellingCandidates`, a suggestion only); a tag changes only when the manifest carries `artistSpellings` for that artist, through the normal tag fix path with backup and revert, and the folder then follows the chosen spelling. Unattended runs without a choice never change a tag. Contract: `docs/Contracts/RoutingJSONFormat.md`.
 <!-- /md-block: mirror-and-artist-folder-decisions -->
 
 ---
