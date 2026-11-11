@@ -62,6 +62,8 @@ namespace AudioManager
         // Library-side album song count cache: "artist\0album" -> count. Avoids O(N) Directory.GetFiles
         // calls when the same artist+album appears multiple times in a batch (e.g. 6 Blueprint tracks).
         private Dictionary<string, int> _albumLibraryCountCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        // Library Singles album tags: artist -> normalised album -> song count. Each Singles folder is read once per artist.
+        private Dictionary<string, Dictionary<string, int>> _librarySinglesAlbumCache = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
         // Library paths deleted by L-decisions during real integration; used in RunMiscMigration
         // to distinguish "deleted by dup resolution" from "genuinely stale mirror".
         private HashSet<string> _lDeletedLibraryPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2980,6 +2982,10 @@ namespace AudioManager
                 libCount = albumFolder != null
                     ? Directory.GetFiles(albumFolder, "*.mp3", SearchOption.AllDirectories).Length
                     : 0;
+                // Album Subfolder Rule: library songs of this album in Singles/ count too.
+                // Skipped when the album folder IS Singles/, which is already counted above.
+                if (!string.Equals(albumFolder, Path.Combine(artistFolder, "Singles"), StringComparison.OrdinalIgnoreCase))
+                    libCount += CountLibrarySinglesOfAlbum(artist, artistFolder, album);
                 _albumLibraryCountCache[cacheKey] = libCount;
             }
 
@@ -2990,6 +2996,41 @@ namespace AudioManager
                 byAlbum.TryGetValue(album, out batchCount);
 
             return libCount + batchCount;
+        }
+
+        /// <summary>
+        /// Counts library songs in Artists/{artist}/Singles/ whose album tag (normalised) equals album.
+        /// Each artist's Singles folder is read once and cached. Unreadable files are skipped.
+        /// </summary>
+        private int CountLibrarySinglesOfAlbum(string artist, string artistFolder, string album)
+        {
+            if (!_librarySinglesAlbumCache.TryGetValue(artist, out var byAlbum))
+            {
+                byAlbum = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                string singlesFolder = Path.Combine(artistFolder, "Singles");
+                try
+                {
+                    if (Directory.Exists(singlesFolder))
+                    {
+                        foreach (string file in Directory.GetFiles(singlesFolder, "*.mp3"))
+                        {
+                            string fileAlbum;
+                            try
+                            {
+                                using (TagLib.File tf = TagLib.File.Create(file))
+                                    fileAlbum = tf.Tag.Album;
+                            }
+                            catch { continue; }
+                            if (string.IsNullOrEmpty(fileAlbum)) continue;
+                            string key = RulesEngine.NormalizeAlbum(fileAlbum);
+                            byAlbum[key] = byAlbum.TryGetValue(key, out int n) ? n + 1 : 1;
+                        }
+                    }
+                }
+                catch { /* filesystem errors: count what was read */ }
+                _librarySinglesAlbumCache[artist] = byAlbum;
+            }
+            return byAlbum.TryGetValue(RulesEngine.NormalizeAlbum(album), out int count) ? count : 0;
         }
 
         /// <summary>
