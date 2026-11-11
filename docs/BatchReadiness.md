@@ -18,6 +18,8 @@ Verdict in `readiness.json`: `ready` (no routing errors, no projected LibChecker
 
 Copies the real NewMusic, library and mirror (a real copy, never a hardlink) into `<WorkDir>\root`, runs tier 1 there, and with `-Integrate` builds a manifest from the routing record (object form, `-SpellingFromSuggested` adds one `artistSpellings` choice per candidate using the suggested spelling), integrates the copy through a subst drive, and saves `execution-*.json`, `mirror-result.json` and `integrate-gate.json` under `tier2\`. The real sources are snapshotted before and after; any change fails the run. `rehearsal.json` records the tier 1 verdict, the mirror status and the execution counts. The work folder gets a README whose first line is a `DELETE-AFTER:` date. If NewMusic is edited while the script runs, the guard fires: rerun.
 
+Phase order and the integrate pre-flight that keeps a blocked run from touching tags: [DevContext.md](DevContext.md), section Phase Order And Pre-flight.
+
 ## Reading the result
 
 The rehearsal's `mirror-result.json` `hits[]` is the list of hits a real integrate would leave (`kind`, `path`, `detail`, see [MirrorResultJSONFormat.md](Contracts/MirrorResultJSONFormat.md)). Hits that need David's decision (version or original text in titles, album tracks in Singles, duplicate choices) are expected and are not engine faults.

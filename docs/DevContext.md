@@ -264,6 +264,11 @@ This is exactly how the dry-run `[DRY RUN] Would route to:` line is computed for
 
 **`RunMiscMigration`'s `!File.Exists(libPath)` check has two distinct causes:** (1) genuinely stale mirror entry (MP3 deleted from library before this run) or (2) L-decision deleted the file earlier in this same run. The `_lDeletedLibraryPaths` HashSet (populated in Step 3a when `ReplaceGuard.Stage(dup.LibraryFilePath)` stages the library copy, MusicIntegrator.cs:450-453; removed again on rollback, MusicIntegrator.cs:502 and :511) disambiguates these. Check it before printing WARN: if path is in set, print `[INFO] Already deleted by duplicate resolution` instead. Reuse this pattern if other post-routing cleanup passes face the same ambiguity.
 
+<!-- md-block: phase-order-preflight -->
+## MusicIntegrator: Phase Order And Pre-flight (David, 2026-11-11)
+Review screens show FINAL values (after tag fixes and normalisation), see [MusicLibraryRules.md](Rules/MusicLibraryRules.md). A real `integrate` therefore runs `PreflightMirrorGate` first: a dry TagFixer, the same manifest file selection, scan-ahead, pre-scan and the MAX_PATH gate, writing nothing. A block returns before the real TagFixer, so NewMusic tags and names stay untouched. Only then do the real tag fixes, duplicate review, execution and routing run. The GUI order (tagfix plan, apply, dry integrate, gate, integrate) is in [GoLiveRunbook.md](GoLiveRunbook.md). Pre-flight counts a later-D duplicate in its projection (errs toward blocking). Not covered: an interactive `Q` at duplicate review after the tag fix (the GUI uses `--no-input`).
+<!-- /md-block: phase-order-preflight -->
+
 ## Workflow Rules (moved from CLAUDE.md 2026-07-02)
 
 - **LibChecker-warning priority (TIER 1 threshold):** Any bug, routing gap, or config issue that would cause LibChecker to report a warning is TIER 1. LibChecker warnings mean non-conformant library state that compounds with every integration run. Concrete test: "would `CheckAlbumSubfolderRule()`, `CheckGenreVsFolder()`, or any other LibChecker rule fire on this?" If yes - stop, add to the backlog TIER 1 immediately, address before any other work in the session.

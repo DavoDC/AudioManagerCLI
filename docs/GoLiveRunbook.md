@@ -10,6 +10,7 @@ One page for the first real integration through the GUI. The library and NewMusi
 - Note the baseline: music files in NewMusic (desktop.ini files are ignored by the engine, so 189 files on disk is 187 music files plus 2 desktop.ini).
 
 ## Steps (what the GUI runs, and what to check)
+Order (David, 2026-11-11): tag fixes first, then review, then the MAX_PATH gate, then integrate, so every review screen shows the FINAL values, never pre-fix ones (rule: [MusicLibraryRules.md](Rules/MusicLibraryRules.md)). A direct real `integrate` also runs a read-only pre-flight (dry tag fix plus the MAX_PATH gate) before it writes any tag, so a blocked run leaves NewMusic untouched; the routing record then carries the top-level `blocked` object, no new JSON fields.
 1. **Tag Fix plan** (`tagfix --dry-run --json-output`): writes `logs/tagfix-plan.json`. Check the counts: pending, needsManual (must be 0 or reviewed), renames, quarantines. Nothing on disk changes.
 2. **Apply** (`tagfix --apply-plan`): changes tags and filenames, writes byte backups under `data/backups/<stamp>/`, a journal and `logs/tagfix-result.json`. Check `status` is `applied` and `failed` is 0. A `stale_plan` means NewMusic changed since the plan: nothing was touched, re-run step 1.
 3. **Dry-run integrate again** (`integrate --dry-run --json-output --no-input`). The preview made BEFORE the apply is stale after it (it predicts the old names), so always re-run it now. Check `summary.counts` (files, routed, skipped, errors, libraryDuplicates) and the gate JSON status.
