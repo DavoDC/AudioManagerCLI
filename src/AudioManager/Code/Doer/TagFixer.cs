@@ -94,11 +94,12 @@ namespace AudioManager
         /// <summary>One FixLog per scanned mp3, in scan order. Read by TagFixPlanJson.</summary>
         public List<FixLog> Results { get; } = new List<FixLog>();
 
-        public TagFixer(bool dryRun = false, Func<string, bool> fileFilter = null)
+        public TagFixer(bool dryRun = false, Func<string, bool> fileFilter = null, IDictionary<string, string> artistSpellingChoices = null)
         {
             this.dryRun = dryRun;
             this.customRules = TagFixCustomRuleSet.Load();
             this.exceptions = TagFixExceptions.Load();
+            this.artistSpellingChoices = CopyChoices(artistSpellingChoices);
             string modeLabel = dryRun ? " [DRY RUN - no files will be modified]" : "";
             Console.WriteLine($"\nFixing music tags...{modeLabel}");
 
@@ -177,18 +178,18 @@ namespace AudioManager
         /// ProcessFile() directly against a fixture path without touching the real inbox.
         /// Pass customRulesPath to load custom rules from a fixture file instead of the repo config.
         /// </summary>
-        internal static TagFixer ForTesting(bool dryRun, string customRulesPath = null, string quarantineRoot = null, string exceptionsPath = null)
+        internal static TagFixer ForTesting(bool dryRun, string customRulesPath = null, string quarantineRoot = null, string exceptionsPath = null, IDictionary<string, string> artistSpellingChoices = null)
         {
-            return new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot, exceptionsPath: exceptionsPath);
+            return new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot, exceptionsPath: exceptionsPath, artistSpellingChoices: artistSpellingChoices);
         }
 
         /// <summary>
         /// Test-only: runs the same scan and processing as the public constructor against folder instead of
         /// Constants.NewMusicPath, so the plan JSON can be exercised on a temp fixture folder.
         /// </summary>
-        internal static TagFixer ScanFolderForTesting(string folder, bool dryRun, string customRulesPath = null, string quarantineRoot = null, Func<string, bool> fileFilter = null)
+        internal static TagFixer ScanFolderForTesting(string folder, bool dryRun, string customRulesPath = null, string quarantineRoot = null, Func<string, bool> fileFilter = null, IDictionary<string, string> artistSpellingChoices = null)
         {
-            var tagFixer = new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot);
+            var tagFixer = new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot, artistSpellingChoices: artistSpellingChoices);
             tagFixer.ScanAndProcess(folder, fileFilter);
             return tagFixer;
         }
@@ -199,12 +200,44 @@ namespace AudioManager
             return ScanFolderForTesting(folder, dryRun, quarantineRoot: quarantineRoot);
         }
 
-        private TagFixer(bool dryRun, bool skipScan, string customRulesPath = null, string quarantineRoot = null, string exceptionsPath = null)
+        private TagFixer(bool dryRun, bool skipScan, string customRulesPath = null, string quarantineRoot = null, string exceptionsPath = null, IDictionary<string, string> artistSpellingChoices = null)
         {
             this.dryRun = dryRun;
             this.customRules = TagFixCustomRuleSet.Load(customRulesPath);
             this.exceptions = TagFixExceptions.Load(exceptionsPath);
             this.quarantineRoot = quarantineRoot ?? Constants.QuarantinePath;
+            this.artistSpellingChoices = CopyChoices(artistSpellingChoices);
+        }
+
+        // Manifest-chosen artist spellings (object manifest form), keyed by ArtistSpellingCandidates.SpellingKey.
+        // Empty means no choices, so tags are cleaned exactly as before.
+        private readonly Dictionary<string, string> artistSpellingChoices = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        private static Dictionary<string, string> CopyChoices(IDictionary<string, string> choices) =>
+            choices == null
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(choices, StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Replaces each artist that has a manifest-chosen spelling. Applied after keep=, so keep=artist does not block it.</summary>
+        internal List<string> ApplyChosenSpellings(List<string> names)
+        {
+            if (artistSpellingChoices.Count == 0) return names;
+            return names.Select(ChosenSpellingOr).ToList();
+        }
+
+        /// <summary>Text form of ApplyChosenSpellings for the keep=artist path; returns the input unchanged when nothing matches.</summary>
+        internal string ApplyChosenSpellingsToText(string text)
+        {
+            if (artistSpellingChoices.Count == 0 || string.IsNullOrEmpty(text)) return text;
+            var names = text.Split(';').Select(p => p.Trim()).Where(p => p.Length > 0).ToList();
+            var mapped = names.Select(ChosenSpellingOr).ToList();
+            return mapped.SequenceEqual(names) ? text : string.Join("; ", mapped);
+        }
+
+        private string ChosenSpellingOr(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return name;
+            return artistSpellingChoices.TryGetValue(ArtistSpellingCandidates.SpellingKey(name), out string chosen) ? chosen : name;
         }
 
         /// <summary>
@@ -229,8 +262,8 @@ namespace AudioManager
 
             string cleanTitle = keepTitle ? title : StripTrailingCredit(RemoveParentheticals(title));
             string cleanAlbum = keepAlbum ? album : StripAlbumSuffixes(RemoveParentheticals(album));
-            var artistList = keepArtist ? new List<string>() : ExtractAndFixArtists(title, artists, applyCasing: !keepCasing);
-            string cleanArtists = keepArtist ? artists : string.Join("; ", artistList);
+            var artistList = keepArtist ? new List<string>() : ApplyChosenSpellings(ExtractAndFixArtists(title, artists, applyCasing: !keepCasing));
+            string cleanArtists = keepArtist ? ApplyChosenSpellingsToText(artists) : string.Join("; ", artistList);
             string cleanGenres = ShouldFixGenre(cleanArtists, genres) ? DetermineGenre(cleanArtists) : genres;
 
             var values = new TagFieldValues { Title = cleanTitle ?? "", Album = cleanAlbum ?? "", Artists = cleanArtists ?? "", Genre = cleanGenres ?? "" };
@@ -312,9 +345,9 @@ namespace AudioManager
                 // Apply built-in tag cleanup rules (unchanged - custom rules run after these)
                 string cleanTitle = keepTitle ? title : StripTrailingCredit(RemoveParentheticals(title));
                 string cleanAlbum = keepAlbum ? album : StripAlbumSuffixes(RemoveParentheticals(album));
-                // keep=artist: artists stay exactly as read (no feat. split from the title).
-                var artistList = keepArtist ? new List<string>() : ExtractAndFixArtists(title, artists, applyCasing: !keepCasing);
-                string cleanArtists = keepArtist ? artists : string.Join("; ", artistList);
+                // keep=artist: artists stay exactly as read (no feat. split from the title); a manifest-chosen spelling still applies.
+                var artistList = keepArtist ? new List<string>() : ApplyChosenSpellings(ExtractAndFixArtists(title, artists, applyCasing: !keepCasing));
+                string cleanArtists = keepArtist ? ApplyChosenSpellingsToText(artists) : string.Join("; ", artistList);
 
                 bool tcmpNeeded = !id3.IsCompilation;
                 bool genreNeeded = ShouldFixGenre(cleanArtists, genres);

@@ -53,6 +53,8 @@ namespace AudioManager
         // noInput branch so a review-stage duplicate resolution overrides the exe's own
         // recommendation on a real run. Never used to weaken the accept/decline partition.
         private IntegrationManifest _manifest;
+        // Manifest-chosen artist spellings (object manifest form). Passed to TagFixer for batch files and used to name folders.
+        private Dictionary<string, string> _artistSpellingChoices = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         // Raw tag data cached from RunScanAhead so PreScanFiles avoids a second TagLib read per file
         private Dictionary<string, (string artists, string title, string album, string genres, uint year)> _batchTagCache;
         // Library-side album song count cache: "artist\0album" -> count. Avoids O(N) Directory.GetFiles
@@ -220,6 +222,11 @@ namespace AudioManager
             this.noInput = noInput;
             this.jsonOutput = jsonOutput;
             this._manifest = manifest;
+            if (manifest != null)
+            {
+                _artistSpellingChoices = manifest.ArtistSpellings;
+                foreach (string warning in manifest.SpellingWarnings) Console.WriteLine($" - [WARN] {warning}");
+            }
             _libraryPath = Constants.AudioFolderPath;
             string modeLabel = dryRun ? " [DRY RUN - no files will be moved]" : "";
             Console.WriteLine($"\nIntegrating new music...{modeLabel}");
@@ -242,7 +249,7 @@ namespace AudioManager
 
                 // Step 1: Fix tags in NewMusic folder
                 // A manifest declines files before Tag Fix too: declined files are never rewritten, renamed or quarantined.
-                var tagFixer = new TagFixer(dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))));
+                var tagFixer = new TagFixer(dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))), _artistSpellingChoices);
                 var tagChanges = tagFixer.FileChanges;
 
                 var files = Directory.Exists(Constants.NewMusicPath)
@@ -1065,7 +1072,7 @@ namespace AudioManager
             _scanAheadSpellings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var kv in spellings)
             {
-                _scanAheadSpellings[kv.Key] = ChooseCanonicalSpelling(kv.Value);
+                _scanAheadSpellings[kv.Key] = FolderSpellingFor(kv.Key, _artistSpellingChoices, ChooseCanonicalSpelling(kv.Value));
                 var distinct = new HashSet<string>(kv.Value, StringComparer.Ordinal);
                 if (distinct.Count > 1)
                     Console.WriteLine($"  [review] '{kv.Key}' is spelled {distinct.Count} ways in the batch and Misc ({string.Join(", ", distinct)}); folder uses '{_scanAheadSpellings[kv.Key]}', tracks tagged otherwise are listed in their routing reason. Tags are not edited.");
@@ -2754,6 +2761,18 @@ namespace AudioManager
         }
 
         /// <summary>Most frequent spelling among the tags (ordinal compare); a tie picks the ordinal-first spelling.</summary>
+        /// <summary>
+        /// Folder spelling for an artist: the manifest-chosen spelling when one exists for its key, otherwise the
+        /// frequency pick (fallback). A chosen spelling always wins, so the folder follows the tags it was given.
+        /// </summary>
+        internal static string FolderSpellingFor(string spellingKey, IDictionary<string, string> choices, string fallback)
+        {
+            if (choices != null && spellingKey != null &&
+                choices.TryGetValue(ArtistSpellingCandidates.SpellingKey(spellingKey), out string chosen))
+                return chosen;
+            return fallback;
+        }
+
         internal static string ChooseCanonicalSpelling(IEnumerable<string> tags)
         {
             var counts = new Dictionary<string, int>(StringComparer.Ordinal);

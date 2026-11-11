@@ -38,6 +38,10 @@ namespace AudioManager
 
         internal List<Entry> Entries = new List<Entry>();
 
+        // Manifest-chosen artist spellings (object form only), keyed by ArtistSpellingCandidates.SpellingKey.
+        internal readonly Dictionary<string, string> ArtistSpellings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        internal readonly List<string> SpellingWarnings = new List<string>();
+
         private HashSet<string> candidateNames;
         private readonly Dictionary<string, Entry> candidateToEntry =
             new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
@@ -76,7 +80,10 @@ namespace AudioManager
             return manifest;
         }
 
-        /// <summary>Parses the JSON text (array of flat string-valued objects).</summary>
+        /// <summary>
+        /// Parses the JSON text. Two shapes: the bare array of flat string-valued objects (no spelling choices),
+        /// or {"tracks": [...], "artistSpellings": [{"key": "...", "spelling": "..."}]}.
+        /// </summary>
         internal static IntegrationManifest Parse(string text, out string error)
         {
             error = null;
@@ -89,9 +96,10 @@ namespace AudioManager
 
             int i = 0;
             SkipWhitespace(text, ref i);
+            if (i < text.Length && text[i] == '{') return ParseObjectForm(text, out error);
             if (i >= text.Length || text[i] != '[')
             {
-                error = "manifest must be a JSON array";
+                error = "manifest must be a JSON array or object";
                 return null;
             }
             i++; // past [
@@ -228,6 +236,114 @@ namespace AudioManager
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Object form. The tracks array is parsed by the bare-array rules; each artistSpellings choice is kept only when
+        /// its spelling's SpellingKey equals its key (OrdinalIgnoreCase). Other choices are dropped with a warning.
+        /// </summary>
+        private static IntegrationManifest ParseObjectForm(string text, out string error)
+        {
+            error = null;
+            var manifest = new IntegrationManifest();
+            string tracksText = null, spellingsText = null;
+            int i = 0;
+            SkipWhitespace(text, ref i);
+            i++; // past {
+            while (true)
+            {
+                SkipWhitespace(text, ref i);
+                if (i >= text.Length) { error = "unterminated manifest object"; return null; }
+                if (text[i] == '}') break;
+                if (text[i] == ',') { i++; continue; }
+                if (text[i] != '"') { error = $"expected key string at position {i}"; return null; }
+
+                string key = ParseString(text, ref i, out error);
+                if (key == null) return null;
+                SkipWhitespace(text, ref i);
+                if (i >= text.Length || text[i] != ':') { error = $"expected ':' at position {i}"; return null; }
+                i++;
+                SkipWhitespace(text, ref i);
+
+                int start = i;
+                SkipValue(text, ref i);
+                string value = text.Substring(start, i - start);
+                if (key.Equals("tracks", StringComparison.OrdinalIgnoreCase)) tracksText = value;
+                else if (key.Equals("artistSpellings", StringComparison.OrdinalIgnoreCase)) spellingsText = value;
+            }
+
+            if (tracksText == null || tracksText.Length == 0 || tracksText[0] != '[')
+            {
+                error = "manifest object needs a \"tracks\" array";
+                return null;
+            }
+            var tracks = Parse(tracksText, out error);
+            if (tracks == null) return null;
+            manifest.Entries.AddRange(tracks.Entries);
+
+            if (spellingsText != null && !ParseSpellingArray(spellingsText, manifest, out error)) return null;
+            manifest.BuildCandidates();
+            return manifest;
+        }
+
+        private static bool ParseSpellingArray(string text, IntegrationManifest manifest, out string error)
+        {
+            error = null;
+            if (text.Length == 0 || text[0] != '[') { error = "artistSpellings must be a JSON array"; return false; }
+            int i = 1;
+            while (true)
+            {
+                SkipWhitespace(text, ref i);
+                if (i >= text.Length) { error = "unterminated artistSpellings array"; return false; }
+                if (text[i] == ']') return true;
+                if (text[i] == ',') { i++; continue; }
+                if (text[i] != '{') { error = $"unexpected character '{text[i]}' in artistSpellings"; return false; }
+
+                var fields = ParseFlatObject(text, ref i, out error);
+                if (fields == null) return false;
+                fields.TryGetValue("key", out string key);
+                fields.TryGetValue("spelling", out string spelling);
+                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(spelling))
+                {
+                    error = "artistSpellings entry needs a key and a spelling";
+                    return false;
+                }
+                if (!string.Equals(ArtistSpellingCandidates.SpellingKey(spelling), key, StringComparison.OrdinalIgnoreCase))
+                {
+                    manifest.SpellingWarnings.Add($"artistSpellings '{key}' -> '{spelling}' ignored: the spelling does not match its artist key");
+                    continue;
+                }
+                if (manifest.ArtistSpellings.ContainsKey(key))
+                {
+                    manifest.SpellingWarnings.Add($"artistSpellings '{key}' is listed twice; the first choice is kept");
+                    continue;
+                }
+                manifest.ArtistSpellings[key] = spelling;
+            }
+        }
+
+        /// <summary>Skips one JSON value (string, nested array/object, or bare token) starting at i.</summary>
+        private static void SkipValue(string s, ref int i)
+        {
+            if (i < s.Length && s[i] == '"') { ParseString(s, ref i, out _); return; }
+            if (i < s.Length && (s[i] == '[' || s[i] == '{'))
+            {
+                int depth = 0;
+                while (i < s.Length)
+                {
+                    char c = s[i];
+                    if (c == '"') { ParseString(s, ref i, out _); continue; }
+                    if (c == '[' || c == '{') depth++;
+                    else if (c == ']' || c == '}')
+                    {
+                        depth--;
+                        if (depth == 0) { i++; return; }
+                    }
+                    i++;
+                }
+                return;
+            }
+            while (i < s.Length && s[i] != ',' && s[i] != '}') i++;
         }
 
         // ------------------------------------------------ minimal JSON pieces
