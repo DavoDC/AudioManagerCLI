@@ -91,8 +91,8 @@ namespace AudioManager
 
         public static void ExtractAndFixArtists_BareFeaturingMovesNamesToArtists()
         {
-            List<string> result = TagFixer.ExtractAndFixArtists("360 featuring robyn & yung lean", "Charli xcx");
-            Assert.True(result.SequenceEqual(new[] { "Charli xcx", "robyn", "yung lean" }), "names split once, not recased: " + string.Join("|", result));
+            List<string> result = TagFixer.ExtractAndFixArtists("360 featuring robyn & yung lean", "bladee");
+            Assert.True(result.SequenceEqual(new[] { "bladee", "robyn", "yung lean" }), "names split once, not recased: " + string.Join("|", result));
             List<string> dedup = TagFixer.ExtractAndFixArtists("360 featuring robyn & yung lean", "Charli xcx; Robyn; Yung Lean");
             Assert.True(dedup.Count == 3, "no duplicates when the artist already lists the names");
         }
@@ -294,8 +294,8 @@ namespace AudioManager
         public static void ExtractAndFixArtists_FeatWithAnd_SplitsOnceNeverCombined()
         {
             // BL-60: 'feat. Kim Petras and Jay Park' added a combined 'Kim Petras And Jay Park' extra entry.
-            List<string> result = TagFixer.ExtractAndFixArtists("Charli xcx (feat. Kim Petras and Jay Park)", "Charli xcx; Kim Petras; Jay Park");
-            Assert.Equal("Charli xcx|Kim Petras|Jay Park", string.Join("|", result), "each name once, source casing");
+            List<string> result = TagFixer.ExtractAndFixArtists("bladee (feat. Kim Petras and Jay Park)", "bladee; Kim Petras; Jay Park");
+            Assert.Equal("bladee|Kim Petras|Jay Park", string.Join("|", result), "each name once, source casing");
         }
 
         public static void ExtractAndFixArtists_CommaJoinedExistingEntryDroppedWhenSplitNamesPresent()
