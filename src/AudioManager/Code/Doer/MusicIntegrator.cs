@@ -1360,7 +1360,12 @@ namespace AudioManager
                             Console.WriteLine($"[DRY RUN] Would move: {fileName}");
                             string oldArtist = ReadCaseOnlyArtistEntry(libPath, artist);
                             if (oldArtist != null)
+                            {
                                 Console.WriteLine($"[DRY RUN] Would retag artist '{oldArtist}' -> '{artist}': {fileName}");
+                                string plannedRename = RetagRenameTarget(Path.Combine(destFolder, fileName), oldArtist, artist);
+                                if (plannedRename != null)
+                                    Console.WriteLine($"[DRY RUN] Would rename '{fileName}' -> '{Path.GetFileName(plannedRename)}'");
+                            }
                             totalCount++;
                         }
                     }
@@ -1390,6 +1395,23 @@ namespace AudioManager
                                     move.RetagTo = artist;
                                     WriteMiscMigrationJournal(journalDir, journalPath, journaledMoves);
                                     Console.WriteLine($"  Retagged artist '{oldArtist}' -> '{artist}': {fileName}");
+
+                                    // BL-151: the file name takes the folder spelling too; a failed rename keeps the name and the move
+                                    string renamedPath = RetagRenameTarget(destPath, oldArtist, artist);
+                                    if (renamedPath != null)
+                                    {
+                                        try
+                                        {
+                                            File.Move(destPath, renamedPath);
+                                            move.To = renamedPath;
+                                            WriteMiscMigrationJournal(journalDir, journalPath, journaledMoves);
+                                            Console.WriteLine($"  Renamed: {fileName} -> {Path.GetFileName(renamedPath)}");
+                                        }
+                                        catch (Exception nex)
+                                        {
+                                            Console.WriteLine($"  [WARN] Rename failed for {fileName} (the name is kept): {nex.Message}");
+                                        }
+                                    }
                                 }
                                 catch (Exception rex)
                                 {
@@ -1432,6 +1454,45 @@ namespace AudioManager
                 Console.WriteLine($"  [WARN] Could not read tags for the artist retag check: {Path.GetFileName(path)}: {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// BL-151: the file name with its artist entry equal to oldEntry (ignoring case) replaced by newEntry, or null when
+        /// no entry matches. Only the artist part before the first " - " is read; entries there are separated by "; ".
+        /// </summary>
+        internal static string RetaggedFileName(string fileName, string oldEntry, string newEntry)
+        {
+            int sep = fileName.IndexOf(" - ", StringComparison.Ordinal);
+            if (sep <= 0) return null;
+            string[] entries = fileName.Substring(0, sep).Split(new[] { "; " }, StringSplitOptions.None);
+            bool changed = false;
+            for (int i = 0; i < entries.Length; i++)
+            {
+                if (string.Equals(entries[i], oldEntry, StringComparison.OrdinalIgnoreCase) && !string.Equals(entries[i], newEntry, StringComparison.Ordinal))
+                {
+                    entries[i] = newEntry;
+                    changed = true;
+                }
+            }
+            return changed ? string.Join("; ", entries) + fileName.Substring(sep) : null;
+        }
+
+        /// <summary>
+        /// BL-151: the renamed path for a retagged file at currentPath, or null when no rename is due. A name held by
+        /// another file gives a WARN and null, so the old name is kept. A name differing from the current one only by case
+        /// is the same file on Windows, so it is not a clash.
+        /// </summary>
+        private static string RetagRenameTarget(string currentPath, string oldEntry, string newEntry)
+        {
+            string newName = RetaggedFileName(Path.GetFileName(currentPath), oldEntry, newEntry);
+            if (newName == null) return null;
+            string target = Path.Combine(Path.GetDirectoryName(currentPath), newName);
+            if (File.Exists(target) && !string.Equals(target, currentPath, StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine($"  [WARN] Rename skipped, '{newName}' already exists: {Path.GetFileName(currentPath)}");
+                return null;
+            }
+            return target;
         }
 
         private static string CaseOnlyArtistEntry(string[] entries, string artist)

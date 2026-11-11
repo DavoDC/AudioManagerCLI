@@ -7,6 +7,7 @@ namespace AudioManager
 {
     /// <summary>
     /// BL-149: a Misc song migrated for artist X gets its ARTIST tag retagged when it differs from X only in letter case.
+    /// BL-151: the same retag also renames the file so its artist text takes the folder spelling.
     /// ENG-80: a failed Misc move removes the Singles folder the migration created. Every test works on a temp library
     /// under %TEMP% that it creates and deletes, never the real library.
     /// </summary>
@@ -17,7 +18,7 @@ namespace AudioManager
             public string Lib, JournalDir, Song, Dest, SinglesDir;
         }
 
-        private static Fixture NewFixture(string tagArtist)
+        private static Fixture NewFixture(string tagArtist, string fileName = "Tj Hickey - Good Song.mp3")
         {
             var f = new Fixture
             {
@@ -26,10 +27,10 @@ namespace AudioManager
             };
             string miscDir = Path.Combine(f.Lib, Constants.MiscDir);
             Directory.CreateDirectory(miscDir);
-            f.Song = Path.Combine(miscDir, "Tj Hickey - Good Song.mp3");
-            TagFixerTests.CreateSilentMp3Fixture(miscDir, "Tj Hickey - Good Song.mp3", "Good Song", "Album", tagArtist);
+            f.Song = Path.Combine(miscDir, fileName);
+            TagFixerTests.CreateSilentMp3Fixture(miscDir, fileName, "Good Song", "Album", tagArtist);
             f.SinglesDir = Path.Combine(f.Lib, Constants.ArtistsDir, "TJ Hickey", Constants.SinglesDir);
-            f.Dest = Path.Combine(f.SinglesDir, "Tj Hickey - Good Song.mp3");
+            f.Dest = Path.Combine(f.SinglesDir, fileName);
             return f;
         }
 
@@ -57,6 +58,15 @@ namespace AudioManager
         private static string[] ReadAlbumArtists(string path)
         {
             using (var tf = TagLib.File.Create(path)) return tf.Tag.AlbumArtists ?? new string[0];
+        }
+
+        /// <summary>File names in dir with their exact on-disk spelling (File.Exists cannot tell case apart on Windows).</summary>
+        private static List<string> ExactNames(string dir)
+        {
+            var names = new List<string>();
+            if (Directory.Exists(dir))
+                foreach (string p in Directory.GetFiles(dir)) names.Add(Path.GetFileName(p));
+            return names;
         }
 
         private static MusicIntegrator NewIntegrator(Fixture f, bool dryRun)
@@ -109,7 +119,7 @@ namespace AudioManager
             return sw.ToString();
         }
 
-        public static void RealRun_CaseOnlyArtistTag_IsRetaggedAndJournaled()
+        public static void RealRun_CaseOnlyArtistTag_IsRetaggedRenamedAndJournaled()
         {
             var f = NewFixture("Tj Hickey");
             try
@@ -118,12 +128,16 @@ namespace AudioManager
                 int failed = RunMigration(NewIntegrator(f, dryRun: false), "TJ Hickey", f.Song);
 
                 Assert.Equal("0", failed.ToString(), "a case-only retag must not count as a failure");
-                Assert.True(File.Exists(f.Dest), "the song moves to the artist's Singles folder");
-                Assert.Equal("TJ Hickey", ReadPerformers(f.Dest)[0], "ARTIST tag retagged to the folder spelling");
-                Assert.Equal("TJ Hickey", ReadAlbumArtists(f.Dest)[0], "ALBUM ARTIST tag retagged to the folder spelling");
+                string renamed = Path.Combine(f.SinglesDir, "TJ Hickey - Good Song.mp3");
+                Assert.True(ExactNames(f.SinglesDir).Contains("TJ Hickey - Good Song.mp3"), "the file name takes the folder spelling of the artist");
+                Assert.True(!ExactNames(f.SinglesDir).Contains("Tj Hickey - Good Song.mp3"), "the old file name is gone from Singles");
+                Assert.Equal("TJ Hickey", ReadPerformers(renamed)[0], "ARTIST tag retagged to the folder spelling");
+                Assert.Equal("TJ Hickey", ReadAlbumArtists(renamed)[0], "ALBUM ARTIST tag retagged to the folder spelling");
 
                 var moves = JournalMoves(JournalPath(f));
                 Assert.Equal("1", moves.Count.ToString(), "one journaled move");
+                Assert.Equal(f.Song, (string)moves[0]["from"], "journal from stays the original Misc path");
+                Assert.Equal(renamed, (string)moves[0]["to"], "journal to is the renamed path");
                 Assert.True(moves[0].ContainsKey("retag"), "journal move carries a retag field");
                 var retag = (Dictionary<string, object>)moves[0]["retag"];
                 Assert.Equal("artist", (string)retag["field"], "retag field is artist");
@@ -133,7 +147,7 @@ namespace AudioManager
             finally { Cleanup(f); }
         }
 
-        public static void DryRun_CaseOnlyArtistTag_ChangesNothingAndPrintsWouldRetag()
+        public static void DryRun_CaseOnlyArtistTag_ChangesNothingAndPrintsWouldRetagAndWouldRename()
         {
             var f = NewFixture("Tj Hickey");
             try
@@ -141,10 +155,12 @@ namespace AudioManager
                 string output = CaptureConsole(() => RunMigration(NewIntegrator(f, dryRun: true), "TJ Hickey", f.Song));
 
                 Assert.True(File.Exists(f.Song), "a dry run leaves the song where it is");
-                Assert.True(!File.Exists(f.Dest), "a dry run moves nothing");
+                Assert.True(!Directory.Exists(f.SinglesDir), "a dry run moves nothing");
                 Assert.Equal("Tj Hickey", ReadPerformers(f.Song)[0], "a dry run leaves the tag alone");
                 Assert.True(output.Contains("[DRY RUN] Would retag artist 'Tj Hickey' -> 'TJ Hickey': Tj Hickey - Good Song.mp3"),
                     "dry run prints the Would retag line");
+                Assert.True(output.Contains("[DRY RUN] Would rename 'Tj Hickey - Good Song.mp3' -> 'TJ Hickey - Good Song.mp3'"),
+                    "dry run prints the Would rename line");
                 Assert.Equal("0", Directory.Exists(f.JournalDir) ? Directory.GetFiles(f.JournalDir).Length.ToString() : "0", "a dry run writes no journal");
             }
             finally { Cleanup(f); }
@@ -163,6 +179,7 @@ namespace AudioManager
                 Assert.Equal("1", moves.Count.ToString(), "one journaled move");
                 Assert.True(!moves[0].ContainsKey("retag"), "no retag field when the tag already matches exactly");
                 Assert.Equal("TJ Hickey", ReadPerformers(f.Dest)[0], "tag unchanged");
+                Assert.Equal(f.Dest, (string)moves[0]["to"], "journal to is the unchanged destination when nothing was renamed");
             }
             finally { Cleanup(f); }
         }
@@ -175,32 +192,49 @@ namespace AudioManager
                 SetArtistTags(f.Song, new[] { "Tj Hickey", "Other" }, new[] { "Tj Hickey", "Other" });
                 RunMigration(NewIntegrator(f, dryRun: false), "TJ Hickey", f.Song);
 
-                string[] performers = ReadPerformers(f.Dest);
+                string renamed = Path.Combine(f.SinglesDir, "TJ Hickey - Good Song.mp3");
+                string[] performers = ReadPerformers(renamed);
                 Assert.Equal("2", performers.Length.ToString(), "both performers are kept");
                 Assert.Equal("TJ Hickey", performers[0], "the matching entry takes the folder spelling");
                 Assert.Equal("Other", performers[1], "the other performer is untouched");
-                string[] albumArtists = ReadAlbumArtists(f.Dest);
+                string[] albumArtists = ReadAlbumArtists(renamed);
                 Assert.Equal("TJ Hickey", albumArtists[0], "the matching album artist takes the folder spelling");
                 Assert.Equal("Other", albumArtists[1], "the other album artist is untouched");
             }
             finally { Cleanup(f); }
         }
 
-        public static void Revert_RestoresLocationAndOldArtistTag()
+        public static void RealRun_EntryListInFileName_OnlyTheMatchingEntryIsRenamed()
+        {
+            var f = NewFixture("Tj Hickey", "Tj Hickey; Nate Good - sea side nights.mp3");
+            try
+            {
+                SetArtistTags(f.Song, new[] { "Tj Hickey", "Nate Good" }, new[] { "Tj Hickey", "Nate Good" });
+                RunMigration(NewIntegrator(f, dryRun: false), "TJ Hickey", f.Song);
+
+                Assert.True(ExactNames(f.SinglesDir).Contains("TJ Hickey; Nate Good - sea side nights.mp3"),
+                    "only the matching artist entry in the file name takes the folder spelling");
+                Assert.True(!ExactNames(f.SinglesDir).Contains("Tj Hickey; Nate Good - sea side nights.mp3"), "the old file name is gone");
+            }
+            finally { Cleanup(f); }
+        }
+
+        public static void Revert_RestoresOriginalNameLocationAndOldArtistTag()
         {
             var f = NewFixture("Tj Hickey");
             try
             {
                 SetArtistTags(f.Song, new[] { "Tj Hickey" }, new[] { "Tj Hickey" });
                 RunMigration(NewIntegrator(f, dryRun: false), "TJ Hickey", f.Song);
-                Assert.True(File.Exists(f.Dest), "precondition: the song was migrated");
+                Assert.True(ExactNames(f.SinglesDir).Contains("TJ Hickey - Good Song.mp3"), "precondition: the song was migrated and renamed");
 
                 MethodInfo revert = typeof(MusicIntegrator).GetMethod("RevertMiscMigration", BindingFlags.Instance | BindingFlags.NonPublic);
                 Assert.True(revert != null, "RevertMiscMigration(string journalPath) must exist");
                 revert.Invoke(NewIntegrator(f, dryRun: false), new object[] { JournalPath(f) });
 
-                Assert.True(File.Exists(f.Song), "revert moves the song back to Misc");
-                Assert.True(!File.Exists(f.Dest), "revert removes the migrated copy");
+                string miscDir = Path.GetDirectoryName(f.Song);
+                Assert.True(ExactNames(miscDir).Contains("Tj Hickey - Good Song.mp3"), "revert moves the song back to Misc under its original name");
+                Assert.Equal("0", ExactNames(f.SinglesDir).Count.ToString(), "revert removes the migrated copy");
                 Assert.Equal("Tj Hickey", ReadPerformers(f.Song)[0], "revert restores the old ARTIST tag");
                 Assert.Equal("Tj Hickey", ReadAlbumArtists(f.Song)[0], "revert restores the old ALBUM ARTIST tag");
             }
