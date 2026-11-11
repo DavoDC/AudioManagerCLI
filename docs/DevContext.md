@@ -274,6 +274,11 @@ Review screens show FINAL values (after tag fixes and normalisation), see [Music
 - **`LibraryFixer` (`--libfix-plan`, `--libfix-apply <plan>`, `--libfix-revert <journal>`) fixes tracks already in the library; first kind is `album_in_singles`.** Plan is read-only; apply refuses (`refused`, `stale_plan`) before moving anything, journals after every move, and never touches NewMusic or paths outside `Artists`. Format: [Contracts/LibFixJSONFormat.md](Contracts/LibFixJSONFormat.md).
 <!-- /md-block: libfix-commands -->
 
+<!-- md-block: batch-check -->
+## Batch Check (one command, one summary)
+`powershell -NoProfile -File scripts/dev/batch-rehearsal.ps1 -Exe <AudioManager.exe> -WorkDir <new folder under TEMP> -Integrate` copies the real NewMusic, library and mirror, runs tier 1, a real integrate and `--libfix-plan` on the copy, then writes `summary.md` and `summary.json` and prints the summary. Nobody reads raw JSON. The verdict rule, the diff against the previous `rehearsal-*` sibling and the root-copy clean-up (skipped with `-KeepCopy`, only on `pass`) are in `batch-rehearsal.ps1`; full usage in [BatchReadiness.md](BatchReadiness.md).
+<!-- /md-block: batch-check -->
+
 ## Workflow Rules (moved from CLAUDE.md 2026-07-02)
 
 - **LibChecker-warning priority (TIER 1 threshold):** Any bug, routing gap, or config issue that would cause LibChecker to report a warning is TIER 1. LibChecker warnings mean non-conformant library state that compounds with every integration run. Concrete test: "would `CheckAlbumSubfolderRule()`, `CheckGenreVsFolder()`, or any other LibChecker rule fire on this?" If yes - stop, add to the backlog TIER 1 immediately, address before any other work in the session.

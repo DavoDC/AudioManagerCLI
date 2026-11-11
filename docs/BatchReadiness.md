@@ -2,6 +2,18 @@
 
 Two scripts in `scripts/dev/` answer "is this NewMusic batch safe to integrate?" without moving a file in the real folders. This is the single source for how to run them.
 
+<!-- md-block: one-command -->
+## One command: `batch-rehearsal.ps1 -Integrate`
+
+This is the way to check a batch. One command, one file to read: `summary.md`.
+
+`powershell -NoProfile -File scripts/dev/batch-rehearsal.ps1 -Exe <AudioManager.exe> -WorkDir <new folder under TEMP\AudioManagerCLI\rehearsal-<date>> -Integrate [-KeepCopy] [-SpellingFromSuggested]`
+
+It copies NewMusic, the library and the mirror (real copies, the real folders are only read and checked unchanged), runs tier 1, a real integrate on the copy and `--libfix-plan` on the copy, then writes `summary.md` and `summary.json` in the work folder and prints the summary. A run takes about four minutes.
+
+`summary.md` has a fixed shape: verdict (`pass`, `review` or `fail`), counts (files, routed, skipped, errors, libraryDuplicates, mirror status, libfix moves planned, sourcesUnchanged), a hits-by-kind table, the changes since the previous `rehearsal-*` run in the same parent folder (`new: <kind> +N`, `gone: <kind> -N`, or `first run`), and `Needs David`: each hit kind that needs a human decision, with the first five paths. On `pass` the script deletes its own `root` copy (not the summary); `-KeepCopy` keeps it. The work folder keeps a README whose first line is a `DELETE-AFTER:` date.
+<!-- /md-block: one-command -->
+
 ## Tier 1: `batch-readiness.ps1` (read-only)
 
 Runs `integrate --dry-run --json-output --no-input`, then writes `readiness.json` and `readiness.md` to `-OutDir`.

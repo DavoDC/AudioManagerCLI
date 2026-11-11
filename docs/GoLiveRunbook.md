@@ -3,7 +3,7 @@
 One page for the first real integration through the GUI. The library and NewMusic are NOT backed up: stop on anything unexpected and do not retry blindly.
 
 ## Before you start
-- To check a batch without touching real folders, run the readiness and rehearsal scripts: [BatchReadiness.md](BatchReadiness.md).
+- To check a batch without touching real folders, run ONE command, `batch-rehearsal.ps1 -Integrate`, and read its `summary.md` (verdict, counts, hits by kind, changes since the last run, items needing David): [BatchReadiness.md](BatchReadiness.md).
 - Close anything that holds music files open (players, taggers, sync clients).
 - Titles: the Tag Fix plan shows before/after; the title and artist rules are in [MusicLibraryRules.md](Rules/MusicLibraryRules.md).
 - Make sure the AudioMirror repo has no uncommitted changes (the gate checks this and blocks with `mirror_stale`).
