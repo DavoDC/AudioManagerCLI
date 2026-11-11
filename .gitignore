@@ -364,3 +364,5 @@ data/logs/*
 
 # Tag Fix byte backups (apply-plan)
 data/backups/
+
+__pycache__/
