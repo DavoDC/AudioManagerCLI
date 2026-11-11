@@ -64,6 +64,7 @@ CONTRACT = {
     "tagfix-apply-result": "TagFixApplyJSONFormat.md",
     "tagfix-apply-result-stale-plan": "TagFixApplyJSONFormat.md",
     "tagfix-apply-result-files-in-use": "TagFixApplyJSONFormat.md",
+    "tagfix-apply-result-partial": "TagFixApplyJSONFormat.md",
     "tagfix-journal": "TagFixApplyJSONFormat.md",
     "libfix-plan": "LibFixJSONFormat.md",
     "libfix-journal": "LibFixJSONFormat.md",
@@ -333,7 +334,7 @@ OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL = 3, 0x80
 
 
 @contextmanager
-def held_open(path: Path):
+def held_open(path: Path, share: int = FILE_SHARE_READ | FILE_SHARE_WRITE):
     """Hold path open for reading, as a player does, with read/write sharing so the engine can still read it to plan.
     The engine's write probe (ReadWrite, FileShare.None) then fails, which is how a file open in another program looks.
     A fully exclusive handle (FileShare.None) also blocks the plan scan, so the file is never planned. Closed on exit."""
@@ -344,7 +345,7 @@ def held_open(path: Path):
     kernel32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
                                      wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
     kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
-    handle = kernel32.CreateFileW(str(path), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, None, OPEN_EXISTING,
+    handle = kernel32.CreateFileW(str(path), GENERIC_READ, share, None, OPEN_EXISTING,
                                   FILE_ATTRIBUTE_NORMAL, None)
     if handle in (None, 0, ctypes.c_void_p(-1).value):
         raise RuntimeError(f"could not hold {path.name} open (WinError {ctypes.get_last_error()})")
@@ -440,6 +441,13 @@ def build_edges(exe: Path, root: Path, goldens: dict) -> None:
     with held_open(root / "NewMusic" / "03 - Some Song (Explicit).mp3"):
         r.run(["tagfix", "--apply-plan"])
     capture(goldens, r, "tagfix-apply-result-files-in-use", logs, "tagfix-result.json", {"status": "files_in_use"})
+
+    # Partial: one file is open exclusively (share 0), so the apply scan cannot read it. It was never planned; the
+    # other planned files are applied and the unreadable one is listed as a failure (exit 1, status partial).
+    r.run(["tagfix", "--dry-run", "--json-output", "--no-input"])
+    with held_open(root / "NewMusic" / "03 - Some Song (Explicit).mp3", share=0):
+        r.run(["tagfix", "--apply-plan"])
+    capture(goldens, r, "tagfix-apply-result-partial", logs, "tagfix-result.json", {"status": "partial"})
 
     # Plan again (nothing changed) and apply, so routing sees the Tag Fix output as the main flow does.
     r.run(["tagfix", "--dry-run", "--json-output", "--no-input"])

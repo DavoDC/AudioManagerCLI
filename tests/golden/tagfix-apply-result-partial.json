@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "<ISO>",
+  "status": "partial",
+  "oldFingerprint": "<SHA256>",
+  "newFingerprint": "<SHA256>",
+  "journal": null,
+  "bytesNeeded": 0,
+  "bytesFree": 0,
+  "counts": {
+    "applied": 0,
+    "alreadyDone": 0,
+    "failed": 1,
+    "quarantined": 0,
+    "needsManual": 1,
+    "pendingAfter": 0
+  },
+  "failures": [
+    "03 - Some Song (Explicit).mp3: unreadable, not changed: The process cannot access the file '<ROOT>\\NewMusic\\03 - Some Song (Explicit).mp3' because it is being used by another process."
+  ]
+}

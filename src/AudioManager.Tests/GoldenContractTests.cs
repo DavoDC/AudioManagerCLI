@@ -86,6 +86,10 @@ namespace AudioManager
                 "previewFingerprint", "replacedOriginals[].original", "replacedOriginals[].held", "leftovers.declinedCount"),
             Row("execution-preview-stale", "RoutingJSONFormat.md", "recordType=execution;schemaVersion=1;previewStale=True",
                 "previewFingerprint", "previewStale", "leftovers.declinedCount"),
+            Row("tagfix-apply-result-partial", "TagFixApplyJSONFormat.md", "status=partial",
+                "oldFingerprint", "newFingerprint", "journal", "bytesNeeded", "bytesFree", "counts.applied",
+                "counts.alreadyDone", "counts.failed", "counts.quarantined", "counts.needsManual", "counts.pendingAfter",
+                "failures[]"),
             Row("tagfix-apply-result-files-in-use", "TagFixApplyJSONFormat.md", "status=files_in_use",
                 "oldFingerprint", "newFingerprint", "journal", "bytesNeeded", "bytesFree", "counts.applied",
                 "counts.alreadyDone", "counts.failed", "counts.quarantined", "counts.needsManual", "counts.pendingAfter",
@@ -232,6 +236,18 @@ namespace AudioManager
             var row = (Dictionary<string, object>)rows[0];
             Assert.True(((string)row["held"]).IndexOf("\\Replaced\\", StringComparison.Ordinal) >= 0,
                 "replacedOriginals[].held is not under the Replaced holding folder");
+        }
+
+        // partial: a file the apply could not read is a failure, never a silent skip; the rest was applied.
+        public static void PartialGoldenNamesTheUnreadableFile()
+        {
+            var golden = LoadGolden("tagfix-apply-result-partial");
+            var failures = (object[])golden["failures"];
+            Assert.True(failures.Length > 0, "tagfix-apply-result-partial: failures is empty");
+            Assert.True(((string)failures[0]).IndexOf("unreadable, not changed", StringComparison.Ordinal) >= 0,
+                "failure text drifted: " + failures[0]);
+            var counts = (Dictionary<string, object>)golden["counts"];
+            Assert.True(Convert.ToInt32(counts["failed"]) > 0, "tagfix-apply-result-partial: counts.failed is 0");
         }
 
         // files_in_use names every locked file with the operator instruction the contract documents.
