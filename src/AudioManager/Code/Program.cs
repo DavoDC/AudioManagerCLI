@@ -53,6 +53,14 @@ namespace AudioManager
                     return;
                 }
 
+                // --misc-revert <journalPath>: undoes a Misc migration from its misc-migration-*.json journal. Like libfix it
+                // returns before mode parsing and never touches NewMusic.
+                if (TryRunMiscRevert(args, out int miscRevertCode))
+                {
+                    if (miscRevertCode != 0) Environment.Exit(miscRevertCode);
+                    return;
+                }
+
                 // Detect CLI args: "analysis [--force-regen]" or "integrate [--dry-run] [--no-input]"
                 int mode;
                 bool forceMirrorRegen;
@@ -645,6 +653,38 @@ namespace AudioManager
             return true;
         }
 
+        /// <summary>
+        /// --misc-revert &lt;journalPath&gt;: undoes a Misc migration (see MusicIntegrator.RevertMiscMigration). Returns false when
+        /// the flag is absent. Exit code 0 only when nothing failed; a missing path, an unreadable journal or a journal that is
+        /// not a Misc migration journal exits 1. Writes nothing but the journal's own moves and tag restores.
+        /// </summary>
+        internal static bool TryRunMiscRevert(string[] args, out int exitCode)
+        {
+            exitCode = 1;
+            int idx = Array.FindIndex(args, a => a.Equals("--misc-revert", StringComparison.OrdinalIgnoreCase));
+            if (idx < 0) return false;
+            if (idx + 1 >= args.Length)
+            {
+                Console.WriteLine(" - ERROR: --misc-revert requires a journal path argument. Nothing was run.");
+                return true;
+            }
+
+            MusicIntegrator.MiscRevertResult result;
+            try
+            {
+                result = new MusicIntegrator(Constants.AudioFolderPath).RevertMiscMigration(args[idx + 1]);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($" - ERROR: --misc-revert could not use the journal '{args[idx + 1]}': {ex.Message}. Nothing was run.");
+                return true;
+            }
+
+            Console.WriteLine($" - Misc revert: {result.Reverted} reverted, {result.Skipped} skipped, {result.Failed} failed");
+            exitCode = result.Failed == 0 ? 0 : 1;
+            return true;
+        }
+
         /// <summary>Returns the first dash-prefixed arg that is not a known flag (null when all are known).</summary>
         internal static string FindUnknownFlag(string[] args)
         {
@@ -652,7 +692,7 @@ namespace AudioManager
             {
                 "--force-regen", "--dry-run", "--no-input", "--json-output", "--no-auto-commit",
                 "--manifest", "--revert", "--apply-plan", "--mirror-retry", "--fingerprint",
-                "--libfix-plan", "--libfix-apply", "--libfix-revert"
+                "--libfix-plan", "--libfix-apply", "--libfix-revert", "--misc-revert"
             };
             for (int i = 1; i < args.Length; i++)
             {

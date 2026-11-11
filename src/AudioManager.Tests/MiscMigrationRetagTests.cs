@@ -241,6 +241,144 @@ namespace AudioManager
             finally { Cleanup(f); }
         }
 
+        /// <summary>Applies a case-only retag migration to f.Song and returns its journal. The migrated copy is named "TJ Hickey - Good Song.mp3".</summary>
+        private static string AppliedJournal(Fixture f)
+        {
+            SetArtistTags(f.Song, new[] { "Tj Hickey" }, new[] { "Tj Hickey" });
+            RunMigration(NewIntegrator(f, dryRun: false), "TJ Hickey", f.Song);
+            return JournalPath(f);
+        }
+
+        public static void Revert_CountsRevertedSkippedAndFailed()
+        {
+            var f = NewFixture("Tj Hickey");
+            try
+            {
+                string journal = AppliedJournal(f);
+                MusicIntegrator.MiscRevertResult result = NewIntegrator(f, dryRun: false).RevertMiscMigration(journal);
+
+                Assert.Equal("1", result.Reverted.ToString(), "one migrated song is reverted");
+                Assert.Equal("0", result.Skipped.ToString(), "nothing is skipped");
+                Assert.Equal("0", result.Failed.ToString(), "nothing fails");
+            }
+            finally { Cleanup(f); }
+        }
+
+        public static void Revert_MigratedCopyMissing_IsSkippedNotFailed()
+        {
+            var f = NewFixture("Tj Hickey");
+            try
+            {
+                string journal = AppliedJournal(f);
+                File.Delete(Path.Combine(f.SinglesDir, "TJ Hickey - Good Song.mp3"));
+                MusicIntegrator.MiscRevertResult result = NewIntegrator(f, dryRun: false).RevertMiscMigration(journal);
+
+                Assert.Equal("1", result.Skipped.ToString(), "a song whose migrated copy is gone is skipped");
+                Assert.Equal("0", result.Reverted.ToString(), "nothing is reverted");
+                Assert.Equal("0", result.Failed.ToString(), "a skip is not a failure");
+            }
+            finally { Cleanup(f); }
+        }
+
+        public static void Revert_MigratedCopyLocked_CountsFailedAndLeavesItInPlace()
+        {
+            var f = NewFixture("Tj Hickey");
+            try
+            {
+                string journal = AppliedJournal(f);
+                string migrated = Path.Combine(f.SinglesDir, "TJ Hickey - Good Song.mp3");
+                MusicIntegrator.MiscRevertResult result;
+                using (new FileStream(migrated, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    result = NewIntegrator(f, dryRun: false).RevertMiscMigration(journal);
+                }
+
+                Assert.Equal("1", result.Failed.ToString(), "a move that throws is counted as failed");
+                Assert.Equal("0", result.Reverted.ToString(), "a failed move is not counted as reverted");
+                Assert.True(File.Exists(migrated), "the song stays at its migrated place when its move fails");
+            }
+            finally { Cleanup(f); }
+        }
+
+        public static void MiscRevertFlag_IsAKnownFlag()
+        {
+            Assert.True(Program.FindUnknownFlag(new[] { "integrate", "--misc-revert", "journal.json" }) == null,
+                "--misc-revert must not be reported as an unknown option");
+        }
+
+        public static void MiscRevertFlag_NotGiven_ReturnsFalseAndRunsNothing()
+        {
+            int code = -1;
+            bool handled = Program.TryRunMiscRevert(new[] { "integrate", "--dry-run" }, out code);
+
+            Assert.True(!handled, "without --misc-revert the handler does not claim the run");
+        }
+
+        public static void MiscRevertFlag_MissingJournalPath_PrintsErrorAndExitsOne()
+        {
+            int code = -1;
+            bool handled = false;
+            string output = CaptureConsole(() => handled = Program.TryRunMiscRevert(new[] { "--misc-revert" }, out code));
+
+            Assert.True(handled, "--misc-revert is claimed even without a path");
+            Assert.Equal("1", code.ToString(), "a missing journal path exits 1");
+            Assert.True(output.Contains("--misc-revert requires a journal path argument"), "the error names the missing argument");
+        }
+
+        public static void MiscRevertFlag_NotAMiscJournal_ExitsOne()
+        {
+            string notMisc = Path.Combine(Path.GetTempPath(), "am_notmisc_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".json");
+            File.WriteAllText(notMisc, "{\"recordType\": \"execution\", \"schemaVersion\": 1}");
+            try
+            {
+                int code = -1;
+                bool handled = false;
+                string output = CaptureConsole(() => handled = Program.TryRunMiscRevert(new[] { "--misc-revert", notMisc }, out code));
+
+                Assert.True(handled, "--misc-revert is claimed");
+                Assert.Equal("1", code.ToString(), "a journal that is not a Misc journal exits 1");
+                Assert.True(output.Contains("ERROR"), "the refusal is printed as an error");
+            }
+            finally { File.Delete(notMisc); }
+        }
+
+        public static void MiscRevertFlag_FailedRevert_ExitsOne()
+        {
+            var f = NewFixture("Tj Hickey");
+            try
+            {
+                string journal = AppliedJournal(f);
+                string migrated = Path.Combine(f.SinglesDir, "TJ Hickey - Good Song.mp3");
+                int code = -1;
+                string output;
+                using (new FileStream(migrated, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    output = CaptureConsole(() => Program.TryRunMiscRevert(new[] { "--misc-revert", journal }, out code));
+                }
+
+                Assert.Equal("1", code.ToString(), "failed > 0 exits 1");
+                Assert.True(output.Contains("- Misc revert: 0 reverted, 0 skipped, 1 failed"), "the summary line counts the failure");
+            }
+            finally { Cleanup(f); }
+        }
+
+        public static void MiscRevertFlag_CleanRevert_ExitsZeroAndRestoresTheSong()
+        {
+            var f = NewFixture("Tj Hickey");
+            try
+            {
+                string journal = AppliedJournal(f);
+                int code = -1;
+                string output = CaptureConsole(() => Program.TryRunMiscRevert(new[] { "--misc-revert", journal }, out code));
+
+                Assert.Equal("0", code.ToString(), "failed is 0, so the exit code is 0");
+                Assert.True(output.Contains("- Misc revert: 1 reverted, 0 skipped, 0 failed"), "the summary line is printed");
+                Assert.True(File.Exists(f.Song), "the song is back at its original Misc path");
+                Assert.Equal("Tj Hickey", ReadPerformers(f.Song)[0], "the old ARTIST tag is restored");
+            }
+            finally { Cleanup(f); }
+        }
+
         public static void RealRun_MoveFails_RemovesSinglesFolderItCreated()
         {
             var f = NewFixture("TJ Hickey");

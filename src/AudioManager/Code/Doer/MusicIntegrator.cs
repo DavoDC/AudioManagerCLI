@@ -402,7 +402,7 @@ namespace AudioManager
             }
         }
 
-        /// <summary>Test-only constructor. Does not run the integration pipeline.</summary>
+        /// <summary>Constructor that does not run the integration pipeline. Used by the tests and by --misc-revert (Program.TryRunMiscRevert).</summary>
         internal MusicIntegrator(string testLibraryPath)
         {
             _libraryPath = testLibraryPath;
@@ -1523,16 +1523,18 @@ namespace AudioManager
         /// <summary>
         /// Undoes a Misc migration from its journal (misc-migration-*.json), newest move first. A song moves back only when
         /// its migrated copy exists and its old path is free, so nothing is overwritten. A move carrying a "retag" gets its
-        /// old ARTIST tag entry restored after the move back. Dry run prints what would be reverted and changes nothing.
+        /// old ARTIST tag entry restored after the move back. Dry run prints what would be reverted and changes nothing;
+        /// its counts are the moves that would be reverted. Throws when the journal is not a Misc migration journal.
         /// </summary>
-        internal void RevertMiscMigration(string journalPath)
+        internal MiscRevertResult RevertMiscMigration(string journalPath)
         {
+            var result = new MiscRevertResult();
             var ser = new System.Web.Script.Serialization.JavaScriptSerializer();
             var root = ser.DeserializeObject(File.ReadAllText(journalPath)) as Dictionary<string, object>;
             if (root == null || !"miscMigration".Equals(root.TryGetValue("recordType", out object rt) ? rt as string : null))
                 throw new InvalidDataException("not a Misc migration journal: " + journalPath);
             var moves = root.TryGetValue("moves", out object mv) ? mv as object[] : null;
-            if (moves == null) return;
+            if (moves == null) return result;
             for (int i = moves.Length - 1; i >= 0; i--)
             {
                 var m = (Dictionary<string, object>)moves[i];
@@ -1542,11 +1544,13 @@ namespace AudioManager
                 if (!File.Exists(to) || File.Exists(from))
                 {
                     Console.WriteLine($"  [SKIP] Revert: {fileName} is not at its migrated place, or its old place is taken");
+                    result.Skipped++;
                     continue;
                 }
                 if (dryRun)
                 {
                     Console.WriteLine($"[DRY RUN] Would revert: {fileName}");
+                    result.Reverted++;
                     continue;
                 }
                 try
@@ -1559,12 +1563,21 @@ namespace AudioManager
                         ReplaceArtistTagEntry(from, (string)retag["to"], (string)retag["from"]);
                     }
                     Console.WriteLine($"  Reverted: {fileName}");
+                    result.Reverted++;
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"  [ERROR] Revert failed for {fileName}: {ex.Message}");
+                    result.Failed++;
                 }
             }
+            return result;
+        }
+
+        /// <summary>Counts from one RevertMiscMigration run: moves reverted, moves skipped (not at the migrated place, or old place taken), moves that failed.</summary>
+        internal sealed class MiscRevertResult
+        {
+            public int Reverted, Skipped, Failed;
         }
 
         /// <summary>

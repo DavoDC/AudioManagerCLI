@@ -25,6 +25,7 @@ The files have ALREADY MOVED. Do not re-run integrate. Fix the cause (shorten a 
 - **Tag changes can be reverted only BEFORE integrate** (`tagfix --revert <journal>`). After integrate the files have left NewMusic and revert reports `current file missing` for each (safe, by design).
 - Byte backups of the pre-apply files stay in `data/backups/<stamp>/` for 7 days (pruned at the next apply).
 - Integrate itself has no undo: moved files are in the library.
+- **Undoing a Misc migration** (songs moved from `Miscellaneous Songs` to `Artists\<artist>\Singles`, and retagged or renamed for case): `--misc-revert <logs\misc-migration-*.json>`. Each song goes back under its original name with its old artist tag. The summary line must show `0 failed`; details in [RoutingJSONFormat.md](Contracts/RoutingJSONFormat.md).
 
 <!-- md-block: libfix-pointer -->
 - **Fixing a library track the gate flagged** (for example `album_in_singles`): `--libfix-plan`, review `libfix-plan.json`, then `--libfix-apply <plan>`; undo with `--libfix-revert <journal>`. Run the mirror step afterwards. Details: [LibFixJSONFormat.md](Contracts/LibFixJSONFormat.md).
