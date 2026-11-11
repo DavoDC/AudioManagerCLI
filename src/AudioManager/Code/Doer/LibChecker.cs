@@ -480,7 +480,8 @@ namespace AudioManager
                 artistMsg += $" is in the '{artistFolderName}' folder!";
 
                 // If primary artist doesn't match artist folder name, notify
-                if (!primaryArtist.Equals(artistFolderName))
+                // Folders are named from the sanitised tag (a registered mark etc. is stripped), so compare the same way.
+                if (!Reflector.SanitiseFilename(primaryArtist).Equals(artistFolderName) && !primaryArtist.Equals(artistFolderName))
                 {
                     // If primary artist has full stop at the end OR has a quote character
                     if (primaryArtist.LastOrDefault().Equals('.') || primaryArtist.Contains("\""))

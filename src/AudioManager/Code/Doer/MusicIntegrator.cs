@@ -313,6 +313,18 @@ namespace AudioManager
                 // 3b: Route all files. D-decided and dry-run L-decided duplicates already handled
                 //     above; real-mode L files and K files fall through to routing here.
                 // In dry-run: collect outputs and print sorted by destination path after the loop.
+                // 3b-pre: tag decides the artist folder name. Existing folders that differ only by case are renamed (journaled, revertable).
+                if (_scanAheadSpellings != null)
+                {
+                    var casePlan = PlanArtistFolderCaseRenames(_scanAheadSpellings.Values);
+                    foreach (var r in casePlan)
+                        Console.WriteLine($"  Artist folder '{r.Key}' {(dryRun ? "will be" : "is being")} renamed to '{r.Value}' (case only, matches the tag)");
+                    if (!dryRun && casePlan.Count > 0)
+                    {
+                        string renameJournal = ApplyArtistFolderCaseRenames(casePlan);
+                        Console.WriteLine($"  Journal: {renameJournal}");
+                    }
+                }
                 var routingStopwatch = System.Diagnostics.Stopwatch.StartNew();
                 List<(string destPath, string block)> dryRunRoutingOutputs;
                 try
@@ -936,6 +948,9 @@ namespace AudioManager
                         string primary = Track.ProcessProperty(artistsEl.InnerText)[0].Trim();
                         if (string.IsNullOrEmpty(primary)) continue;
                         miscCounts[primary] = miscCounts.ContainsKey(primary) ? miscCounts[primary] + 1 : 1;
+                        // Misc songs migrate into the new folder with their tags untouched, so their spelling votes too.
+                        if (!spellings.TryGetValue(primary, out var miscSpell)) spellings[primary] = miscSpell = new List<string>();
+                        miscSpell.Add(primary);
                         if (!miscFilesByArtist.ContainsKey(primary))
                             miscFilesByArtist[primary] = new List<string>();
                         miscFilesByArtist[primary].Add(xmlFile);
@@ -1040,7 +1055,13 @@ namespace AudioManager
             // Store counts so GetDestDir can build a full routing reason for Misc fallback
             _scanAheadBatchCounts = batchCounts;
             _scanAheadSpellings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var kv in spellings) _scanAheadSpellings[kv.Key] = ChooseCanonicalSpelling(kv.Value);
+            foreach (var kv in spellings)
+            {
+                _scanAheadSpellings[kv.Key] = ChooseCanonicalSpelling(kv.Value);
+                var distinct = new HashSet<string>(kv.Value, StringComparer.Ordinal);
+                if (distinct.Count > 1)
+                    Console.WriteLine($"  [review] '{kv.Key}' is spelled {distinct.Count} ways in the batch and Misc ({string.Join(", ", distinct)}); folder uses '{_scanAheadSpellings[kv.Key]}', tracks tagged otherwise are listed in their routing reason. Tags are not edited.");
+            }
             _scanAheadBatchAlbumCounts = batchAlbumCounts;
             _scanAheadMiscCounts = miscCounts;
             _scanAheadSourcesCounts = sourcesCounts;
@@ -2597,10 +2618,16 @@ namespace AudioManager
             string wantedName = SanitiseFolderName(primaryArtist2);
             string onDiskName = FindDirNameIgnoreCase(artistsRoot, wantedName);
             bool scanAheadNewFolder = newArtistFolders.Contains(primaryArtist2);
-            // Existing folder keeps its on-disk spelling; a new folder takes the batch's most frequent tag spelling.
-            string folderName = onDiskName
-                ?? (scanAheadNewFolder && _scanAheadSpellings != null && _scanAheadSpellings.TryGetValue(primaryArtist2, out string canon)
-                    ? SanitiseFolderName(canon) : wantedName);
+            // The tag decides the folder name (David 2026-11-11): the batch's most frequent tag spelling (this track's own
+            // tag when scan-ahead has none). An existing folder differing only by case is renamed to it at integrate time.
+            string canonName = (_scanAheadSpellings != null && _scanAheadSpellings.TryGetValue(primaryArtist2, out string canon))
+                ? SanitiseFolderName(canon) : wantedName;
+            string folderName = canonName;
+            string renameNote = "";
+            if (onDiskName != null && !onDiskName.Equals(canonName, StringComparison.Ordinal) && onDiskName.Equals(canonName, StringComparison.OrdinalIgnoreCase))
+                renameNote = $" [folder '{onDiskName}' will be renamed to '{canonName}' (case only)]";
+            else if (onDiskName != null)
+                folderName = onDiskName;
             string artistFolder = Path.Combine(artistsRoot, folderName);
 
             // Artist folder exists OR scan-ahead says this artist needs a new one
@@ -2609,9 +2636,11 @@ namespace AudioManager
             if (routeToArtists)
             {
                 string scanNote = scanAheadNewFolder ? " [new via scan-ahead]" : "";
-                // The folder cannot match the tag exactly (case or a stripped symbol): say so, never rename anything.
-                if (!folderName.Equals(primaryArtist2, StringComparison.Ordinal))
-                    scanNote += $" [review: tag '{primaryArtist2}' but folder '{folderName}'; the engine never renames a folder or changes a tag]";
+                scanNote += renameNote;
+                // This track's own tag spells the artist differently from the folder (a minority spelling in the batch):
+                // list it for review; the tag is never edited silently.
+                if (!folderName.Equals(wantedName, StringComparison.Ordinal))
+                    scanNote += $" [review: tag '{primaryArtist2}' but folder '{folderName}'; tag not edited, fix the tag]";
 
                 if (!track.Album.Equals(Constants.MissingTag))
                 {
@@ -2677,6 +2706,64 @@ namespace AudioManager
                 if (best == null || kv.Value > counts[best] || (kv.Value == counts[best] && string.CompareOrdinal(kv.Key, best) < 0))
                     best = kv.Key;
             return best;
+        }
+
+        /// <summary>Existing Artists folders whose name differs from the tag's folder name ONLY by case, as {on-disk name, tag spelling}. Never plans a rename across different names.</summary>
+        internal List<KeyValuePair<string, string>> PlanArtistFolderCaseRenames(IEnumerable<string> primaryTags)
+        {
+            var plan = new List<KeyValuePair<string, string>>();
+            string root = Path.Combine(_libraryPath, Constants.ArtistsDir);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string tag in primaryTags)
+            {
+                if (string.IsNullOrEmpty(tag)) continue;
+                string want = SanitiseFolderName(tag);
+                string onDisk = FindDirNameIgnoreCase(root, want);
+                if (onDisk != null && !onDisk.Equals(want, StringComparison.Ordinal)
+                    && onDisk.Equals(want, StringComparison.OrdinalIgnoreCase) && seen.Add(onDisk))
+                    plan.Add(new KeyValuePair<string, string>(onDisk, want));
+            }
+            return plan;
+        }
+
+        /// <summary>Case-only renames under Artists, journaled BEFORE the first rename (artist-folder-rename-*.json). Returns the journal path, or null when the plan is empty.</summary>
+        internal string ApplyArtistFolderCaseRenames(List<KeyValuePair<string, string>> plan)
+        {
+            if (plan == null || plan.Count == 0) return null;
+            string root = Path.Combine(_libraryPath, Constants.ArtistsDir);
+            string dir = MigrationJournalDir ?? Constants.LogsPath;
+            Directory.CreateDirectory(dir);
+            string journal = Path.Combine(dir, "artist-folder-rename-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".json");
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("{\"recordType\": \"artistFolderCaseRename\", \"schemaVersion\": 1, \"root\": " + JsonText.Quote(root) + ", \"renames\": [");
+            for (int i = 0; i < plan.Count; i++)
+                sb.AppendLine($"  {{\"from\": {JsonText.Quote(plan[i].Key)}, \"to\": {JsonText.Quote(plan[i].Value)}}}" + (i < plan.Count - 1 ? "," : ""));
+            sb.AppendLine("]}");
+            AtomicFile.WriteAllText(journal, sb.ToString(), new System.Text.UTF8Encoding(false));
+            foreach (var r in plan) CaseOnlyFolderMove(root, r.Key, r.Value);
+            return journal;
+        }
+
+        /// <summary>Undoes ApplyArtistFolderCaseRenames from its journal: each folder goes back to its old spelling.</summary>
+        internal void RevertArtistFolderCaseRenames(string journalPath)
+        {
+            string text = File.ReadAllText(journalPath);
+            var rootMatch = System.Text.RegularExpressions.Regex.Match(text, "\"root\": \"((?:[^\"\\\\]|\\\\.)*)\"");
+            if (!rootMatch.Success) throw new InvalidDataException("not an artist folder rename journal: " + journalPath);
+            string root = rootMatch.Groups[1].Value.Replace("\\\\", "\\");
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, "\"from\": \"([^\"]*)\", \"to\": \"([^\"]*)\""))
+                CaseOnlyFolderMove(root, m.Groups[2].Value, m.Groups[1].Value);
+        }
+
+        /// <summary>Case-only folder rename through a temporary name (a direct move onto itself is a no-op on Windows).</summary>
+        private static void CaseOnlyFolderMove(string root, string from, string to)
+        {
+            if (!from.Equals(to, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("not a case-only rename: " + from + " -> " + to);
+            string src = Path.Combine(root, from);
+            if (!Directory.Exists(src)) return;
+            string tmp = Path.Combine(root, to + ".casetmp-" + Guid.NewGuid().ToString("N").Substring(0, 6));
+            Directory.Move(src, tmp);
+            Directory.Move(tmp, Path.Combine(root, to));
         }
 
         /// <summary>The on-disk name of a child folder of parent matching name ignoring case, or null.</summary>
