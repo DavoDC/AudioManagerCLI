@@ -269,6 +269,11 @@ This is exactly how the dry-run `[DRY RUN] Would route to:` line is computed for
 Review screens show FINAL values (after tag fixes and normalisation), see [MusicLibraryRules.md](Rules/MusicLibraryRules.md). A real `integrate` therefore runs `PreflightMirrorGate` first: a dry TagFixer, the same manifest file selection, scan-ahead, pre-scan and the MAX_PATH gate, writing nothing. A block returns before the real TagFixer, so NewMusic tags and names stay untouched. Only then do the real tag fixes, duplicate review, execution and routing run. The GUI order (tagfix plan, apply, dry integrate, gate, integrate) is in [GoLiveRunbook.md](GoLiveRunbook.md). Pre-flight counts a later-D duplicate in its projection (errs toward blocking). Not covered: an interactive `Q` at duplicate review after the tag fix (the GUI uses `--no-input`).
 <!-- /md-block: phase-order-preflight -->
 
+<!-- md-block: libfix-commands -->
+## Library Fix Commands (libfix)
+- **`LibraryFixer` (`--libfix-plan`, `--libfix-apply <plan>`, `--libfix-revert <journal>`) fixes tracks already in the library; first kind is `album_in_singles`.** Plan is read-only; apply refuses (`refused`, `stale_plan`) before moving anything, journals after every move, and never touches NewMusic or paths outside `Artists`. Format: [Contracts/LibFixJSONFormat.md](Contracts/LibFixJSONFormat.md).
+<!-- /md-block: libfix-commands -->
+
 ## Workflow Rules (moved from CLAUDE.md 2026-07-02)
 
 - **LibChecker-warning priority (TIER 1 threshold):** Any bug, routing gap, or config issue that would cause LibChecker to report a warning is TIER 1. LibChecker warnings mean non-conformant library state that compounds with every integration run. Concrete test: "would `CheckAlbumSubfolderRule()`, `CheckGenreVsFolder()`, or any other LibChecker rule fire on this?" If yes - stop, add to the backlog TIER 1 immediately, address before any other work in the session.

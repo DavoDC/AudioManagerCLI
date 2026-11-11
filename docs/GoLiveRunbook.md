@@ -25,6 +25,10 @@ The files have ALREADY MOVED. Do not re-run integrate. Fix the cause (shorten a 
 - **Tag changes can be reverted only BEFORE integrate** (`tagfix --revert <journal>`). After integrate the files have left NewMusic and revert reports `current file missing` for each (safe, by design).
 - Byte backups of the pre-apply files stay in `data/backups/<stamp>/` for 7 days (pruned at the next apply).
 - Integrate itself has no undo: moved files are in the library.
+
+<!-- md-block: libfix-pointer -->
+- **Fixing a library track the gate flagged** (for example `album_in_singles`): `--libfix-plan`, review `libfix-plan.json`, then `--libfix-apply <plan>`; undo with `--libfix-revert <journal>`. Run the mirror step afterwards. Details: [LibFixJSONFormat.md](Contracts/LibFixJSONFormat.md).
+<!-- /md-block: libfix-pointer -->
 - **A library file replaced by decision L is kept, not deleted.** Once the new file lands, the old one moves (a rename) to `NewMusic-Quarantine\Replaced\<yyyyMMdd-HHmmss>\`, next to the NewMusic folder. It is never pruned automatically. The execution JSON lists each one under `replacedOriginals` (fields: [RoutingJSONFormat.md](Contracts/RoutingJSONFormat.md)). **Restore:** move the `held` file back to its `original` path (the replacement is at that path now, so move or rename the replacement first, then re-run the mirror step). If the holding folder is on a different volume than the library, integrate refuses to start and nothing moves.
 
 ## Known limits

@@ -17,6 +17,7 @@ Long-form reference material for AudioManager, grouped by folder. Start with Dev
 
 - [Contracts/AnalysisJSONFormat.md](Contracts/AnalysisJSONFormat.md) - the JSON data contract written by `analysis --json-output`.
 - [Contracts/AudioMirrorFormat.md](Contracts/AudioMirrorFormat.md) - the layout and meaning of AudioMirror XML files.
+- [Contracts/LibFixJSONFormat.md](Contracts/LibFixJSONFormat.md) - plan, journal and result JSON of the `--libfix-*` library fix commands.
 
 ## rules/
 
