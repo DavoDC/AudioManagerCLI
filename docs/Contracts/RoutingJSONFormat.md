@@ -81,7 +81,7 @@ Top-level object, present on every execution record (`recordType` `execution`) a
 | `otherFiles` | files still under NewMusic that are not mp3 (desktop.ini, `.bak`, cover images), relative to NewMusic (backslashes), ordinal order |
 | `declinedCount` | number of mp3s a `--manifest` declined; they stay in NewMusic and are not listed in `otherFiles`; `0` without a manifest |
 
-An mp3 the run did not integrate and no manifest declined is not listed in `otherFiles` either, because only non-mp3 files are. Cleanup removes empty folders deepest first, but skips all removal when any file remains, so `emptyFolders` can be non-empty after a run that kept files.
+An mp3 the run did not integrate and no manifest declined is not listed in `otherFiles` either, because only non-mp3 files are. Cleanup removes folders with no file at any depth, deepest first, even when other files remain (remaining files never block it), and the snapshot is taken after cleanup. So `emptyFolders` is empty after a real run unless a removal failed.
 
 ## Preview stamp: `newMusicFingerprint`, `previewStale`
 
