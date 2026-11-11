@@ -1274,8 +1274,20 @@ namespace AudioManager
         /// <summary>Folder the Misc migration journal (misc-migration-*.json) is written to; tests point it at a temp folder.</summary>
         internal string MigrationJournalDir = null;
 
-        /// <summary>Rewrites the migration journal atomically: every move done so far as {from, to} library paths.</summary>
-        private static void WriteMiscMigrationJournal(string dir, string path, List<KeyValuePair<string, string>> moves)
+        /// <summary>
+        /// One real Misc move as journaled. From and To are library paths. RetagFrom and RetagTo are set only when
+        /// the ARTIST tag was retagged to the artist folder spelling after the move (BL-149).
+        /// </summary>
+        private sealed class MiscMigrationMove
+        {
+            public string From, To, RetagFrom, RetagTo;
+        }
+
+        /// <summary>
+        /// Rewrites the migration journal atomically (schemaVersion 1). Each move is {"from", "to"} plus an optional
+        /// "retag": {"field": "artist", "from": old tag entry, "to": folder spelling}, present only when the tag was retagged.
+        /// </summary>
+        private static void WriteMiscMigrationJournal(string dir, string path, List<MiscMigrationMove> moves)
         {
             try
             {
@@ -1283,7 +1295,13 @@ namespace AudioManager
                 var sb = new System.Text.StringBuilder();
                 sb.AppendLine("{\"recordType\": \"miscMigration\", \"schemaVersion\": 1, \"moves\": [");
                 for (int i = 0; i < moves.Count; i++)
-                    sb.AppendLine($"  {{\"from\": {JsonText.Quote(moves[i].Key)}, \"to\": {JsonText.Quote(moves[i].Value)}}}" + (i < moves.Count - 1 ? "," : ""));
+                {
+                    var m = moves[i];
+                    string line = "  {\"from\": " + JsonText.Quote(m.From) + ", \"to\": " + JsonText.Quote(m.To);
+                    if (m.RetagFrom != null)
+                        line += ", \"retag\": {\"field\": \"artist\", \"from\": " + JsonText.Quote(m.RetagFrom) + ", \"to\": " + JsonText.Quote(m.RetagTo) + "}";
+                    sb.AppendLine(line + "}" + (i < moves.Count - 1 ? "," : ""));
+                }
                 sb.AppendLine("]}");
                 AtomicFile.WriteAllText(path, sb.ToString(), new System.Text.UTF8Encoding(false));
             }
@@ -1296,7 +1314,7 @@ namespace AudioManager
         private int RunMiscMigration()
         {
             if (_miscMigrationCandidates.Count == 0) return 0;
-            var journaledMoves = new List<KeyValuePair<string, string>>();
+            var journaledMoves = new List<MiscMigrationMove>();
             string journalDir = MigrationJournalDir ?? Constants.LogsPath;
             string journalPath = Path.Combine(journalDir, $"misc-migration-{DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.json");
 
@@ -1340,25 +1358,50 @@ namespace AudioManager
                         else
                         {
                             Console.WriteLine($"[DRY RUN] Would move: {fileName}");
+                            string oldArtist = ReadCaseOnlyArtistEntry(libPath, artist);
+                            if (oldArtist != null)
+                                Console.WriteLine($"[DRY RUN] Would retag artist '{oldArtist}' -> '{artist}': {fileName}");
                             totalCount++;
                         }
                     }
                     else
                     {
                         // Per-file guard: one failed move must not abort the rest of the migration
+                        List<string> createdDirs = null;
                         try
                         {
-                            Directory.CreateDirectory(destFolder);
+                            createdDirs = CreateDirectoryTracked(destFolder);
                             string destPath = Path.Combine(destFolder, fileName);
                             File.Move(libPath, destPath);
-                            journaledMoves.Add(new KeyValuePair<string, string>(libPath, destPath));
+                            var move = new MiscMigrationMove { From = libPath, To = destPath };
+                            journaledMoves.Add(move);
                             WriteMiscMigrationJournal(journalDir, journalPath, journaledMoves);
                             Console.WriteLine($"  Moved: {fileName}");
                             totalCount++;
+
+                            // BL-149: the move is journaled first, so a failed retag keeps the move and its journal entry
+                            string oldArtist = ReadCaseOnlyArtistEntry(destPath, artist);
+                            if (oldArtist != null)
+                            {
+                                try
+                                {
+                                    ReplaceArtistTagEntry(destPath, oldArtist, artist);
+                                    move.RetagFrom = oldArtist;
+                                    move.RetagTo = artist;
+                                    WriteMiscMigrationJournal(journalDir, journalPath, journaledMoves);
+                                    Console.WriteLine($"  Retagged artist '{oldArtist}' -> '{artist}': {fileName}");
+                                }
+                                catch (Exception rex)
+                                {
+                                    failedCount++;
+                                    Console.WriteLine($"  [ERROR] Artist retag failed for {fileName} (the move is kept): {rex.Message}");
+                                }
+                            }
                         }
                         catch (Exception ex)
                         {
                             failedCount++;
+                            RemoveEmptyCreatedDirs(createdDirs);
                             Console.WriteLine($"  [ERROR] Misc migration failed for {fileName}: {ex.Message}");
                         }
                     }
@@ -1370,6 +1413,97 @@ namespace AudioManager
                 ? $"Would migrate: {totalCount} Misc song(s), {failedCount} would fail"
                 : $"Migrated: {totalCount} Misc song(s), {failedCount} failed");
             return failedCount;
+        }
+
+        /// <summary>
+        /// BL-149: the old ARTIST tag entry that equals artist ignoring case but not exactly (Performers first, then
+        /// AlbumArtists), or null when no retag is due. Read-only: the file is opened and never saved. A read failure
+        /// prints a WARN and gives null, so it never aborts the migration.
+        /// </summary>
+        private static string ReadCaseOnlyArtistEntry(string path, string artist)
+        {
+            try
+            {
+                using (var tf = TagLib.File.Create(path))
+                    return CaseOnlyArtistEntry(tf.Tag.Performers, artist) ?? CaseOnlyArtistEntry(tf.Tag.AlbumArtists, artist);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [WARN] Could not read tags for the artist retag check: {Path.GetFileName(path)}: {ex.Message}");
+                return null;
+            }
+        }
+
+        private static string CaseOnlyArtistEntry(string[] entries, string artist)
+        {
+            if (entries == null) return null;
+            foreach (string e in entries)
+                if (e != null && string.Equals(e, artist, StringComparison.OrdinalIgnoreCase) && !string.Equals(e, artist, StringComparison.Ordinal))
+                    return e;
+            return null;
+        }
+
+        /// <summary>
+        /// Replaces every Performers and AlbumArtists entry equal to oldEntry (exact match) with newEntry, then saves.
+        /// Other entries are kept as they are. A tag field with no matching entry is not written.
+        /// </summary>
+        private static void ReplaceArtistTagEntry(string path, string oldEntry, string newEntry)
+        {
+            using (var tf = TagLib.File.Create(path))
+            {
+                if (tf.Tag.Performers != null && tf.Tag.Performers.Contains(oldEntry))
+                    tf.Tag.Performers = tf.Tag.Performers.Select(e => e == oldEntry ? newEntry : e).ToArray();
+                if (tf.Tag.AlbumArtists != null && tf.Tag.AlbumArtists.Contains(oldEntry))
+                    tf.Tag.AlbumArtists = tf.Tag.AlbumArtists.Select(e => e == oldEntry ? newEntry : e).ToArray();
+                tf.Save();
+            }
+        }
+
+        /// <summary>
+        /// Undoes a Misc migration from its journal (misc-migration-*.json), newest move first. A song moves back only when
+        /// its migrated copy exists and its old path is free, so nothing is overwritten. A move carrying a "retag" gets its
+        /// old ARTIST tag entry restored after the move back. Dry run prints what would be reverted and changes nothing.
+        /// </summary>
+        internal void RevertMiscMigration(string journalPath)
+        {
+            var ser = new System.Web.Script.Serialization.JavaScriptSerializer();
+            var root = ser.DeserializeObject(File.ReadAllText(journalPath)) as Dictionary<string, object>;
+            if (root == null || !"miscMigration".Equals(root.TryGetValue("recordType", out object rt) ? rt as string : null))
+                throw new InvalidDataException("not a Misc migration journal: " + journalPath);
+            var moves = root.TryGetValue("moves", out object mv) ? mv as object[] : null;
+            if (moves == null) return;
+            for (int i = moves.Length - 1; i >= 0; i--)
+            {
+                var m = (Dictionary<string, object>)moves[i];
+                string from = (string)m["from"];
+                string to = (string)m["to"];
+                string fileName = Path.GetFileName(from);
+                if (!File.Exists(to) || File.Exists(from))
+                {
+                    Console.WriteLine($"  [SKIP] Revert: {fileName} is not at its migrated place, or its old place is taken");
+                    continue;
+                }
+                if (dryRun)
+                {
+                    Console.WriteLine($"[DRY RUN] Would revert: {fileName}");
+                    continue;
+                }
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(from));
+                    File.Move(to, from);
+                    if (m.ContainsKey("retag"))
+                    {
+                        var retag = (Dictionary<string, object>)m["retag"];
+                        ReplaceArtistTagEntry(from, (string)retag["to"], (string)retag["from"]);
+                    }
+                    Console.WriteLine($"  Reverted: {fileName}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"  [ERROR] Revert failed for {fileName}: {ex.Message}");
+                }
+            }
         }
 
         /// <summary>
