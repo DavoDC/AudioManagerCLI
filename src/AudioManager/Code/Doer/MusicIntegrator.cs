@@ -38,6 +38,8 @@ namespace AudioManager
         // Populated by RunScanAhead; used by GetDestDir to build full routing reason for Misc fallback
         private Dictionary<string, int> _scanAheadBatchCounts;
         private Dictionary<string, string> _scanAheadSpellings;
+        // Set by RunScanAhead: artists whose batch and Misc tags carry 2+ spellings (suggestion only, written to the routing JSON).
+        private List<ArtistSpellingCandidate> _artistSpellingCandidates = new List<ArtistSpellingCandidate>();
         /// <summary>The run's TagFixer, so the dry-run preview applies keep= flags and custom rules like the real run.</summary>
         private TagFixer _previewTagFixer;
         private Dictionary<string, int> _scanAheadMiscCounts;
@@ -886,6 +888,7 @@ namespace AudioManager
             var spellings = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var batchAlbumCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
             var albumArtists = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            var spellingPairs = new List<(string TrackPath, string ArtistTag)>();
             var tagCache = new Dictionary<string, (string artists, string title, string album, string genres, uint year)>(StringComparer.OrdinalIgnoreCase);
             foreach (var f in batchFiles)
             {
@@ -907,6 +910,7 @@ namespace AudioManager
                         batchCounts[primary] = batchCounts.ContainsKey(primary) ? batchCounts[primary] + 1 : 1;
                         if (!spellings.TryGetValue(primary, out var spellList)) spellings[primary] = spellList = new List<string>();
                         spellList.Add(primary);
+                        spellingPairs.Add((RelToNewMusic(f) ?? Path.GetFileName(f), primary));
                         string album = tf.Tag.Album;
                         if (!string.IsNullOrEmpty(album) && !album.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase))
                         {
@@ -954,6 +958,7 @@ namespace AudioManager
                         // Misc songs migrate into the new folder with their tags untouched, so their spelling votes too.
                         if (!spellings.TryGetValue(primary, out var miscSpell)) spellings[primary] = miscSpell = new List<string>();
                         miscSpell.Add(primary);
+                        spellingPairs.Add((Path.GetFileName(xmlFile), primary));
                         if (!miscFilesByArtist.ContainsKey(primary))
                             miscFilesByArtist[primary] = new List<string>();
                         miscFilesByArtist[primary].Add(xmlFile);
@@ -1065,6 +1070,7 @@ namespace AudioManager
                 if (distinct.Count > 1)
                     Console.WriteLine($"  [review] '{kv.Key}' is spelled {distinct.Count} ways in the batch and Misc ({string.Join(", ", distinct)}); folder uses '{_scanAheadSpellings[kv.Key]}', tracks tagged otherwise are listed in their routing reason. Tags are not edited.");
             }
+            _artistSpellingCandidates = ArtistSpellingCandidates.BuildSpellingCandidates(spellingPairs);
             _scanAheadBatchAlbumCounts = batchAlbumCounts;
             _scanAheadMiscCounts = miscCounts;
             _scanAheadSourcesCounts = sourcesCounts;
@@ -1331,6 +1337,38 @@ namespace AudioManager
         }
 
         /// <summary>
+        /// Writes the top-level "artistSpellingCandidates" array: artists whose batch and Misc tags carry two or more
+        /// spellings. Always present, empty when there are none. A suggestion only; no tag changes (see docs/Contracts/RoutingJSONFormat.md).
+        /// </summary>
+        private static void AppendArtistSpellingCandidatesBlock(StringBuilder sb, IList<ArtistSpellingCandidate> candidates)
+        {
+            var list = candidates ?? new List<ArtistSpellingCandidate>();
+            if (list.Count == 0)
+            {
+                sb.AppendLine("  \"artistSpellingCandidates\": [],");
+                return;
+            }
+            sb.AppendLine("  \"artistSpellingCandidates\": [");
+            for (int i = 0; i < list.Count; i++)
+            {
+                var c = list[i];
+                sb.AppendLine("    {");
+                sb.AppendLine($"      \"key\": {JStr(c.Key)},");
+                sb.AppendLine($"      \"suggested\": {JStr(c.Suggested)},");
+                sb.AppendLine("      \"spellings\": [");
+                for (int j = 0; j < c.Spellings.Count; j++)
+                {
+                    var v = c.Spellings[j];
+                    string comma = j < c.Spellings.Count - 1 ? "," : "";
+                    sb.AppendLine($"        {{\"spelling\": {JStr(v.Spelling)}, \"tracks\": [{string.Join(", ", v.Tracks.Select(t => JStr(t)))}], \"count\": {v.Count}}}{comma}");
+                }
+                sb.AppendLine("      ]");
+                sb.AppendLine(i < list.Count - 1 ? "    }," : "    }");
+            }
+            sb.AppendLine("  ],");
+        }
+
+        /// <summary>
         /// Writes the top-level "replacedOriginals" array (execution record only): each library original an L
         /// replacement retired, with the holding path it now lives at. Absent when null or empty.
         /// </summary>
@@ -1355,7 +1393,7 @@ namespace AudioManager
         /// </summary>
         internal static string BuildJson(List<LogEntry> entries, BatchSummary summary = null, bool dryRun = true, ConfidenceRecord confidence = null,
             MirrorPathBlock blocked = null, IList<(string original, string held)> replaced = null,
-            string newMusicFingerprint = null, string previewFingerprint = null)
+            string newMusicFingerprint = null, string previewFingerprint = null, IList<ArtistSpellingCandidate> artistSpellingCandidates = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine("{");
@@ -1378,6 +1416,7 @@ namespace AudioManager
             AppendConfidenceBlock(sb, confidence);
             AppendBlockedBlock(sb, blocked);
             AppendReplacedOriginalsBlock(sb, replaced);
+            AppendArtistSpellingCandidatesBlock(sb, artistSpellingCandidates);
             sb.AppendLine("  \"files\": [");
             for (int i = 0; i < entries.Count; i++)
             {
@@ -1582,7 +1621,8 @@ namespace AudioManager
                     Directory.CreateDirectory(Constants.LogsPath);
                 string jsonPath = Path.Combine(Constants.LogsPath, $"routing-{timestamp}.json");
 
-                AtomicFile.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary(), dryRun: dryRun, blocked: blocked, newMusicFingerprint: _startFingerprint), System.Text.Encoding.UTF8);
+                AtomicFile.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary(), dryRun: dryRun, blocked: blocked, newMusicFingerprint: _startFingerprint,
+                    artistSpellingCandidates: _artistSpellingCandidates), System.Text.Encoding.UTF8);
                 Console.WriteLine($"\n  JSON: {jsonPath}");
             }
             catch (Exception ex)
@@ -1612,7 +1652,7 @@ namespace AudioManager
         {
             string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
             string json = BuildJson(entries, BuildCurrentSummary(), dryRun: false, confidence: confidence, replaced: ReplaceGuard.Retired,
-                newMusicFingerprint: _startFingerprint, previewFingerprint: _previewFingerprint);
+                newMusicFingerprint: _startFingerprint, previewFingerprint: _previewFingerprint, artistSpellingCandidates: _artistSpellingCandidates);
             WriteExecutionRecordWithRetry(Constants.LogsPath, timestamp, json, Console.WriteLine);
         }
 

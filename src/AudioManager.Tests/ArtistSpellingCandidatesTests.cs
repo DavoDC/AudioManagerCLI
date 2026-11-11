@@ -79,5 +79,30 @@ namespace AudioManager
             Assert.Equal("1", result.Count.ToString(), "blank tags never form a candidate");
             Assert.Equal("2", result[0].Spellings.Count.ToString(), "only the two real spellings remain");
         }
+
+        public static void PlanJson_ArtistSpellingCandidates_EmitsKeySuggestedAndSpellings()
+        {
+            var pairs = new List<(string TrackPath, string ArtistTag)>
+            {
+                ("Charli xcx - Track A.mp3", "Charli xcx"), ("Charli xcx - Track B.mp3", "Charli xcx"),
+                ("Charli XCX - Track C.mp3", "Charli XCX"),
+            };
+            var candidates = ArtistSpellingCandidates.BuildSpellingCandidates(pairs);
+
+            string json = MusicIntegrator.BuildJson(new List<MusicIntegrator.LogEntry>(), artistSpellingCandidates: candidates);
+
+            Assert.True(json.Contains("\"artistSpellingCandidates\": ["), "top-level artistSpellingCandidates array is written");
+            Assert.True(json.Contains("\"key\": \"Charli XCX\""), "key is the ordinal-first dedupe key");
+            Assert.True(json.Contains("\"suggested\": \"Charli xcx\""), "suggested is the most frequent spelling");
+            Assert.True(json.Contains("{\"spelling\": \"Charli xcx\", \"tracks\": [\"Charli xcx - Track A.mp3\", \"Charli xcx - Track B.mp3\"], \"count\": 2}"),
+                "each spelling lists its tracks and count");
+        }
+
+        public static void PlanJson_NoSpellingCandidates_WritesEmptyArray()
+        {
+            string json = MusicIntegrator.BuildJson(new List<MusicIntegrator.LogEntry>());
+
+            Assert.True(json.Contains("\"artistSpellingCandidates\": []"), "the array is always present, empty when there are no candidates");
+        }
     }
 }

@@ -52,6 +52,19 @@ Top-level array, present only on an execution record (`recordType` `execution`) 
 
 Held originals are never auto-pruned. To restore one, move the `held` file back to its `original` path. A replacement that fails and is rolled back restores the original in place and records nothing here.
 
+## artistSpellingCandidates
+
+Top-level array, present on every routing and execution record and empty (`[]`) when no artist has two or more spellings. It is written by `MusicIntegrator.AppendArtistSpellingCandidatesBlock` from `ArtistSpellingCandidates.BuildSpellingCandidates`, over the batch tags and the Misc XML primaries that scan-ahead reads. It is a suggestion only: no tag is changed by it.
+
+| Field | Meaning |
+|-------|---------|
+| `key` | the folder-sanitised dedupe key for the artist (ordinal-first spelling) |
+| `suggested` | the spelling the folder would use by default (most frequent, then ordinal) |
+| `spellings[]` | one entry per exact spelling: `spelling`, `count`, and `tracks` |
+| `spellings[].tracks` | batch files as paths relative to NewMusic; Misc songs as their Misc XML file name |
+
+The target library's own tracks are not scanned for this block.
+
 ## Preview stamp: `newMusicFingerprint`, `previewStale`
 
 A dry-run routing record carries top-level `newMusicFingerprint`: SHA-256 over every mp3 under NewMusic (relative path, size, last-write ticks), taken before Tag Fix runs. A real run's execution record carries `previewFingerprint` (the stamp of the newest `routing-*.json`, or null when there is none) and `previewStale`: `false` when NewMusic still matches that preview, `true` when it changed since (the run also prints a `[WARN] preview_stale` line), `null` when no stamped preview exists. A client that shows a reviewed preview should treat `previewStale: true` as "the decisions were made on a different folder".
