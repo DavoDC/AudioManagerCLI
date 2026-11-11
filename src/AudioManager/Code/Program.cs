@@ -326,7 +326,8 @@ namespace AudioManager
                             string planFp = TagFixApplier.ReadPlanFingerprint(Path.Combine(Constants.LogsPath, TagFixPlanJson.OutputFileName));
                             var ar = TagFixApplier.Apply(Constants.NewMusicPath, planFp, Constants.LogsPath, Constants.BackupsPath, Constants.QuarantinePath, DateTime.Now);
                             Console.WriteLine($" - Tag Fix apply: {ar.Status} (applied {ar.Applied}, already done {ar.AlreadyDone}, quarantined {ar.Quarantined}, failed {ar.Failed}, pending after {ar.PendingAfter})");
-                            Console.WriteLine($" - Result JSON written: {Path.Combine(Constants.LogsPath, TagFixApplier.ResultFileName)}");
+                            if (ar.Status != "apply_locked") Console.WriteLine($" - Result JSON written: {Path.Combine(Constants.LogsPath, TagFixApplier.ResultFileName)}");
+                            else foreach (string f in ar.Failures) Console.WriteLine($"   {f}");
                             if (ar.Status != "applied" && ar.Status != "nothing_to_do") { teeWriter.CloseLogFile(); Environment.Exit(1); }
                             return;
                         }
