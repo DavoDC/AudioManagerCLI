@@ -1,0 +1,17 @@
+{
+  "recordType": "mirrorResult",
+  "schemaVersion": 1,
+  "generatedAt": "<ISO>",
+  "status": "libchecker_issues",
+  "error": null,
+  "mirrorCommitted": false,
+  "libcheckerHitCount": 1,
+  "hits": [
+    {
+      "kind": "album_in_singles",
+      "path": "\\Artists\\Kanye West\\Singles\\Kanye West - Champion.xml",
+      "detail": "2 songs from album 'Graduation' but in Singles/ (use album subfolder)"
+    }
+  ],
+  "retry": "AudioManagerCLI.exe --mirror-retry"
+}

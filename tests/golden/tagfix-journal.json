@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "<ISO>",
+  "folder": "<ROOT>\\NewMusic",
+  "quarantineRoot": "<ROOT>\\NewMusic-Quarantine",
+  "entries": [
+    {
+      "file": "03 - Some Song (Explicit).mp3",
+      "oldName": "03 - Some Song (Explicit).mp3",
+      "newName": "Some Artist feat. Guest - Some Song.mp3",
+      "oldTitle": "Some Song (Explicit)",
+      "oldAlbum": "Some Album",
+      "oldArtists": "Some Artist feat. Guest",
+      "oldGenre": "",
+      "oldCompilation": true,
+      "newTitle": "Some Song",
+      "newAlbum": "Some Album",
+      "newArtists": "Some Artist feat. Guest",
+      "newGenre": "",
+      "newCompilation": true,
+      "backup": "<ROOT>\\backups\\<STAMP>\\03 - Some Song (Explicit).mp3",
+      "newHash": "97A557DF0573D3B2BA9028E767EBD3D6C2E3A22A153B5C95D73775265D78AF1C",
+      "quarantinedTo": null,
+      "detail": null,
+      "status": "done"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "schema": "libfix-plan-1",
+  "kind": "album_in_singles",
+  "libraryRoot": "<ROOT>\\Audio",
+  "generated": "<ISO>",
+  "moves": [
+    {
+      "from": "Artists\\Kanye West\\Singles\\Kanye West - Champion.mp3",
+      "to": "Artists\\Kanye West\\Graduation\\Kanye West - Champion.mp3",
+      "artist": "Kanye West",
+      "album": "Graduation",
+      "createsFolder": false
+    }
+  ],
+  "skipped": [],
+  "counts": {
+    "moves": 1,
+    "skipped": 0
+  }
+}

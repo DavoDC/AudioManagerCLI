@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "<ISO>",
+  "fingerprint": {
+    "algorithm": "sha256",
+    "fileCount": 5,
+    "value": "<SHA256>"
+  },
+  "counts": {
+    "pending": 1,
+    "needsManual": 0,
+    "renames": 1,
+    "quarantines": 0
+  },
+  "files": [
+    {
+      "file": "03 - Some Song (Explicit).mp3",
+      "oldTags": {
+        "title": "Some Song (Explicit)",
+        "album": "Some Album",
+        "artists": "Some Artist feat. Guest",
+        "genre": "",
+        "compilation": true,
+        "artCount": 1
+      },
+      "newTags": {
+        "title": "Some Song",
+        "album": "Some Album",
+        "artists": "Some Artist feat. Guest",
+        "genre": "",
+        "compilation": true,
+        "artCount": 1
+      },
+      "oldName": "03 - Some Song (Explicit).mp3",
+      "newName": "Some Artist feat. Guest - Some Song.mp3",
+      "wouldQuarantine": false
+    }
+  ],
+  "needsManual": []
+}

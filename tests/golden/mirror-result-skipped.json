@@ -1,0 +1,11 @@
+{
+  "recordType": "mirrorResult",
+  "schemaVersion": 1,
+  "generatedAt": "<ISO>",
+  "status": "skipped",
+  "error": null,
+  "mirrorCommitted": false,
+  "libcheckerHitCount": 0,
+  "hits": [],
+  "retry": "AudioManagerCLI.exe --mirror-retry"
+}

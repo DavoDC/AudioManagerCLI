@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "<ISO>",
+  "status": "mirror_stale",
+  "action": "commit_mirror",
+  "mirrorDirty": true,
+  "mirrorDirtyCount": 1,
+  "libCheckerIssues": 0,
+  "mirrorDirtyFiles": [
+    "?? AUDIO_MIRROR/"
+  ]
+}

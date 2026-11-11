@@ -1,0 +1,16 @@
+{
+  "schema": "libfix-result-1",
+  "operation": "revert",
+  "generated": "<ISO>",
+  "status": "reverted",
+  "message": "reverted 1 file(s), skipped 0",
+  "journal": "<ROOT>\\logs\\libfix-journal-<STAMP>.json",
+  "counts": {
+    "moved": 0,
+    "reverted": 1,
+    "skipped": 0,
+    "failed": 0,
+    "foldersRemoved": 0
+  },
+  "notes": []
+}

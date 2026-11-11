@@ -1,0 +1,12 @@
+{
+  "schema": "libfix-journal-1",
+  "libraryRoot": "<ROOT>\\Audio",
+  "generated": "<ISO>",
+  "moves": [
+    {
+      "from": "Artists\\Kanye West\\Singles\\Kanye West - Champion.mp3",
+      "to": "Artists\\Kanye West\\Graduation\\Kanye West - Champion.mp3",
+      "createdFolder": null
+    }
+  ]
+}

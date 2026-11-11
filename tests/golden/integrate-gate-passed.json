@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "<ISO>",
+  "status": "passed",
+  "action": "none",
+  "mirrorDirty": false,
+  "mirrorDirtyCount": 0,
+  "libCheckerIssues": 0,
+  "mirrorDirtyFiles": []
+}

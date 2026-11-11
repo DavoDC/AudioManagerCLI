@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "<ISO>",
+  "summary": {
+    "trackCount": 6,
+    "artistCount": 3,
+    "genreCount": 1,
+    "totalLibraryBytes": 37523,
+    "avgFileBytes": 6253,
+    "totalPlaybackSeconds": 5.034,
+    "totalPlaybackHours": 0,
+    "avgSongLengthSeconds": 1,
+    "medianSongLengthSeconds": 1
+  },
+  "genreDistribution": [
+    {
+      "label": "Missing",
+      "count": 6
+    }
+  ],
+  "decadeDistribution": [
+    {
+      "label": "2000s",
+      "count": 6
+    }
+  ],
+  "yearDistribution": [
+    {
+      "label": "2007",
+      "count": 6
+    }
+  ],
+  "topArtists": {
+    "exclMusivation": [
+      {
+        "label": "Kanye West",
+        "count": 4
+      },
+      {
+        "label": "Jay-Z",
+        "count": 1
+      },
+      {
+        "label": "Some Artist feat. Guest",
+        "count": 1
+      }
+    ],
+    "all": [
+      {
+        "label": "Kanye West",
+        "count": 4
+      },
+      {
+        "label": "Jay-Z",
+        "count": 1
+      },
+      {
+        "label": "Some Artist feat. Guest",
+        "count": 1
+      }
+    ]
+  },
+  "ageStats": {
+    "averageYears": "<YEARS>",
+    "medianYears": "<YEARS>",
+    "newestYears": "<YEARS>",
+    "oldestYears": "<YEARS>"
+  },
+  "ageDistribution": [
+    {
+      "label": "0-2y",
+      "count": "<COUNT>"
+    },
+    {
+      "label": "2-5y",
+      "count": "<COUNT>"
+    },
+    {
+      "label": "5-10y",
+      "count": "<COUNT>"
+    },
+    {
+      "label": "10-20y",
+      "count": "<COUNT>"
+    },
+    {
+      "label": "20y+",
+      "count": "<COUNT>"
+    }
+  ],
+  "coverArt": {
+    "total": 6,
+    "hasKnownDims": 6,
+    "noCover": 0,
+    "missingData": 0,
+    "unknownFormat": 0,
+    "subMin800": 6,
+    "nonSquare": 0,
+    "dimensionHistogram": [
+      {
+        "label": "1x1",
+        "count": 6
+      }
+    ]
+  },
+  "tagCompleteness": {
+    "complete": 0,
+    "total": 6,
+    "percent": 0
+  },
+  "coverCoverage800": {
+    "covered": 0,
+    "total": 6,
+    "percent": 0
+  }
+}
