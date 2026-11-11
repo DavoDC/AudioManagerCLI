@@ -256,6 +256,25 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void Apply_OnlyFileLockedExclusively_IsNotNothingToDo()
+        {
+            var e = NewEnv();
+            try
+            {
+                string locked = Messy(e, "locked.mp3");
+                string fp = Plan(e);
+                using (new FileStream(locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                {
+                    var r = TagFixApplier.Apply(e.Folder, fp, e.Logs, e.Backups, e.Quarantine, Now);
+                    Assert.True(r.Status != "nothing_to_do", "an unreadable file must not look like nothing to do");
+                    Assert.Equal("partial", r.Status, "status");
+                    Assert.True(r.Failed == 1 && r.Failures.Count == 1, "the unreadable file is listed as a failure");
+                    Assert.True(r.Applied == 0, "nothing applied");
+                }
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void Apply_QuarantineIsJournaledAndRevertMovesItBack()
         {
             var e = NewEnv();

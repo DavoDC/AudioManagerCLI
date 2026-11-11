@@ -119,7 +119,13 @@ namespace AudioManager
             result.NeedsManual = scan.Results.Count(l => l.Status == "error" || l.NeedsManual);
             if (planned.Count == 0)
             {
-                result.Status = "nothing_to_do";
+                // Files the scan could not read (open exclusively elsewhere, corrupt) were never planned, so they must
+                // not pass as "nothing to do": they are failures, same as in a run that applies other files.
+                foreach (var u in scan.Results.Where(l => l.Status == "error"))
+                {
+                    result.Failed++; result.Failures.Add(Rel(folder, u.SourcePath) + ": unreadable, not changed: " + u.Detail);
+                }
+                result.Status = result.Failed == 0 ? "nothing_to_do" : "partial";
                 result.PendingAfter = 0;
                 WriteResult(logsDir, result, now);
                 return result;
