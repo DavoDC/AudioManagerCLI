@@ -263,6 +263,14 @@ namespace AudioManager
                         Console.WriteLine(" - [WARN] preview_stale: NewMusic changed since the last dry run; the decisions you reviewed may not match what is integrated now.");
                 }
 
+                // Pre-flight (real runs only): the dry-run steps plus the MAX_PATH gate, on the tag values the real run
+                // will produce. Writes nothing. A block stops the batch before the real TagFixer rewrites NewMusic.
+                if (!dryRun && !PreflightMirrorGate(Constants.NewMusicPath, Constants.MirrorFolderPath, manifest))
+                {
+                    WriteJsonOutput(logEntries, Blocked);
+                    return;
+                }
+
                 // Step 1: Fix tags in NewMusic folder
                 // A manifest declines files before Tag Fix too: declined files are never rewritten, renamed or quarantined.
                 var tagFixer = new TagFixer(dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))), _artistSpellingChoices);
@@ -464,6 +472,31 @@ namespace AudioManager
         internal static string BuildDestFilename(Track track)
         {
             return Reflector.SanitiseFilename(track.Artists) + " - " + Reflector.SanitiseFilename(track.Title) + ".mp3";
+        }
+
+        /// <summary>
+        /// Real-run pre-flight: the dry-run steps (dry TagFixer, the same manifest file selection, scan-ahead, pre-scan)
+        /// then the pre-move MAX_PATH gate, so the gate sees the final tag values. Moves, renames and writes nothing.
+        /// Returns false when the batch is blocked (Blocked is set). The real pass that follows overwrites every field
+        /// this sets (_previewTagFixer, _batchTagCache, the scan-ahead fields), so its results match a run without it.
+        /// </summary>
+        internal bool PreflightMirrorGate(string newMusicRoot, string mirrorPath, IntegrationManifest manifest = null)
+        {
+            var files = Directory.Exists(newMusicRoot)
+                ? Directory.GetFiles(newMusicRoot, "*.mp3", SearchOption.AllDirectories)
+                : Array.Empty<string>();
+            Func<string, bool> keep = manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f)));
+            if (keep != null && files.Length > 0)
+                files = files.Where(keep).ToArray();
+            if (files.Length == 0) return true; // the real pass reports "nothing to integrate" or the manifest error
+
+            var previewFixer = new TagFixer(newMusicRoot, true, keep, _artistSpellingChoices);
+            var newArtistFolders = RunScanAhead(files);
+            _previewTagFixer = previewFixer;
+            var scannedFiles = PreScanFiles(files, previewFixer.FileChanges, previewFixer.LogsByFile);
+            bool clear = RunMirrorPathGate(scannedFiles, newArtistFolders, mirrorPath);
+            if (clear) Console.WriteLine(" - Pre-flight: mirror path gate passed on final tag values");
+            return clear;
         }
 
         /// <summary>

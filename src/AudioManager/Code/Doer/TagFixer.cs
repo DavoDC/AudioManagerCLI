@@ -95,6 +95,12 @@ namespace AudioManager
         public List<FixLog> Results { get; } = new List<FixLog>();
 
         public TagFixer(bool dryRun = false, Func<string, bool> fileFilter = null, IDictionary<string, string> artistSpellingChoices = null)
+            : this(Constants.NewMusicPath, dryRun, fileFilter, artistSpellingChoices)
+        {
+        }
+
+        /// <summary>Scans and processes newMusicRoot. The public constructor passes Constants.NewMusicPath; the integrate pre-flight passes the folder it was given.</summary>
+        internal TagFixer(string newMusicRoot, bool dryRun, Func<string, bool> fileFilter, IDictionary<string, string> artistSpellingChoices)
         {
             this.dryRun = dryRun;
             this.customRules = TagFixCustomRuleSet.Load();
@@ -103,7 +109,7 @@ namespace AudioManager
             string modeLabel = dryRun ? " [DRY RUN - no files will be modified]" : "";
             Console.WriteLine($"\nFixing music tags...{modeLabel}");
 
-            ScanAndProcess(Constants.NewMusicPath, fileFilter);
+            ScanAndProcess(newMusicRoot, fileFilter);
         }
 
         /// <summary>
