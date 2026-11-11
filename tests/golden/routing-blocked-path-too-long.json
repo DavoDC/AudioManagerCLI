@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "recordType": "routing",
+  "dryRun": true,
+  "generatedAt": "<ISO>",
+  "newMusicFingerprint": "<SHA256>",
+  "summary": {
+    "routes": {},
+    "miscAutoMigrations": [],
+    "miscAutoMigrationTotal": 0,
+    "counts": {
+      "files": 0,
+      "routed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "libraryDuplicates": 0,
+      "inBatchDuplicates": 0,
+      "unrouted": 0
+    },
+    "compilationAlbums": []
+  },
+  "confidence": null,
+  "blocked": {
+    "status": "path_too_long",
+    "action": "rename_or_shorten",
+    "files": [
+      {
+        "file": "<ROOT>\\Audio\\Miscellaneous Songs\\Long Artist - Long Title xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.mp3",
+        "projectedLength": 305,
+        "limit": 259
+      }
+    ]
+  },
+  "artistSpellingCandidates": [],
+  "files": []
+}

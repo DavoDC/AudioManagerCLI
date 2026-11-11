@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "<ISO>",
+  "status": "files_in_use",
+  "oldFingerprint": "<SHA256>",
+  "newFingerprint": "<SHA256>",
+  "journal": null,
+  "bytesNeeded": 0,
+  "bytesFree": 0,
+  "counts": {
+    "applied": 0,
+    "alreadyDone": 0,
+    "failed": 0,
+    "quarantined": 0,
+    "needsManual": 0,
+    "pendingAfter": 0
+  },
+  "failures": [
+    "03 - Some Song (Explicit).mp3: open in another program; close it and run again"
+  ]
+}

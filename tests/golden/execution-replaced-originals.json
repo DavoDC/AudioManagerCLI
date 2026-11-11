@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "recordType": "execution",
+  "dryRun": false,
+  "generatedAt": "<ISO>",
+  "previewFingerprint": "<SHA256>",
+  "previewStale": false,
+  "summary": {
+    "routes": {
+      "Artists": 1
+    },
+    "miscAutoMigrations": [],
+    "miscAutoMigrationTotal": 0,
+    "counts": {
+      "files": 1,
+      "routed": 1,
+      "skipped": 0,
+      "errors": 0,
+      "libraryDuplicates": 1,
+      "inBatchDuplicates": 0,
+      "unrouted": 0
+    },
+    "compilationAlbums": []
+  },
+  "leftovers": {
+    "emptyFolders": [],
+    "otherFiles": [
+      "desktop.ini"
+    ],
+    "declinedCount": 2
+  },
+  "confidence": {
+    "countCheck": {
+      "totalFiles": 1,
+      "moved": 1,
+      "skipped": 0,
+      "expectedMoved": 1,
+      "ok": true
+    },
+    "sanityCheck": {
+      "ran": true,
+      "ok": true,
+      "checked": 1,
+      "failures": []
+    },
+    "newFolders": [
+      "Artists\\Jay-Z\\The Black Album"
+    ],
+    "errorCount": 0,
+    "errors": []
+  },
+  "replacedOriginals": [
+    {
+      "original": "<ROOT>\\Audio\\Artists\\Jay-Z\\Singles\\Jay-Z - Encore.mp3",
+      "held": "<ROOT>\\NewMusic-Quarantine\\Replaced\\<STAMP>\\Jay-Z - Encore.mp3"
+    }
+  ],
+  "artistSpellingCandidates": [],
+  "files": [
+    {
+      "filename": "Jay-Z - Encore.mp3",
+      "sourceRel": "Jay-Z - Encore.mp3",
+      "artist": "Jay-Z",
+      "title": "Encore",
+      "album": "The Black Album",
+      "destination": "Artists\\Jay-Z\\The Black Album\\Jay-Z - Encore.mp3",
+      "reason": "Artist folder; 2 songs from album -> album subfolder",
+      "isNewFolder": false,
+      "status": "moved",
+      "detail": "duplicate (library replaced)",
+      "inBatchDuplicate": false,
+      "compilationAlbum": false,
+      "libraryDuplicate": true,
+      "dupLibraryPath": "Artists\\Jay-Z\\Singles\\Jay-Z - Encore.xml",
+      "dupLibraryTrack": "Jay-Z - Encore",
+      "dupLibraryAlbum": "The Black Album",
+      "dupNewAlbum": "The Black Album",
+      "dupRecommendationKey": "L",
+      "dupRecommendation": "Delete library copy",
+      "dupReason": "Library has single; new file is from album 'The Black Album' - album preferred",
+      "tagFix": null,
+      "tagChanges": []
+    }
+  ]
+}

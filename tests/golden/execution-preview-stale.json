@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "recordType": "execution",
+  "dryRun": false,
+  "generatedAt": "<ISO>",
+  "previewFingerprint": "<SHA256>",
+  "previewStale": true,
+  "summary": {
+    "routes": {
+      "Artists": 2
+    },
+    "miscAutoMigrations": [],
+    "miscAutoMigrationTotal": 0,
+    "counts": {
+      "files": 2,
+      "routed": 2,
+      "skipped": 0,
+      "errors": 0,
+      "libraryDuplicates": 0,
+      "inBatchDuplicates": 0,
+      "unrouted": 0
+    },
+    "compilationAlbums": []
+  },
+  "leftovers": {
+    "emptyFolders": [],
+    "otherFiles": [
+      "desktop.ini"
+    ],
+    "declinedCount": 4
+  },
+  "confidence": {
+    "countCheck": {
+      "totalFiles": 2,
+      "moved": 2,
+      "skipped": 0,
+      "expectedMoved": 2,
+      "ok": true
+    },
+    "sanityCheck": {
+      "ran": true,
+      "ok": true,
+      "checked": 2,
+      "failures": []
+    },
+    "newFolders": [],
+    "errorCount": 0,
+    "errors": []
+  },
+  "artistSpellingCandidates": [],
+  "files": [
+    {
+      "filename": "Kanye West - Flashing Lights.mp3",
+      "sourceRel": "Kanye West - Flashing Lights.mp3",
+      "artist": "Kanye West",
+      "title": "Flashing Lights",
+      "album": "Graduation",
+      "destination": "Artists\\Kanye West\\Graduation\\Kanye West - Flashing Lights.mp3",
+      "reason": "Artist folder; 4 songs from album -> album subfolder",
+      "isNewFolder": false,
+      "status": "moved",
+      "detail": "",
+      "inBatchDuplicate": false,
+      "compilationAlbum": false,
+      "libraryDuplicate": false,
+      "dupLibraryPath": null,
+      "dupLibraryTrack": null,
+      "dupLibraryAlbum": null,
+      "dupNewAlbum": null,
+      "dupRecommendationKey": null,
+      "dupRecommendation": null,
+      "dupReason": null,
+      "tagFix": null,
+      "tagChanges": []
+    },
+    {
+      "filename": "Kanye West - Stronger.mp3",
+      "sourceRel": "Kanye West - Stronger.mp3",
+      "artist": "Kanye West",
+      "title": "Stronger",
+      "album": "Graduation",
+      "destination": "Artists\\Kanye West\\Graduation\\Kanye West - Stronger.mp3",
+      "reason": "Artist folder; 4 songs from album -> album subfolder",
+      "isNewFolder": false,
+      "status": "moved",
+      "detail": "",
+      "inBatchDuplicate": false,
+      "compilationAlbum": false,
+      "libraryDuplicate": false,
+      "dupLibraryPath": null,
+      "dupLibraryTrack": null,
+      "dupLibraryAlbum": null,
+      "dupNewAlbum": null,
+      "dupRecommendationKey": null,
+      "dupRecommendation": null,
+      "dupReason": null,
+      "tagFix": null,
+      "tagChanges": []
+    }
+  ]
+}

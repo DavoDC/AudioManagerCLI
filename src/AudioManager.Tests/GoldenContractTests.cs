@@ -79,6 +79,17 @@ namespace AudioManager
                 "tracks[].album", "tracks[].year", "tracks[].decade", "tracks[].genres", "tracks[].lengthSeconds",
                 "tracks[].compilation", "tracks[].coverWidth", "tracks[].hasArt", "tracks[].hiResArt",
                 "tracks[].addedDate", "tracks[].filePath"),
+            Row("routing-blocked-path-too-long", "RoutingJSONFormat.md", "recordType=routing;schemaVersion=1",
+                "blocked.status", "blocked.action", "blocked.files[].file", "blocked.files[].projectedLength",
+                "blocked.files[].limit", "summary.counts.files", "artistSpellingCandidates"),
+            Row("execution-replaced-originals", "RoutingJSONFormat.md", "recordType=execution;schemaVersion=1;previewStale=False",
+                "previewFingerprint", "replacedOriginals[].original", "replacedOriginals[].held", "leftovers.declinedCount"),
+            Row("execution-preview-stale", "RoutingJSONFormat.md", "recordType=execution;schemaVersion=1;previewStale=True",
+                "previewFingerprint", "previewStale", "leftovers.declinedCount"),
+            Row("tagfix-apply-result-files-in-use", "TagFixApplyJSONFormat.md", "status=files_in_use",
+                "oldFingerprint", "newFingerprint", "journal", "bytesNeeded", "bytesFree", "counts.applied",
+                "counts.alreadyDone", "counts.failed", "counts.quarantined", "counts.needsManual", "counts.pendingAfter",
+                "failures[]"),
         };
 
         private static string[] Row(string name, string contract, string identity, params string[] required)
@@ -190,6 +201,47 @@ namespace AudioManager
                 Assert.True(text.IndexOf("am_golden_", StringComparison.Ordinal) < 0, label + " holds the sandbox folder name");
                 Assert.True(text.IndexOf("\\Users\\", StringComparison.OrdinalIgnoreCase) < 0, label + " holds a user profile path");
             }
+        }
+
+        private static Dictionary<string, object> LoadGolden(string name)
+        {
+            string file = Path.Combine(FindRepoRoot(), "tests", "golden", name + ".json");
+            Assert.True(File.Exists(file), "missing golden " + name + ".json (run scripts\\dev\\golden\\make_goldens.py)");
+            return (Dictionary<string, object>)Parse(file);
+        }
+
+        // The blocked record must name the status the gate writes and a projected length at or over the limit.
+        public static void PathTooLongGoldenCarriesTheBlockedValues()
+        {
+            var blocked = LoadGolden("routing-blocked-path-too-long")["blocked"] as Dictionary<string, object>;
+            Assert.True(blocked != null, "routing-blocked-path-too-long: blocked is not an object");
+            Assert.Equal("path_too_long", (string)blocked["status"], "blocked.status");
+            Assert.Equal("rename_or_shorten", (string)blocked["action"], "blocked.action");
+            var first = (Dictionary<string, object>)((object[])blocked["files"])[0];
+            int length = Convert.ToInt32(first["projectedLength"], CultureInfo.InvariantCulture);
+            int limit = Convert.ToInt32(first["limit"], CultureInfo.InvariantCulture);
+            Assert.Equal("259", limit.ToString(CultureInfo.InvariantCulture), "blocked.files[].limit");
+            Assert.True(length >= limit, "blocked.files[].projectedLength is under the limit");
+        }
+
+        // A replaced original is held under the Replaced folder, never deleted.
+        public static void ReplacedOriginalsGoldenNamesTheHeldFile()
+        {
+            var rows = (object[])LoadGolden("execution-replaced-originals")["replacedOriginals"];
+            Assert.True(rows.Length > 0, "execution-replaced-originals: replacedOriginals is empty");
+            var row = (Dictionary<string, object>)rows[0];
+            Assert.True(((string)row["held"]).IndexOf("\\Replaced\\", StringComparison.Ordinal) >= 0,
+                "replacedOriginals[].held is not under the Replaced holding folder");
+        }
+
+        // files_in_use names every locked file with the operator instruction the contract documents.
+        public static void FilesInUseGoldenNamesTheLockedFile()
+        {
+            var failures = (object[])LoadGolden("tagfix-apply-result-files-in-use")["failures"];
+            Assert.True(failures.Length > 0, "tagfix-apply-result-files-in-use: failures is empty");
+            string first = (string)failures[0];
+            Assert.True(first.EndsWith(": open in another program; close it and run again", StringComparison.Ordinal),
+                "failure text drifted: " + first);
         }
     }
 }

@@ -14,6 +14,7 @@ Volatile values are normalised (timestamps, fingerprints, dates, age buckets, ab
 kept. Any path the engine reports outside the sandbox fails the run.
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -22,6 +23,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
@@ -46,7 +48,10 @@ STAMP = re.compile(r"\d{8}-\d{6}")
 # Golden name -> contract doc it follows (printed in the run report).
 CONTRACT = {
     "routing-dry-run": "RoutingJSONFormat.md",
+    "routing-blocked-path-too-long": "RoutingJSONFormat.md",
     "execution": "RoutingJSONFormat.md",
+    "execution-replaced-originals": "RoutingJSONFormat.md",
+    "execution-preview-stale": "RoutingJSONFormat.md",
     "fingerprint": "RoutingJSONFormat.md",
     "integrate-gate-mirror-stale": "GateResultJSONFormat.md",
     "integrate-gate-libchecker-dirty": "GateResultJSONFormat.md",
@@ -58,6 +63,7 @@ CONTRACT = {
     "tagfix-plan": "TagFixJSONFormat.md",
     "tagfix-apply-result": "TagFixApplyJSONFormat.md",
     "tagfix-apply-result-stale-plan": "TagFixApplyJSONFormat.md",
+    "tagfix-apply-result-files-in-use": "TagFixApplyJSONFormat.md",
     "tagfix-journal": "TagFixApplyJSONFormat.md",
     "libfix-plan": "LibFixJSONFormat.md",
     "libfix-journal": "LibFixJSONFormat.md",
@@ -320,6 +326,172 @@ def build_missing_mirror(exe: Path, root: Path, goldens: dict) -> None:
             {"status": "mirror_repo_missing", "action": "restore_mirror_repo"})
 
 
+GATE = ["integrate", "--dry-run", "--json-output", "--no-input"]
+GENERIC_READ = 0x80000000
+FILE_SHARE_READ, FILE_SHARE_WRITE = 0x1, 0x2
+OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL = 3, 0x80
+
+
+@contextmanager
+def held_open(path: Path):
+    """Hold path open for reading, as a player does, with read/write sharing so the engine can still read it to plan.
+    The engine's write probe (ReadWrite, FileShare.None) then fails, which is how a file open in another program looks.
+    A fully exclusive handle (FileShare.None) also blocks the plan scan, so the file is never planned. Closed on exit."""
+    import ctypes
+    from ctypes import wintypes
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateFileW.restype = wintypes.HANDLE
+    kernel32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                                     wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = kernel32.CreateFileW(str(path), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, None, OPEN_EXISTING,
+                                  FILE_ATTRIBUTE_NORMAL, None)
+    if handle in (None, 0, ctypes.c_void_p(-1).value):
+        raise RuntimeError(f"could not hold {path.name} open (WinError {ctypes.get_last_error()})")
+    try:
+        yield handle
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def lib_path(root: Path, rel: str) -> Path:
+    return root.joinpath("Audio", *re.split(r"[\\/]", rel))
+
+
+def file_sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def gate_passes(r: Runner, root: Path) -> None:
+    r.run(GATE)
+    gate_doc = json.loads((root / "logs" / "integrate-gate.json").read_text(encoding="utf-8-sig"))
+    if gate_doc.get("status") != "passed":
+        raise RuntimeError(f"gate expected to pass, engine wrote {gate_doc.get('status')!r}: "
+                           f"dirty={gate_doc.get('mirrorDirtyFiles')} libchecker={gate_doc.get('libCheckerIssues')}")
+
+
+def mirror_status(logs: Path) -> str:
+    return json.loads(newest(logs, "mirror-result.json").read_text(encoding="utf-8-sig")).get("status")
+
+
+def manifest_row(row: dict, dup: str = None) -> dict:
+    entry = {"filename": row["filename"], "sourceRel": row["sourceRel"], "artist": row["artist"], "title": row["title"]}
+    if dup:
+        entry["dupResolution"] = dup
+    return entry
+
+
+def requires_key(key: str):
+    def check(doc: dict) -> None:
+        if key not in doc:
+            raise RuntimeError(f"engine record has no top-level {key}")
+    return check
+
+
+def ready_gate(r: Runner, root: Path, rehearse: bool) -> None:
+    """Seed a sandbox and reach a passing gate (mirror committed, LibChecker clean), the state each edge case starts from.
+    Same steps as build(), without the golden captures. With rehearse, the libfix apply and revert are hash-compared."""
+    logs = root / "logs"
+    seed(root)
+    init_mirror_repo(root)
+    r.run(["integrate", "--dry-run", "--no-input"])
+    r.run(GATE)
+    commit_mirror(root)
+    r.run(GATE)
+    r.run(["--mirror-retry"])
+    r.run(["--libfix-plan"])
+    plan = logs / "libfix-plan.json"
+    moves = json.loads(plan.read_text(encoding="utf-8-sig"))["moves"]
+    before = {m["from"]: file_sha(lib_path(root, m["from"])) for m in moves} if rehearse else {}
+    r.run(["--libfix-apply", str(plan)])
+    if rehearse:
+        for m in moves:
+            if lib_path(root, m["from"]).exists() or not lib_path(root, m["to"]).exists():
+                raise RuntimeError(f"libfix apply did not move {m['from']} to {m['to']}")
+            if file_sha(lib_path(root, m["to"])) != before[m["from"]]:
+                raise RuntimeError(f"libfix apply changed the bytes of {m['from']}")
+    r.run(["--libfix-revert", str(newest(logs, "libfix-journal-*.json"))])
+    if rehearse:
+        for m in moves:
+            if not lib_path(root, m["from"]).exists() or lib_path(root, m["to"]).exists():
+                raise RuntimeError(f"libfix revert did not move {m['to']} back to {m['from']}")
+            if file_sha(lib_path(root, m["from"])) != before[m["from"]]:
+                raise RuntimeError(f"libfix revert did not restore the original bytes of {m['from']}")
+        result = json.loads((logs / "libfix-result.json").read_text(encoding="utf-8-sig"))
+        if result.get("status") != "reverted":
+            raise RuntimeError(f"libfix revert wrote status {result.get('status')!r}")
+        print(f"  libfix revert rehearsal: {len(moves)} move(s) applied and reverted, original bytes restored (sha256 equal)")
+    r.run(["--libfix-plan"])
+    r.run(["--libfix-apply", str(plan)])
+    r.run(["--mirror-retry"])
+    gate_passes(r, root)
+
+
+def build_edges(exe: Path, root: Path, goldens: dict) -> None:
+    """Edge cases on one sandbox that passes the gate, in order: a planned file held open by another program
+    (files_in_use), a real run after a file lands in NewMusic (previewStale true), then an L replacement of a
+    library duplicate (replacedOriginals)."""
+    r = Runner(exe, root)
+    logs = root / "logs"
+    ready_gate(r, root, rehearse=True)
+
+    # Tag Fix refuses while a planned file is open in another program: nothing changes, the result names the file.
+    r.run(["tagfix", "--dry-run", "--json-output", "--no-input"])
+    with held_open(root / "NewMusic" / "03 - Some Song (Explicit).mp3"):
+        r.run(["tagfix", "--apply-plan"])
+    capture(goldens, r, "tagfix-apply-result-files-in-use", logs, "tagfix-result.json", {"status": "files_in_use"})
+
+    # Plan again (nothing changed) and apply, so routing sees the Tag Fix output as the main flow does.
+    r.run(["tagfix", "--dry-run", "--json-output", "--no-input"])
+    r.run(["tagfix", "--apply-plan"])
+
+    # Stale preview: the dry run stamps NewMusic, then a file lands in NewMusic before the real run.
+    gate_passes(r, root)
+    manifest = root / "manifest.json"
+    fresh = json.loads(newest(logs, "routing-*.json").read_text(encoding="utf-8-sig"))
+    # Declined: the duplicate Jay-Z (kept for the L run) and the badly tagged Misc song, whose "feat." artist would
+    # leave a LibChecker unwanted_text hit in the library (Misc songs are not retagged after migration).
+    keep = [e for e in routing_manifest(fresh) if e["filename"] != "Jay-Z - Encore.mp3" and "Some Song" not in e["filename"]]
+    manifest.write_text(json.dumps(keep), encoding="utf-8")
+    stray = song(root / "NewMusic" / "Stray Artist - Stray Track.mp3", "Stray Artist", "Stray Track", "Stray Album")
+    proc = r.run(["integrate", "--manifest", str(manifest), "--json-output", "--no-input"])
+    if proc.returncode != 0:
+        raise RuntimeError(f"integrate --manifest (stale preview) exit {proc.returncode}: {proc.stdout[-600:]}")
+    capture(goldens, r, "execution-preview-stale", logs, "execution-*.json",
+            {"recordType": "execution", "previewStale": True})
+
+    # The real run moved files into the library; its post-integration mirror step did not commit them (the engine
+    # prints the retry command for this case), so retry the mirror step before the gate is checked again.
+    print(f"  stale-preview run: post-integration mirror status {mirror_status(logs)!r}; retrying the mirror step")
+    r.run(["--mirror-retry"])
+
+    # Replacement: the stray leaves NewMusic, a fresh dry run stamps the folder, and the manifest accepts the
+    # library duplicate Jay-Z - Encore with L (replace the library copy).
+    stray.unlink()
+    gate_passes(r, root)
+    fresh = json.loads(newest(logs, "routing-*.json").read_text(encoding="utf-8-sig"))
+    dup = [row for row in fresh["files"] if row["filename"] == "Jay-Z - Encore.mp3"]
+    if not dup or not dup[0].get("libraryDuplicate"):
+        raise RuntimeError("Jay-Z - Encore.mp3 is not a library duplicate in the fresh preview")
+    manifest.write_text(json.dumps([manifest_row(dup[0], "L")]), encoding="utf-8")
+    proc = r.run(["integrate", "--manifest", str(manifest), "--json-output", "--no-input"])
+    if proc.returncode != 0:
+        raise RuntimeError(f"integrate --manifest (L replace) exit {proc.returncode}: {proc.stdout[-600:]}")
+    capture(goldens, r, "execution-replaced-originals", logs, "execution-*.json",
+            {"recordType": "execution", "previewStale": False})
+
+
+def build_blocked(exe: Path, root: Path, goldens: dict) -> None:
+    """A planned destination whose staged mirror path passes the Windows limit: the gate blocks the batch and the
+    routing record carries the top-level blocked object. The long title is the only long name in the sandbox."""
+    r = Runner(exe, root)
+    ready_gate(r, root, rehearse=False)
+    song(root / "NewMusic" / "Long Artist - Long Title.mp3", "Long Artist", "Long Title " + "x" * 170, "Long Album")
+    r.run(GATE)
+    capture(goldens, r, "routing-blocked-path-too-long", root / "logs", "routing-*.json",
+            {"recordType": "routing", "schemaVersion": 1}, check=requires_key("blocked"))
+
+
 def make_sandbox() -> Path:
     return Path(tempfile.mkdtemp(prefix=SANDBOX_PREFIX)).resolve()
 
@@ -351,14 +523,16 @@ def build_all(exe: Path) -> dict:
         raise SystemExit(f"make_goldens: engine exe missing: {exe}. Build it first (scripts\\dev\\build.bat --no-pause).")
     before = data_snapshot()
     goldens: dict = {}
-    main_root = make_sandbox()
-    missing_root = make_sandbox()
+    roots = [make_sandbox() for _ in range(4)]  # main, missing mirror, edge cases, blocked path
+    main_root, missing_root, edge_root, blocked_root = roots
     try:
         build(exe, main_root, goldens)
         build_missing_mirror(exe, missing_root, goldens)
+        build_edges(exe, edge_root, goldens)
+        build_blocked(exe, blocked_root, goldens)
     finally:
-        remove_sandbox(main_root)
-        remove_sandbox(missing_root)
+        for root in roots:
+            remove_sandbox(root)
     if data_snapshot() != before:
         raise RuntimeError("the engine wrote under the real repo data folder; the sandbox guard failed")
     return goldens
