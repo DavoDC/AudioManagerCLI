@@ -35,6 +35,7 @@ One canonical home per kind of rule. A rule is stated in its home only; anywhere
 | LibChecker false-warning guidance | [Rules/PostIntegrationValidation.md](Rules/PostIntegrationValidation.md) |
 | JSON fields and statuses (plan, apply, routing, gate, mirror, analysis) | [Contracts/](Contracts/) |
 | Operator steps for a real integration | [GoLiveRunbook.md](GoLiveRunbook.md) |
+| Check a batch is safe before integrating (readiness and rehearsal scripts) | [BatchReadiness.md](BatchReadiness.md) |
 | Code invariants and patterns | [DevContext.md](DevContext.md) |
 
 The top-level README is product overview only: no per-rule text. A test (`DocSingleSourceTests`) fails when README.md or CLAUDE.md contains rule-only keywords.
