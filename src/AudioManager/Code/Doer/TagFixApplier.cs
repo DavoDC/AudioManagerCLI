@@ -185,6 +185,7 @@ namespace AudioManager
                     else if (log.Status == "fixed")
                     {
                         e.Status = "done"; e.NewName = log.Filename ?? e.OldName; result.Applied++;
+                        e.NewHash = HashFile(Path.Combine(Path.GetDirectoryName(src), e.NewName));
                     }
                     else if (log.Detail != null && log.Detail.StartsWith("quarantined", StringComparison.Ordinal))
                     {
@@ -261,7 +262,9 @@ namespace AudioManager
                     {
                         string current = Path.Combine(Path.GetDirectoryName(original), e.NewName);
                         if (!File.Exists(current)) { res.Failed++; res.Notes.Add(e.File + ": current file missing"); continue; }
-                        if (!TagsMatch(current, e.New)) { res.SkippedModified++; res.Notes.Add(e.File + ": modified since apply, left alone"); continue; }
+                        // Bytes decide when the journal recorded a hash (any edit, even outside the five fields, counts); older journals fall back to tags.
+                        bool unchanged = !string.IsNullOrEmpty(e.NewHash) ? HashFile(current) == e.NewHash : TagsMatch(current, e.New);
+                        if (!unchanged) { res.SkippedModified++; res.Notes.Add(e.File + ": modified since apply, left alone"); continue; }
                         if (!current.Equals(original, StringComparison.OrdinalIgnoreCase) && File.Exists(original))
                         { res.Failed++; res.Notes.Add(e.File + ": original name occupied"); continue; }
                         if (File.Exists(e.Backup)) File.Copy(e.Backup, current, true);
@@ -307,7 +310,7 @@ namespace AudioManager
 
         private class JournalEntry
         {
-            public string File, OldName, NewName, Backup, Status, Detail, QuarantinedTo;
+            public string File, OldName, NewName, Backup, Status, Detail, QuarantinedTo, NewHash;
             public TagFixer.TagState Old, New;
             public bool WasQuarantine;
         }
@@ -335,37 +338,64 @@ namespace AudioManager
                 $"\"{p}Title\": {J(t.Title)}, \"{p}Album\": {J(t.Album)}, \"{p}Artists\": {J(t.Artists)}, \"{p}Genre\": {J(t.Genre)}, \"{p}Compilation\": {(t.Compilation ? "true" : "false")}, ";
             return "{" + $"\"file\": {J(e.File)}, \"oldName\": {J(e.OldName)}, \"newName\": {J(e.NewName)}, " +
                 tags(e.Old, "old") + tags(e.New, "new") +
-                $"\"backup\": {J(e.Backup)}, \"quarantinedTo\": {J(e.QuarantinedTo)}, \"detail\": {J(e.Detail)}, \"status\": {J(e.Status)}" + "}";
+                $"\"backup\": {J(e.Backup)}, \"newHash\": {J(e.NewHash)}, \"quarantinedTo\": {J(e.QuarantinedTo)}, \"detail\": {J(e.Detail)}, \"status\": {J(e.Status)}" + "}";
         }
 
         private static List<JournalEntry> ReadJournal(string path)
         {
             var list = new List<JournalEntry>();
-            foreach (string line in File.ReadAllLines(path))
+            // A real JSON parser: a hand-edited or reformatted journal reads the same as one we wrote.
+            var root = new System.Web.Script.Serialization.JavaScriptSerializer().DeserializeObject(File.ReadAllText(path)) as Dictionary<string, object>;
+            if (root == null || !root.ContainsKey("entries")) throw new InvalidDataException("journal has no entries: " + path);
+            foreach (object o in (System.Collections.IEnumerable)root["entries"])
             {
-                if (!line.TrimStart().StartsWith("{\"file\"", StringComparison.Ordinal)) continue;
+                var d = o as Dictionary<string, object>;
+                if (d == null) continue;
                 list.Add(new JournalEntry
                 {
-                    File = Str(line, "file"), OldName = Str(line, "oldName"), NewName = Str(line, "newName"),
-                    Backup = Str(line, "backup"), QuarantinedTo = Str(line, "quarantinedTo"), Detail = Str(line, "detail"),
-                    Status = Str(line, "status"),
-                    Old = ReadTags(line, "old"), New = ReadTags(line, "new"),
+                    File = JStrVal(d, "file"), OldName = JStrVal(d, "oldName"), NewName = JStrVal(d, "newName"),
+                    Backup = JStrVal(d, "backup"), QuarantinedTo = JStrVal(d, "quarantinedTo"), Detail = JStrVal(d, "detail"),
+                    Status = JStrVal(d, "status"), NewHash = JStrVal(d, "newHash"),
+                    Old = ReadTagsDict(d, "old"), New = ReadTagsDict(d, "new"),
                 });
             }
             return list;
         }
 
+        private static string JStrVal(Dictionary<string, object> d, string key)
+        {
+            object v; return d.TryGetValue(key, out v) && v != null ? v.ToString() : null;
+        }
+
+        private static TagFixer.TagState ReadTagsDict(Dictionary<string, object> d, string p)
+        {
+            if (!d.ContainsKey(p + "Title")) return null;
+            object c;
+            return new TagFixer.TagState
+            {
+                Title = JStrVal(d, p + "Title"), Album = JStrVal(d, p + "Album"), Artists = JStrVal(d, p + "Artists"),
+                Genre = JStrVal(d, p + "Genre"), Compilation = d.TryGetValue(p + "Compilation", out c) && c is bool && (bool)c,
+            };
+        }
+
+        private static string HashFile(string path)
+        {
+            try
+            {
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    return BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "");
+            }
+            catch (Exception) { return null; }
+        }
+
         private static void RewriteJournalStatuses(string path, List<JournalEntry> entries)
         {
-            var lines = File.ReadAllLines(path).ToList();
-            int k = 0;
-            for (int i = 0; i < lines.Count && k < entries.Count; i++)
-            {
-                if (!lines[i].TrimStart().StartsWith("{\"file\"", StringComparison.Ordinal)) continue;
-                bool comma = lines[i].TrimEnd().EndsWith(",", StringComparison.Ordinal);
-                lines[i] = "    " + EntryLine(entries[k++]) + (comma ? "," : "");
-            }
-            AtomicFile.WriteAllText(path, string.Join(Environment.NewLine, lines) + Environment.NewLine, new UTF8Encoding(false));
+            // Regenerate the whole file from the parsed header and entries, so any layout the parser accepted is saved back.
+            var root = (Dictionary<string, object>)new System.Web.Script.Serialization.JavaScriptSerializer().DeserializeObject(File.ReadAllText(path));
+            DateTime gen;
+            if (!DateTime.TryParse(JStrVal(root, "generatedAt"), CultureInfo.InvariantCulture, DateTimeStyles.None, out gen)) gen = DateTime.Now;
+            WriteJournal(path, JStrVal(root, "folder"), JStrVal(root, "quarantineRoot"), entries, gen);
         }
 
         private static TagFixer.TagState ReadTags(string line, string p)

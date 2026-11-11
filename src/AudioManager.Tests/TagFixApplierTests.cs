@@ -348,6 +348,42 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void Revert_EditOutsideTheFiveFields_IsLeftAlone()
+        {
+            var e = NewEnv();
+            try
+            {
+                Messy(e);
+                var r = TagFixApplier.Apply(e.Folder, Plan(e), e.Logs, e.Backups, e.Quarantine, Now);
+                string fixedPath = Directory.GetFiles(e.Folder, "*.mp3").Single();
+                using (var f = TagLib.File.Create(fixedPath)) { f.Tag.Comment = "added after the apply"; f.Save(); }
+
+                var rev = TagFixApplier.Revert(r.JournalPath, e.Folder, e.Quarantine);
+                Assert.True(rev.SkippedModified == 1 && rev.Reverted == 0, "a changed comment is a change: the backup must not overwrite it");
+                using (var f = TagLib.File.Create(fixedPath)) Assert.Equal("added after the apply", f.Tag.Comment, "later edit preserved");
+            }
+            finally { Cleanup(e); }
+        }
+
+        public static void Revert_ReformattedJournal_IsStillRead()
+        {
+            var e = NewEnv();
+            try
+            {
+                string path = Messy(e);
+                var r = TagFixApplier.Apply(e.Folder, Plan(e), e.Logs, e.Backups, e.Quarantine, Now);
+                // Re-serialise with different whitespace and key order: only a real JSON parser survives this.
+                var ser = new System.Web.Script.Serialization.JavaScriptSerializer();
+                var root = (System.Collections.Generic.Dictionary<string, object>)ser.DeserializeObject(File.ReadAllText(r.JournalPath));
+                File.WriteAllText(r.JournalPath, ser.Serialize(root));
+
+                var rev = TagFixApplier.Revert(r.JournalPath, e.Folder, e.Quarantine);
+                Assert.True(rev.Reverted == 1 && rev.Failed == 0, "reverted from a one-line journal");
+                Assert.True(File.Exists(path), "original name back");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void PruneOldBackups_RemovesOnlyRunsOlderThanSevenDays()
         {
             var e = NewEnv();
