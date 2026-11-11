@@ -53,6 +53,8 @@ namespace AudioManager
         // noInput branch so a review-stage duplicate resolution overrides the exe's own
         // recommendation on a real run. Never used to weaken the accept/decline partition.
         private IntegrationManifest _manifest;
+        // mp3s the manifest declined in this run (0 without a manifest); reported as leftovers.declinedCount.
+        private int _declinedCount;
         // Manifest-chosen artist spellings (object manifest form). Passed to TagFixer for batch files and used to name folders.
         private Dictionary<string, string> _artistSpellingChoices = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         // Raw tag data cached from RunScanAhead so PreScanFiles avoids a second TagLib read per file
@@ -160,6 +162,18 @@ namespace AudioManager
             public List<string> CompilationAlbums = new List<string>();
         }
 
+        /// <summary>
+        /// NewMusic as a real run left it, written as the execution record's "leftovers" block.
+        /// EmptyFolders and OtherFiles are relative to NewMusic (backslashes); DeclinedCount is the
+        /// number of mp3s a manifest declined (they stay in NewMusic and are not listed in OtherFiles).
+        /// </summary>
+        internal class LeftoversSnapshot
+        {
+            public List<string> EmptyFolders { get; } = new List<string>();
+            public List<string> OtherFiles { get; } = new List<string>();
+            public int DeclinedCount { get; set; }
+        }
+
         /// <summary>Data about a duplicate found during pre-scan.</summary>
         internal class DupData
         {
@@ -264,6 +278,7 @@ namespace AudioManager
                     int beforeCount = files.Length;
                     files = files.Where(f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))).ToArray();
                     int excluded = beforeCount - files.Length;
+                    _declinedCount = excluded;
                     Console.WriteLine($" - Manifest filter: {files.Length} of {beforeCount} NewMusic file(s) selected" +
                         (excluded > 0 ? $"; {excluded} left untouched in NewMusic" : ""));
                     foreach (var miss in manifest.UnmatchedEntries())
@@ -1119,6 +1134,7 @@ namespace AudioManager
             Console.WriteLine();
             Console.WriteLine($"Routing - time taken: {Doer.ConvertTimeSpanToString(routingStopwatch.Elapsed)}");
 
+            ConfidenceRecord confidenceRecord = null;
             if (!dryRun)
             {
                 // Unconditional on a real run - not gated on jsonOutput. This keeps a client's
@@ -1126,12 +1142,22 @@ namespace AudioManager
                 // the exe emits the execution record on its own, no new CLI flag needed.
                 // Known scope limit (accepted, not "fixed" here): RunMiscMigration/CleanupNewMusicFolder
                 // below move library files that are not in logEntries, so the record does not cover them.
-                var confidenceRecord = PrintConfidenceReport(logEntries, totalFiles, movedCount, skippedCount);
-                WriteExecutionRecord(logEntries, confidenceRecord);
+                confidenceRecord = PrintConfidenceReport(logEntries, totalFiles, movedCount, skippedCount);
             }
 
-            RunMiscMigration();
-            CleanupNewMusicFolder();
+            // The execution record is written AFTER cleanup so its "leftovers" block is a snapshot of
+            // NewMusic as the run left it. Nothing in RunMiscMigration or CleanupNewMusicFolder reads the
+            // record, and BuildCurrentSummary reads only _miscMigrationCandidates, which RunMiscMigration
+            // does not change. The finally keeps the record on a throw in either step, as it was before.
+            try
+            {
+                RunMiscMigration();
+                CleanupNewMusicFolder();
+            }
+            finally
+            {
+                if (!dryRun) WriteExecutionRecord(logEntries, confidenceRecord);
+            }
 
             Console.WriteLine("\n============================================================");
             Console.WriteLine("Finished");
@@ -1250,6 +1276,49 @@ namespace AudioManager
         /// No-op if NewMusic doesn't exist or has no subdirectories to clean.
         /// </summary>
         private void CleanupNewMusicFolder() => CleanupNewMusicFolder(Constants.NewMusicPath);
+
+        /// <summary>
+        /// Snapshot of what NewMusic holds now, for the execution record's "leftovers" block. Read-only.
+        /// EmptyFolders: every subdirectory with no file at any depth (so an empty folder and its empty
+        /// parents are both listed). OtherFiles: every file that is not an mp3 (the only audio the
+        /// run processes); declined mp3s are left out and counted by declinedCount instead. Both lists
+        /// are relative to newMusicPath with backslashes, sorted ordinal. A missing folder gives empty lists.
+        /// </summary>
+        internal static LeftoversSnapshot ComputeLeftovers(string newMusicPath, int declinedCount)
+        {
+            var snap = new LeftoversSnapshot { DeclinedCount = declinedCount };
+            if (!Directory.Exists(newMusicPath)) return snap;
+
+            // A directory is non-empty when a file sits anywhere under it, so mark each file's
+            // directory and its ancestors up to (not including) the root.
+            var nonEmpty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string file in Directory.GetFiles(newMusicPath, "*", SearchOption.AllDirectories))
+            {
+                if (!file.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase))
+                    snap.OtherFiles.Add(RelToNewMusicRoot(file, newMusicPath));
+                string dir = Path.GetDirectoryName(file);
+                while (dir != null && dir.Length > newMusicPath.Length && nonEmpty.Add(dir))
+                    dir = Path.GetDirectoryName(dir);
+            }
+
+            foreach (string dir in Directory.GetDirectories(newMusicPath, "*", SearchOption.AllDirectories))
+            {
+                if (!nonEmpty.Contains(dir))
+                    snap.EmptyFolders.Add(RelToNewMusicRoot(dir, newMusicPath));
+            }
+
+            snap.EmptyFolders.Sort(StringComparer.Ordinal);
+            snap.OtherFiles.Sort(StringComparer.Ordinal);
+            return snap;
+        }
+
+        private static string RelToNewMusicRoot(string fullPath, string newMusicPath)
+        {
+            string rel = fullPath.StartsWith(newMusicPath, StringComparison.OrdinalIgnoreCase)
+                ? fullPath.Substring(newMusicPath.Length)
+                : fullPath;
+            return rel.TrimStart('\\', '/').Replace('/', '\\');
+        }
 
         /// <summary>Path seam for CleanupNewMusicFolder: same behaviour, operating on newMusicPath.</summary>
         internal void CleanupNewMusicFolder(string newMusicPath)
@@ -1400,7 +1469,8 @@ namespace AudioManager
         /// </summary>
         internal static string BuildJson(List<LogEntry> entries, BatchSummary summary = null, bool dryRun = true, ConfidenceRecord confidence = null,
             MirrorPathBlock blocked = null, IList<(string original, string held)> replaced = null,
-            string newMusicFingerprint = null, string previewFingerprint = null, IList<ArtistSpellingCandidate> artistSpellingCandidates = null)
+            string newMusicFingerprint = null, string previewFingerprint = null, IList<ArtistSpellingCandidate> artistSpellingCandidates = null,
+            LeftoversSnapshot leftovers = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine("{");
@@ -1420,6 +1490,7 @@ namespace AudioManager
                 sb.AppendLine($"  \"previewStale\": {stale},");
             }
             AppendSummaryBlock(sb, entries, summary);
+            if (!dryRun) AppendLeftoversBlock(sb, leftovers);
             AppendConfidenceBlock(sb, confidence);
             AppendBlockedBlock(sb, blocked);
             AppendReplacedOriginalsBlock(sb, replaced);
@@ -1511,6 +1582,18 @@ namespace AudioManager
             sb.AppendLine($"    \"counts\": {{\"files\": {files}, \"routed\": {routed}, \"skipped\": {skipped}, \"errors\": {errors}, \"libraryDuplicates\": {libraryDuplicates}, \"inBatchDuplicates\": {inBatchDuplicates}, \"unrouted\": {files - routed}}},");
             sb.AppendLine($"    \"compilationAlbums\": [{string.Join(", ", comps.Select(a => JStr(a)))}]");
             sb.AppendLine("  },");
+        }
+
+        /// <summary>
+        /// Appends the top-level "leftovers" block (execution records only; BuildJson skips it on a dry run).
+        /// A null snapshot is written as an empty block, so every execution record carries the field.
+        /// </summary>
+        private static void AppendLeftoversBlock(StringBuilder sb, LeftoversSnapshot leftovers)
+        {
+            var snap = leftovers ?? new LeftoversSnapshot();
+            string folders = string.Join(", ", snap.EmptyFolders.Select(f => JStr(f)));
+            string files = string.Join(", ", snap.OtherFiles.Select(f => JStr(f)));
+            sb.AppendLine($"  \"leftovers\": {{\"emptyFolders\": [{folders}], \"otherFiles\": [{files}], \"declinedCount\": {snap.DeclinedCount}}},");
         }
 
         /// <summary>
@@ -1659,7 +1742,8 @@ namespace AudioManager
         {
             string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
             string json = BuildJson(entries, BuildCurrentSummary(), dryRun: false, confidence: confidence, replaced: ReplaceGuard.Retired,
-                newMusicFingerprint: _startFingerprint, previewFingerprint: _previewFingerprint, artistSpellingCandidates: _artistSpellingCandidates);
+                newMusicFingerprint: _startFingerprint, previewFingerprint: _previewFingerprint, artistSpellingCandidates: _artistSpellingCandidates,
+                leftovers: ComputeLeftovers(Constants.NewMusicPath, _declinedCount));
             WriteExecutionRecordWithRetry(Constants.LogsPath, timestamp, json, Console.WriteLine);
         }
 

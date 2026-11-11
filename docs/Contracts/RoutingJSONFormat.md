@@ -71,6 +71,18 @@ The manifest may be the bare array (unchanged, no spelling choices) or an object
 
 A chosen spelling is the only way a tag is changed for spelling reasons. It is written to batch files only, through the normal tag fix path (backup, journal, revert), overrides `keep=artist` for that artist, and makes the artist folder follow it. Misc songs that migrate and library tracks are not retagged, so any that carry another spelling stay LibChecker hits. With no object form, or no choice for an artist, no tag is changed. David's words: "i choose name for example for charli i want the captilised form!!! XCX".
 
+## leftovers
+
+Top-level object, present on every execution record (`recordType` `execution`) and absent on a dry run. It is written by `MusicIntegrator.AppendLeftoversBlock` from `MusicIntegrator.ComputeLeftovers`, after the run's Misc migration and NewMusic cleanup, so it is a snapshot of NewMusic as the run left it. Clients should read it instead of scanning NewMusic. `schemaVersion` stays 1: the field is additive.
+
+| Field | Meaning |
+|-------|---------|
+| `emptyFolders` | subfolders of NewMusic with no file at any depth, relative to NewMusic (backslashes), ordinal order; an empty folder and its empty parents are both listed |
+| `otherFiles` | files still under NewMusic that are not mp3 (desktop.ini, `.bak`, cover images), relative to NewMusic (backslashes), ordinal order |
+| `declinedCount` | number of mp3s a `--manifest` declined; they stay in NewMusic and are not listed in `otherFiles`; `0` without a manifest |
+
+An mp3 the run did not integrate and no manifest declined is not listed in `otherFiles` either, because only non-mp3 files are. Cleanup removes empty folders deepest first, but skips all removal when any file remains, so `emptyFolders` can be non-empty after a run that kept files.
+
 ## Preview stamp: `newMusicFingerprint`, `previewStale`
 
 A dry-run routing record carries top-level `newMusicFingerprint`: SHA-256 over every mp3 under NewMusic (relative path, size, last-write ticks), taken before Tag Fix runs. A real run's execution record carries `previewFingerprint` (the stamp of the newest `routing-*.json`, or null when there is none) and `previewStale`: `false` when NewMusic still matches that preview, `true` when it changed since (the run also prints a `[WARN] preview_stale` line), `null` when no stamped preview exists. A client that shows a reviewed preview should treat `previewStale: true` as "the decisions were made on a different folder".
