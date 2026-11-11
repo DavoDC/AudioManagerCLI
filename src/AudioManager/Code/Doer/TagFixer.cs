@@ -109,8 +109,25 @@ namespace AudioManager
         /// Snapshots every mp3 under folder (before any processing), then runs ProcessFile on each into Results.
         /// The public constructor passes Constants.NewMusicPath; the test seam passes a fixture folder.
         /// </summary>
+        /// <summary>Read-only: every tagfix backup left under folder, including moved-aside ".tagfix.bak.stale-N" copies.</summary>
+        internal static List<string> ListLeftoverBackups(string folder)
+        {
+            var found = new List<string>();
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) return found;
+            try
+            {
+                foreach (string p in Directory.GetFiles(folder, "*.tagfix.bak*", SearchOption.AllDirectories))
+                    if (p.EndsWith(".tagfix.bak", StringComparison.OrdinalIgnoreCase) || p.IndexOf(".tagfix.bak.stale-", StringComparison.OrdinalIgnoreCase) >= 0)
+                        found.Add(p);
+            }
+            catch (Exception) { /* informational only */ }
+            return found;
+        }
+
         private void ScanAndProcess(string folder, Func<string, bool> fileFilter = null)
         {
+            foreach (string leftover in ListLeftoverBackups(folder))
+                Console.WriteLine($" - [WARN] Leftover tag backup from an earlier run (never swept, may be the only good copy): {leftover}");
             try
             {
                 var files = Directory.Exists(folder)
