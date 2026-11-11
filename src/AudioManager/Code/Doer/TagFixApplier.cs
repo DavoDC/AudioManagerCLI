@@ -84,10 +84,10 @@ namespace AudioManager
 
         // Returns the open lock on success, or null when a live apply holds it. A lock file nobody holds is stale
         // (its process crashed): it is deleted and the lock taken again.
-        private static FileStream TryAcquireLock(string logsDir)
+        internal static FileStream TryAcquireLock(string logsDir, string lockFileName = LockFileName)
         {
             Directory.CreateDirectory(logsDir);
-            string lockPath = Path.Combine(logsDir, LockFileName);
+            string lockPath = Path.Combine(logsDir, lockFileName);
             try { return new FileStream(lockPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None); }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { return null; }

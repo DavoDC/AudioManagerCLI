@@ -16,7 +16,7 @@ Fields: `libraryRoot`, `generated`, `moves[]` (`from`, `to`, `createdFolder`: th
 
 ## Result (`schema` "libfix-result-1")
 Fields: `operation` (apply or revert), `generated`, `status`, `message`, `journal`, `counts` (`moved`, `reverted`, `skipped`, `failed`, `foldersRemoved`), `notes[]`.
-- apply `status`: `applied`, `stale_plan` (a source is missing or a destination exists; checked for every move before the first, nothing moved), `refused` (plan for another library root or a path outside Artists; nothing moved), `failed`.
+- apply `status`: `applied`, `stale_plan` (a source is missing or a destination exists; checked for every move before the first, nothing moved), `refused` (plan for another library root or a path outside Artists; nothing moved), `apply_locked` (another libfix apply holds `libfix-apply.lock` beside the journal, or a stale lock could not be removed; nothing moved, exit 1), `failed`.
 - revert `status`: `reverted`, `partial` (some file skipped: not present, or its original path is occupied; nothing is overwritten), `refused`, `failed`. Folders the apply created are removed only when empty.
 
 After an apply or revert, re-run the mirror step (`--mirror-retry`) so AudioMirror matches the library.

@@ -214,6 +214,34 @@ namespace AudioManager
             finally { Cleanup(lib); Cleanup(scratch); }
         }
 
+        public static void Apply_WhileAnotherApplyHoldsTheLock_IsLockedAndMovesNothing()
+        {
+            string lib = TempLib();
+            string scratch = Scratch();
+            try
+            {
+                Single(lib, "Artist Alpha", "Artist Alpha - One.mp3", "Test Album");
+                Single(lib, "Artist Alpha", "Artist Alpha - Two.mp3", "Test Album");
+                string planPath = Path.Combine(scratch, "libfix-plan.json");
+                string journalPath = Path.Combine(scratch, "libfix-journal-test.json");
+                LibraryFixer.WritePlan(LibraryFixer.BuildAlbumInSinglesPlan(lib), planPath);
+                string before = Snapshot(lib);
+
+                using (new FileStream(Path.Combine(scratch, LibraryFixer.LockFileName), FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
+                {
+                    LibraryFixer.FixResult result = LibraryFixer.Apply(planPath, journalPath, lib);
+                    Assert.Equal("apply_locked", result.Status, "a second apply is refused");
+                    Assert.True(result.Moved == 0, "nothing moved");
+                }
+                Assert.Equal(before, Snapshot(lib), "library untouched while locked");
+
+                // The lock is released after a normal apply, so a later apply is not blocked.
+                Assert.Equal("applied", LibraryFixer.Apply(planPath, journalPath, lib).Status, "apply after the lock is gone");
+                Assert.True(!File.Exists(Path.Combine(scratch, LibraryFixer.LockFileName)), "lock file removed after apply");
+            }
+            finally { Cleanup(lib); Cleanup(scratch); }
+        }
+
         public static void Apply_PlanForDifferentRoot_IsRefused()
         {
             string lib = TempLib();

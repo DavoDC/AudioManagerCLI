@@ -190,6 +190,28 @@ namespace AudioManager
         /// </summary>
         internal static FixResult Apply(string planPath, string journalPath, string libraryRoot)
         {
+            // One apply at a time, like Tag Fix: the lock sits beside the journal and is held for the whole call.
+            string lockDir = Path.GetDirectoryName(Path.GetFullPath(journalPath));
+            FileStream lockStream = TagFixApplier.TryAcquireLock(lockDir, LockFileName);
+            if (lockStream == null)
+            {
+                var locked = new FixResult { Operation = "apply", JournalPath = journalPath };
+                return Finish(locked, "apply_locked", "another libfix apply is running, or a stale lock file is at " + Path.Combine(lockDir, LockFileName) + " that could not be removed; nothing was moved");
+            }
+            try { return ApplyUnderLock(planPath, journalPath, libraryRoot); }
+            finally
+            {
+                lockStream.Dispose();
+                try { File.Delete(Path.Combine(lockDir, LockFileName)); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+
+        internal const string LockFileName = "libfix-apply.lock";
+
+        private static FixResult ApplyUnderLock(string planPath, string journalPath, string libraryRoot)
+        {
             var result = new FixResult { Operation = "apply", JournalPath = journalPath };
 
             FixPlan plan;
