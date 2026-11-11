@@ -69,6 +69,7 @@
     <Compile Include="Code\Doer\JsonText.cs" />
     <Compile Include="Code\Doer\TagFixApplier.cs" />
     <Compile Include="Code\Doer\TagFixPlanJson.cs" />
+    <Compile Include="Code\Doer\LibraryFixer.cs" />
     <Compile Include="Code\Doer\Analyser\Analyser.cs" />
     <Compile Include="Code\Doer\Analyser\Statistic.cs" />
     <Compile Include="Code\Doer\Analyser\StatList.cs" />

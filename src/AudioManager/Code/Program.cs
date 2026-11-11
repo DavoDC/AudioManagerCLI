@@ -45,6 +45,14 @@ namespace AudioManager
                     return;
                 }
 
+                // --libfix-plan / --libfix-apply <planPath> / --libfix-revert <journalPath>: library fix for the LibChecker
+                // album_in_singles hit. Like --mirror-retry it returns before mode parsing and never touches NewMusic.
+                if (TryRunLibFix(args, out int libFixCode))
+                {
+                    if (libFixCode != 0) Environment.Exit(libFixCode);
+                    return;
+                }
+
                 // Detect CLI args: "analysis [--force-regen]" or "integrate [--dry-run] [--no-input]"
                 int mode;
                 bool forceMirrorRegen;
@@ -574,13 +582,76 @@ namespace AudioManager
         /// <param name="dryRun">Whether --dry-run was passed.</param>
         internal static bool AnalysisRejectsDryRun(int mode, bool dryRun) => mode == 1 && dryRun;
 
+        /// <summary>
+        /// Library fix commands (LibChecker album_in_singles). Returns false when no libfix flag is present.
+        /// --libfix-plan writes libfix-plan.json only; --libfix-apply &lt;planPath&gt; and --libfix-revert &lt;journalPath&gt;
+        /// write libfix-result.json. Files go to Constants.LogsPath (the same folder as tagfix-plan.json, so
+        /// AUDIOMANAGER_TEST_ROOT applies). Exit code 0 only for plan written, applied, reverted.
+        /// </summary>
+        internal static bool TryRunLibFix(string[] args, out int exitCode)
+        {
+            exitCode = 1;
+            int planIdx = Array.FindIndex(args, a => a.Equals("--libfix-plan", StringComparison.OrdinalIgnoreCase));
+            int applyIdx = Array.FindIndex(args, a => a.Equals("--libfix-apply", StringComparison.OrdinalIgnoreCase));
+            int revertIdx = Array.FindIndex(args, a => a.Equals("--libfix-revert", StringComparison.OrdinalIgnoreCase));
+            int requested = (planIdx >= 0 ? 1 : 0) + (applyIdx >= 0 ? 1 : 0) + (revertIdx >= 0 ? 1 : 0);
+            if (requested == 0) return false;
+            if (requested > 1)
+            {
+                Console.WriteLine(" - ERROR: use only one of --libfix-plan, --libfix-apply, --libfix-revert. Nothing was run.");
+                return true;
+            }
+
+            string libraryRoot = Constants.AudioFolderPath;
+            string logsDir = Constants.LogsPath;
+            DateTime now = DateTime.Now;
+
+            if (planIdx >= 0)
+            {
+                LibraryFixer.FixPlan plan = LibraryFixer.BuildAlbumInSinglesPlan(libraryRoot);
+                string planPath = Path.Combine(logsDir, LibraryFixer.PlanFileName);
+                LibraryFixer.WritePlan(plan, planPath);
+                Console.WriteLine($" - Library fix plan written: {planPath} (moves {plan.Moves.Count}, skipped {plan.Skipped.Count}). Nothing was moved.");
+                exitCode = 0;
+                return true;
+            }
+
+            int pathIdx = applyIdx >= 0 ? applyIdx : revertIdx;
+            if (pathIdx + 1 >= args.Length)
+            {
+                Console.WriteLine(applyIdx >= 0
+                    ? " - ERROR: --libfix-apply requires a plan path argument. Nothing was run."
+                    : " - ERROR: --libfix-revert requires a journal path argument. Nothing was run.");
+                return true;
+            }
+
+            LibraryFixer.FixResult result;
+            if (applyIdx >= 0)
+            {
+                string journalPath = Path.Combine(logsDir, LibraryFixer.JournalFileName(now));
+                result = LibraryFixer.Apply(args[pathIdx + 1], journalPath, libraryRoot);
+            }
+            else
+            {
+                result = LibraryFixer.Revert(args[pathIdx + 1], libraryRoot);
+            }
+
+            string resultPath = Path.Combine(logsDir, LibraryFixer.ResultFileName);
+            LibraryFixer.WriteResult(result, resultPath, now);
+            Console.WriteLine($" - Library fix {result.Operation}: status {result.Status}. {result.Message}");
+            Console.WriteLine($" - Result JSON written: {resultPath}");
+            exitCode = result.Status == "applied" || result.Status == "reverted" ? 0 : 1;
+            return true;
+        }
+
         /// <summary>Returns the first dash-prefixed arg that is not a known flag (null when all are known).</summary>
         internal static string FindUnknownFlag(string[] args)
         {
             var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 "--force-regen", "--dry-run", "--no-input", "--json-output", "--no-auto-commit",
-                "--manifest", "--revert", "--apply-plan", "--mirror-retry", "--fingerprint"
+                "--manifest", "--revert", "--apply-plan", "--mirror-retry", "--fingerprint",
+                "--libfix-plan", "--libfix-apply", "--libfix-revert"
             };
             for (int i = 1; i < args.Length; i++)
             {

@@ -2734,7 +2734,7 @@ namespace AudioManager
         /// Tag values can contain characters illegal in paths (e.g. ? in "WHAT IF?").
         /// Must be called on any tag value used in Path.Combine - never on display strings.
         /// </summary>
-        private static string SanitiseFolderName(string component)
+        internal static string SanitiseFolderName(string component)
         {
             return Reflector.SanitiseFilename(component ?? "");
         }
