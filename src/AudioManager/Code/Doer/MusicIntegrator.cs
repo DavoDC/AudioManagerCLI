@@ -71,7 +71,7 @@ namespace AudioManager
         private ProjectedValidator _validatorInstance;
         private ProjectedValidator Validator => _validatorInstance ?? (_validatorInstance = new ProjectedValidator(() => _roots, () => _scan, () => _miscMigrationCandidates, Router));
         private DuplicateAdvisor _advisorInstance;
-        private DuplicateAdvisor Advisor => _advisorInstance ?? (_advisorInstance = new DuplicateAdvisor(() => _roots, Counter));
+        private DuplicateAdvisor Advisor => _advisorInstance ?? (_advisorInstance = new DuplicateAdvisor(() => _roots, Counter, () => noInput, () => _manifest));
         // Library paths deleted by L-decisions during real integration; used in RunMiscMigration
         // to distinguish "deleted by dup resolution" from "genuinely stale mirror".
         private HashSet<string> _lDeletedLibraryPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -360,27 +360,7 @@ namespace AudioManager
                 batchTagCache: null);
         }
 
-        /// <summary>
-        /// Step 2: presents all in-batch duplicates for review before routing begins.
-        /// Returns false if the user quits (constructor must return immediately without routing).
-        /// </summary>
-        internal bool RunDuplicateReview(List<ScannedFile> scannedFiles, List<LogEntry> logEntries)
-        {
-            var duplicateFiles = scannedFiles.Where(sf => sf.Duplicate != null).ToList();
-            if (duplicateFiles.Count == 0) return true;
-
-            Console.WriteLine($"\nReviewing {duplicateFiles.Count} duplicate(s)...");
-            foreach (var sf in duplicateFiles)
-            {
-                if (!PresentDuplicateAndDecide(sf))
-                {
-                    sf.LogEntry.Status = "quit";
-                    logEntries.Add(sf.LogEntry);
-                    return false;
-                }
-            }
-            return true;
-        }
+        internal bool RunDuplicateReview(List<ScannedFile> scannedFiles, List<LogEntry> logEntries) => Advisor.RunDuplicateReview(scannedFiles, logEntries);
 
         /// <summary>Warning printed when a real run quits at duplicate review, after the real TagFixer has rewritten NewMusic.</summary>
         internal static string QuitAfterTagFixNote()
@@ -1679,24 +1659,7 @@ namespace AudioManager
 
         internal bool IsAlbumFolderCompilation(string xmlPath) => Mirror.IsAlbumFolderCompilation(xmlPath);
 
-        /// <summary>
-        /// Flags ScannedFile entries where the same normalised artist+title appears more than once
-        /// in the batch. Sets InBatchDuplicate = true on all files sharing a key. Non-blocking.
-        /// </summary>
-        internal static void MarkInBatchDuplicates(List<ScannedFile> scannedFiles)
-        {
-            var keyGroups = new Dictionary<string, List<ScannedFile>>(StringComparer.Ordinal);
-            foreach (var sf in scannedFiles.Where(f => f.IsReadable && f.Track != null))
-            {
-                string key = sf.Track.PrimaryArtist.ToLowerInvariant() + "\0" + NormaliseTitleForDedup(sf.Track.Title).ToLowerInvariant();
-                if (!keyGroups.ContainsKey(key)) keyGroups[key] = new List<ScannedFile>();
-                keyGroups[key].Add(sf);
-            }
-            foreach (var group in keyGroups.Values.Where(g => g.Count > 1))
-                foreach (var sf in group)
-                    if (group.Any(o => !ReferenceEquals(o, sf) && !LengthsDiffer(sf.LengthSec, o.LengthSec)))
-                        sf.InBatchDuplicate = true;
-        }
+        internal static void MarkInBatchDuplicates(List<ScannedFile> scannedFiles) => DuplicateAdvisor.MarkInBatchDuplicates(scannedFiles);
 
         /// <summary>
         /// Pre-scans all files in the batch: reads and cleans tags, finds duplicates.
@@ -1837,90 +1800,7 @@ namespace AudioManager
 
         private static string DupRecommendationText(char key) => DuplicateAdvisor.DupRecommendationText(key);
 
-        /// <summary>
-        /// Presents one duplicate to the user and collects their D/L/K/Q decision.
-        /// Sets sf.Duplicate.Decision. Returns false if user pressed Q, true otherwise.
-        /// Internal (not private) so tests can exercise the noInput/manifest-override path directly.
-        /// </summary>
-        internal bool PresentDuplicateAndDecide(ScannedFile sf)
-        {
-            var dup = sf.Duplicate;
-            Track track = sf.Track;
-
-            string dupProposed = dup.RecommendedKey == 'L'
-                ? "Delete library copy, keep new file"
-                : dup.RecommendedKey == 'D'
-                    ? "Delete NewMusic copy, keep library"
-                    : "No version preference";
-
-            Console.WriteLine();
-            Console.WriteLine("===========================================================================");
-            Console.WriteLine("  DUPLICATE FOUND");
-            Console.WriteLine("===========================================================================");
-            Console.WriteLine();
-            Console.WriteLine($"  In AudioMirror: {dup.RelMirrorPath}");
-            if (!string.IsNullOrEmpty(dup.MirrorTrack))
-                Console.WriteLine($"  Track:          {dup.MirrorTrack}");
-            if (!string.IsNullOrEmpty(dup.MirrorAlbum))
-                Console.WriteLine($"  Album:          {dup.MirrorAlbum}");
-            Console.WriteLine();
-            Console.WriteLine($"  New file:   {dup.DisplayNewFilename}");
-            Console.WriteLine($"  Album:      {track.Album}");
-            Console.WriteLine();
-            Console.WriteLine($"  Proposed:   {dupProposed}");
-            if (!string.IsNullOrEmpty(dup.DupReason))
-                Console.WriteLine($"  Reason:     {dup.DupReason}");
-            Console.WriteLine();
-            Console.WriteLine("---------------------------------------------------------------------------");
-            Console.WriteLine(dup.OptionsLine);
-            Console.WriteLine("---------------------------------------------------------------------------");
-
-            if (noInput)
-            {
-                // Review-stage resolution wins over the exe's own recommendation on a real
-                // run, carried through the same --manifest mechanism as accept/decline. A duplicate left
-                // untouched in Review has no manifest entry for it, so this falls through to
-                // the exact same auto-accept-recommendation behavior as before - unresolved
-                // batches stay safe by construction, not by a second code path.
-                char manifestDecision = _manifest?.GetDupResolution(
-                    Path.GetFileName(sf.SourcePath), track.Artists, track.Title, RelToNewMusic(sf.SourcePath, _roots.NewMusic)) ?? '\0';
-                if (manifestDecision != '\0')
-                {
-                    dup.Decision = manifestDecision;
-                    Console.WriteLine($"  [MANIFEST] {manifestDecision} (user-resolved in review)");
-                    Console.WriteLine();
-                    return true;
-                }
-
-                char autoDecision = dup.RecommendedKey != '\0' ? dup.RecommendedKey : 'K';
-                // Safety: L replaces the library copy and D sends the new file to the Recycle Bin;
-                // no human confirmed either, so an unattended run downgrades both to K (Keep Both,
-                // non-destructive). Only an explicit manifest resolution (above) can choose D or L.
-                if (autoDecision == 'L' || autoDecision == 'D')
-                {
-                    Console.WriteLine($"  [SAFETY] {autoDecision} not auto-accepted under no-input: {Path.GetFileName(sf.SourcePath)} downgraded to K (keep both)");
-                    autoDecision = 'K';
-                }
-                dup.Decision = autoDecision;
-                string autoReason = dup.RecommendedKey == '\0'
-                    ? "K (no recommendation - defaulting to Keep Both)"
-                    : dup.RecommendedKey != 'K' && autoDecision == 'K'
-                        ? $"K ({dup.RecommendedKey} downgraded - no-input never deletes without an explicit resolution)"
-                        : $"{autoDecision} (auto-accepted recommended)";
-                Console.WriteLine($"  [AUTO] {autoReason}");
-                Console.WriteLine();
-                return true;
-            }
-
-            while (true)
-            {
-                var key = ReadMenuKey();
-                if (key == ConsoleKey.D) { dup.Decision = 'D'; Console.WriteLine(); return true; }
-                else if (key == ConsoleKey.L) { dup.Decision = 'L'; Console.WriteLine(); return true; }
-                else if (key == ConsoleKey.K) { dup.Decision = 'K'; Console.WriteLine(); return true; }
-                else if (key == ConsoleKey.Q) { dup.Decision = 'Q'; Console.WriteLine(); return false; }
-            }
-        }
+        internal bool PresentDuplicateAndDecide(ScannedFile sf) => Advisor.PresentDuplicateAndDecide(sf);
 
         internal static string SanitiseFolderName(string component) => DestinationRouter.SanitiseFolderName(component);
 
@@ -2031,32 +1911,7 @@ namespace AudioManager
 
         private int CountAkiraTheDonPersonAlbumSongs(string sampledPerson, string album, string libraryPath = null) => Counter.CountAkiraTheDonPersonAlbumSongs(sampledPerson, album, libraryPath);
 
-        /// <summary>
-        /// Reads a menu key using ReadLine so the user must press Enter to confirm.
-        /// Prevents right-click paste in Windows Terminal from silently triggering actions.
-        /// </summary>
-        private ConsoleKey ReadMenuKey() => ReadMenuKeyFrom(Console.In, Console.Out);
-
-        /// <summary>Testable core. End of input (closed stdin) quits instead of re-prompting forever.</summary>
-        internal static ConsoleKey ReadMenuKeyFrom(TextReader reader, TextWriter writer)
-        {
-            while (true)
-            {
-                writer.Write("> ");
-                string line = reader.ReadLine();
-                if (line == null) { writer.WriteLine(); writer.WriteLine("[INPUT] stdin closed, quitting."); return ConsoleKey.Q; }
-                string input = line.Trim().ToUpperInvariant();
-                switch (input)
-                {
-                    case "Y": return ConsoleKey.Y;
-                    case "N": return ConsoleKey.N;
-                    case "D": return ConsoleKey.D;
-                    case "L": return ConsoleKey.L;
-                    case "K": return ConsoleKey.K;
-                    case "Q": return ConsoleKey.Q;
-                }
-            }
-        }
+        internal static ConsoleKey ReadMenuKeyFrom(TextReader reader, TextWriter writer) => DuplicateAdvisor.ReadMenuKeyFrom(reader, writer);
 
         // ---- Projected LibChecker ----
 
