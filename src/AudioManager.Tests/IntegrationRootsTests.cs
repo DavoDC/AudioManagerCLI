@@ -23,5 +23,14 @@ namespace AudioManager
         {
             Assert.Equal(Constants.LogsPath, IntegrationRoots.FromConstants().Logs, "Logs root is the logs constant");
         }
+
+        // ---- MusicIntegrator test constructor with injected roots ----
+
+        public static void TestConstructor_StoresInjectedRootsObject()
+        {
+            var roots = new IntegrationRoots("nm", "lib", "mir", "logs");
+            var integrator = new MusicIntegrator("lib", roots);
+            Assert.True(ReferenceEquals(roots, integrator._roots), "test constructor keeps the injected roots object");
+        }
     }
 }

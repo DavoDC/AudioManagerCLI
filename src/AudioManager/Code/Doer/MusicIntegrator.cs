@@ -81,7 +81,7 @@ namespace AudioManager
 
 
         // Per-run path roots. Every constructor sets _roots first thing, before any other statement (see IntegrationRoots).
-        private IntegrationRoots _roots;
+        internal IntegrationRoots _roots;
 
         /// <summary>Path of a file relative to NewMusic with backslashes, or null when it is not under NewMusic.</summary>
         internal static string RelToNewMusic(string path) => RelToNewMusic(path, Constants.NewMusicPath);
@@ -297,6 +297,12 @@ namespace AudioManager
             _scanAheadSourcesCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             _scanAheadBatchAlbumCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
             _compilationAlbums = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Test constructor with injected roots; runs no pipeline.</summary>
+        internal MusicIntegrator(string testLibraryPath, IntegrationRoots roots) : this(testLibraryPath)
+        {
+            _roots = roots;
         }
 
         /// <summary>
@@ -888,7 +894,7 @@ namespace AudioManager
         /// Returns a set of primary artist names that need a new Artists/ folder.
         /// Prints a preview of what will happen for those artists.
         /// </summary>
-        private HashSet<string> RunScanAhead(string[] batchFiles)
+        internal HashSet<string> RunScanAhead(string[] batchFiles)
         {
             var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             Console.Write($"\nScan-ahead: reading {batchFiles.Length} file(s)...");
@@ -3195,7 +3201,7 @@ namespace AudioManager
         /// Count total songs from an album (library + new batch combined).
         /// Returns the count of existing library songs + all songs from this album in the current files array.
         /// </summary>
-        private int CountAlbumSongs(string artist, string album)
+        internal int CountAlbumSongs(string artist, string album)
         {
             // Library-side: memoize per (artist, album) to avoid repeated Directory.GetFiles
             // when the same album appears multiple times in a batch (e.g. 6 Blueprint songs -> 6 routing calls)
