@@ -263,6 +263,14 @@ namespace AudioManager
                         Console.WriteLine(" - [WARN] preview_stale: NewMusic changed since the last dry run; the decisions you reviewed may not match what is integrated now.");
                 }
 
+                // A manifest declines files before Tag Fix too: declined files are never rewritten, renamed or quarantined.
+                // Recorded before the pre-flight so its keep set sees the same preexisting files as the real pass.
+                if (manifest != null && Directory.Exists(Constants.NewMusicPath))
+                {
+                    manifest.RecordPreexisting(Directory.GetFiles(Constants.NewMusicPath, "*.mp3", SearchOption.AllDirectories)
+                        .Select(RelToNewMusic).Where(r => r != null));
+                }
+
                 // Pre-flight (real runs only): the dry-run steps plus the MAX_PATH gate, on the tag values the real run
                 // will produce. Writes nothing. A block stops the batch before the real TagFixer rewrites NewMusic.
                 if (!dryRun && !PreflightMirrorGate(Constants.NewMusicPath, Constants.MirrorFolderPath, manifest))
@@ -272,12 +280,6 @@ namespace AudioManager
                 }
 
                 // Step 1: Fix tags in NewMusic folder
-                // A manifest declines files before Tag Fix too: declined files are never rewritten, renamed or quarantined.
-                if (manifest != null && Directory.Exists(Constants.NewMusicPath))
-                {
-                    manifest.RecordPreexisting(Directory.GetFiles(Constants.NewMusicPath, "*.mp3", SearchOption.AllDirectories)
-                        .Select(RelToNewMusic).Where(r => r != null));
-                }
                 var tagFixer = new TagFixer(dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))), _artistSpellingChoices);
                 var tagChanges = tagFixer.FileChanges;
 
