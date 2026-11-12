@@ -31,7 +31,7 @@ namespace AudioManager
 
         // Bump on any breaking change to BuildJson's contract shape (docs/).
         private const int SchemaVersion = 1;
-        private bool dryRun;
+        internal bool dryRun;
         private bool noInput;
         private bool jsonOutput;
         internal Dictionary<string, List<string>> _miscMigrationCandidates = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
