@@ -73,7 +73,7 @@ namespace AudioManager
         private DuplicateAdvisor _advisorInstance;
         private DuplicateAdvisor Advisor => _advisorInstance ?? (_advisorInstance = new DuplicateAdvisor(() => _roots, Counter, () => noInput, () => _manifest));
         private BatchScanner _scannerInstance;
-        private BatchScanner Scanner => _scannerInstance ?? (_scannerInstance = new BatchScanner(() => _roots, () => _scan, s => _scan = s, () => _artistSpellingChoices, () => _miscMigrationCandidates));
+        private BatchScanner Scanner => _scannerInstance ?? (_scannerInstance = new BatchScanner(() => _roots, () => _scan, s => _scan = s, () => _artistSpellingChoices, () => _miscMigrationCandidates, () => dryRun, () => _previewTagFixer, Advisor));
         // Library paths deleted by L-decisions during real integration; used in RunMiscMigration
         // to distinguish "deleted by dup resolution" from "genuinely stale mirror".
         private HashSet<string> _lDeletedLibraryPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1438,10 +1438,6 @@ namespace AudioManager
 
         internal static void AddIndexKey(ConcurrentDictionary<string, string> index, string key, string xmlFile) => MirrorIndex.AddIndexKey(index, key, xmlFile);
 
-        private Dictionary<string, string> BuildMirrorIndex() => Mirror.BuildMirrorIndex();
-
-        private string FindDuplicateInMirror(Track track, Dictionary<string, string> mirrorIndex) => Mirror.FindDuplicateInMirror(track, mirrorIndex);
-
         internal string DeriveLibraryPathFromMirrorPath(string mirrorXmlPath) => Mirror.DeriveLibraryPathFromMirrorPath(mirrorXmlPath);
 
         internal static string GetRouteCategory(string destDir) => DestinationRouter.GetRouteCategory(destDir);
@@ -1460,131 +1456,7 @@ namespace AudioManager
 
         internal static void MarkInBatchDuplicates(List<ScannedFile> scannedFiles) => DuplicateAdvisor.MarkInBatchDuplicates(scannedFiles);
 
-        /// <summary>
-        /// Pre-scans all files in the batch: reads and cleans tags, finds duplicates.
-        /// No UI interaction. Returns a ScannedFile list for the duplicate review and routing phases.
-        /// </summary>
-        private List<ScannedFile> PreScanFiles(string[] files, Dictionary<string, List<string>> tagChanges, Dictionary<string, TagFixer.FixLog> tagLogs = null)
-        {
-            var mirrorIndex = BuildMirrorIndex();
-            var tagExceptions = TagFixExceptions.Load(); // NotDuplicate rows in config/tagfix-exceptions.xml
-            var result = new List<ScannedFile>();
-            foreach (var sourcePath in files)
-            {
-                var entry = new LogEntry { Filename = Path.GetFileName(sourcePath), SourceRel = RelToNewMusic(sourcePath, _roots.NewMusic) };
-                var sf = new ScannedFile { SourcePath = sourcePath, LogEntry = entry };
-                try
-                {
-                    Track track = new Track();
-                    if (_batchTagCache != null && _batchTagCache.TryGetValue(sourcePath, out var cached))
-                    {
-                        // Use cached tags from RunScanAhead - avoids a second TagLib read per file
-                        track.Title   = string.IsNullOrEmpty(cached.title)   ? Constants.MissingTag : cached.title;
-                        track.Artists = string.IsNullOrEmpty(cached.artists) ? Constants.MissingTag : cached.artists;
-                        track.Album   = string.IsNullOrEmpty(cached.album)   ? Constants.MissingTag : cached.album;
-                        track.Genres  = string.IsNullOrEmpty(cached.genres)  ? Constants.MissingTag : cached.genres;
-                        track.Year    = (cached.year == 0)                   ? Constants.MissingTag : cached.year.ToString();
-                    }
-                    else
-                    {
-                        using (TagLib.File tagFile = TagLib.File.Create(sourcePath))
-                        {
-                            Tag tag = tagFile.Tag;
-                            track.Title   = string.IsNullOrEmpty(tag.Title)           ? Constants.MissingTag : tag.Title;
-                            track.Artists = string.IsNullOrEmpty(tag.JoinedPerformers) ? Constants.MissingTag : tag.JoinedPerformers;
-                            track.Album   = string.IsNullOrEmpty(tag.Album)           ? Constants.MissingTag : tag.Album;
-                            track.Genres  = string.IsNullOrEmpty(tag.JoinedGenres)    ? Constants.MissingTag : tag.JoinedGenres;
-                            track.Year    = (tag.Year == 0)                           ? Constants.MissingTag : tag.Year.ToString();
-                        }
-                    }
-
-                    // Inherit album from immediate subfolder name when tag is missing.
-                    // Files grouped under an album folder in NewMusic but lacking the album tag
-                    // would otherwise all route to Singles regardless of batch count.
-                    if (track.Album.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase)
-                        && sourcePath.StartsWith(_roots.NewMusic, StringComparison.OrdinalIgnoreCase))
-                    {
-                        string relPath = sourcePath.Substring(_roots.NewMusic.Length).TrimStart(Path.DirectorySeparatorChar);
-                        int sep = relPath.IndexOf(Path.DirectorySeparatorChar);
-                        if (sep > 0)
-                            track.Album = relPath.Substring(0, sep);
-                    }
-
-                    if (dryRun && !track.Title.Equals(Constants.MissingTag) && !track.Artists.Equals(Constants.MissingTag))
-                    {
-                        string rawTitle = track.Title;
-                        if (_previewTagFixer != null)
-                        {
-                            // Same keep= flags and custom rules the real run applies.
-                            string rawAlbum = track.Album.Equals(Constants.MissingTag) ? "" : track.Album;
-                            var p = _previewTagFixer.PreviewFields(sourcePath, rawTitle, track.Artists, rawAlbum, track.Genres);
-                            track.Title = p.title;
-                            track.Artists = p.artists;
-                            track.Genres = p.genres;
-                            if (!track.Album.Equals(Constants.MissingTag))
-                                track.Album = RulesEngine.NormalizeAlbum(p.album);
-                        }
-                        else
-                        {
-                            var simArtistList = TagFixer.ExtractAndFixArtists(rawTitle, track.Artists);
-                            track.Title = TagFixer.RemoveParentheticals(rawTitle);
-                            track.Artists = string.Join("; ", simArtistList);
-                            if (!track.Album.Equals(Constants.MissingTag))
-                                track.Album = RulesEngine.NormalizeAlbum(track.Album);
-                            if (TagFixer.ShouldFixGenre(track.Artists, track.Genres))
-                                track.Genres = TagFixer.DetermineGenre(track.Artists);
-                        }
-                    }
-
-                    entry.Title = track.Title;
-                    entry.Artists = track.Artists;
-                    entry.Album = track.Album;
-                    sf.Track = track;
-                    sf.LengthSec = ReadLengthSeconds(sourcePath);
-                    sf.IsReadable = true;
-
-                    // Populate tag changes for combined routing display
-                    string filename = Path.GetFileName(sourcePath);
-                    if (tagChanges != null && tagChanges.TryGetValue(filename, out var changes))
-                    {
-                        entry.TagChanges.AddRange(changes);
-                        if (tagLogs != null && tagLogs.TryGetValue(filename, out var tagLog))
-                            entry.TagFix = tagLog;
-                    }
-
-                    // NotDuplicate matches the ORIGINAL NewMusic name; a tag fix may have renamed the file already.
-                    string exceptionKey = tagLogs != null && tagLogs.TryGetValue(filename, out var nameLog) ? nameLog.OriginalFilename : filename;
-                    // Same-folder rename: the original path is the current folder plus the original name.
-                    string currentRel = RelToNewMusic(sourcePath, _roots.NewMusic);
-                    string originalRel = currentRel == null ? null : Path.Combine(Path.GetDirectoryName(currentRel) ?? "", exceptionKey);
-                    entry.OriginalSourceRel = originalRel ?? entry.SourceRel;
-                    string duplicatePath = tagExceptions.IsNotDuplicate(exceptionKey, originalRel) ? null : FindDuplicateInMirror(track, mirrorIndex);
-                    if (!string.IsNullOrEmpty(duplicatePath))
-                    {
-                        sf.Duplicate = BuildDupData(sourcePath, track, duplicatePath);
-                        // Populated once here regardless of which D/L/K decision is made later,
-                        // so the JSON always carries the library-duplicate block for review.
-                        entry.LibraryDuplicate = true;
-                        entry.DupLibraryPath = sf.Duplicate.RelMirrorPath;
-                        entry.DupLibraryTrack = sf.Duplicate.MirrorTrack;
-                        entry.DupLibraryAlbum = sf.Duplicate.MirrorAlbum;
-                        entry.DupNewAlbum = track.Album;
-                        entry.DupRecommendationKey = sf.Duplicate.RecommendedKey == '\0'
-                            ? "K" : sf.Duplicate.RecommendedKey.ToString();
-                        entry.DupRecommendation = DupRecommendationText(sf.Duplicate.RecommendedKey);
-                        entry.DupReason = sf.Duplicate.DupReason;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    sf.IsReadable = false;
-                    sf.ReadError = ex.Message;
-                    sf.ReadException = ex;
-                }
-                result.Add(sf);
-            }
-            return result;
-        }
+        private List<ScannedFile> PreScanFiles(string[] files, Dictionary<string, List<string>> tagChanges, Dictionary<string, TagFixer.FixLog> tagLogs = null) => Scanner.PreScanFiles(files, tagChanges, tagLogs);
 
         /// <summary>Lengths further apart than this (seconds) mean two different recordings.</summary>
         internal const double DistinctLengthToleranceSec = 3.0;
@@ -1593,11 +1465,7 @@ namespace AudioManager
 
         internal static void RecommendDuplicate(DupFacts f, out char key, out string reason) => DuplicateAdvisor.RecommendDuplicate(f, out key, out reason);
 
-        private static double ReadLengthSeconds(string path) => DuplicateAdvisor.ReadLengthSeconds(path);
-
         internal DupData BuildDupData(string sourcePath, Track track, string duplicatePath) => Advisor.BuildDupData(sourcePath, track, duplicatePath);
-
-        private static string DupRecommendationText(char key) => DuplicateAdvisor.DupRecommendationText(key);
 
         internal bool PresentDuplicateAndDecide(ScannedFile sf) => Advisor.PresentDuplicateAndDecide(sf);
 

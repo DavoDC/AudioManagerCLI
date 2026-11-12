@@ -2,6 +2,9 @@ using AudioManager.Code.Modules;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using LogEntry = AudioManager.MusicIntegrator.LogEntry;
+using ScannedFile = AudioManager.MusicIntegrator.ScannedFile;
+using TagLib;
 
 namespace AudioManager
 {
@@ -9,7 +12,9 @@ namespace AudioManager
     /// The batch scan-ahead for the pre-scan: reads the batch tags, counts the existing Misc and Sources songs from the
     /// mirror XML, works out which artists earn a new Artists/ folder, detects compilation albums and records the result
     /// for the later readers. The `_scan` value is read and published back live through the delegates, so publish order is unchanged.
-    /// MusicIntegrator forwards to these members.
+    /// PreScanFiles, the per-file read that runs after the scan-ahead (tag clean-up for the preview, library duplicate check),
+    /// also lives here; it reads the dry-run flag, the preview TagFixer, the batch tag cache, the mirror index and the duplicate
+    /// advisor live, so a run sees the same values it saw before the move. MusicIntegrator forwards to these members.
     /// </summary>
     internal sealed class BatchScanner
     {
@@ -18,24 +23,35 @@ namespace AudioManager
         private readonly Action<ScanAheadResult> _setScan;
         private readonly Func<Dictionary<string, string>> _spellingChoicesSource;
         private readonly Func<Dictionary<string, List<string>>> _miscSource;
+        private readonly Func<bool> _dryRunSource;
+        private readonly Func<TagFixer> _previewTagFixerSource;
+        private readonly DuplicateAdvisor _advisor;
 
         /// <summary>
-        /// Roots and the spelling and Misc dictionaries are read live on every use, never copied. The scan-ahead result is
-        /// read and written back through the getter and setter, so RunScanAhead publishes it in the same order as before.
+        /// Roots, the spelling and Misc dictionaries, the dry-run flag and the preview TagFixer are read live on every use, never copied.
+        /// The duplicate advisor is passed by reference and its own state is read live. The scan-ahead result (which holds the batch
+        /// tag cache) is read and written back through the getter and setter, so RunScanAhead publishes in the same order as before and PreScanFiles reads what it published.
         /// </summary>
-        internal BatchScanner(Func<IntegrationRoots> roots, Func<ScanAheadResult> getScan, Action<ScanAheadResult> setScan, Func<Dictionary<string, string>> spellingChoices, Func<Dictionary<string, List<string>>> miscMigrationCandidates)
+        internal BatchScanner(Func<IntegrationRoots> roots, Func<ScanAheadResult> getScan, Action<ScanAheadResult> setScan, Func<Dictionary<string, string>> spellingChoices, Func<Dictionary<string, List<string>>> miscMigrationCandidates, Func<bool> dryRun, Func<TagFixer> previewTagFixer, DuplicateAdvisor advisor)
         {
             _rootsSource = roots;
             _getScan = getScan;
             _setScan = setScan;
             _spellingChoicesSource = spellingChoices;
             _miscSource = miscMigrationCandidates;
+            _dryRunSource = dryRun;
+            _previewTagFixerSource = previewTagFixer;
+            _advisor = advisor;
         }
 
         private IntegrationRoots _roots => _rootsSource();
         private ScanAheadResult _scan { get => _getScan(); set => _setScan(value); }
         private Dictionary<string, string> _artistSpellingChoices => _spellingChoicesSource();
         private Dictionary<string, List<string>> _miscMigrationCandidates => _miscSource();
+        private bool dryRun => _dryRunSource();
+        private TagFixer _previewTagFixer => _previewTagFixerSource();
+        private Dictionary<string, (string artists, string title, string album, string genres, uint year)> _batchTagCache => _scan.BatchTagCache;
+        private MirrorIndex _mirror => new MirrorIndex(_roots);
 
         /// <summary>
         /// Pre-scans the batch to find artists that will hit the 3-song threshold.
@@ -239,6 +255,132 @@ namespace AudioManager
             var spellingCandidates = ArtistSpellingCandidates.BuildSpellingCandidates(spellingPairs);
             _scan = _scan.WithFinalCounts(spellingCandidates, batchAlbumCounts, miscCounts, sourcesCounts);
 
+            return result;
+        }
+
+        /// <summary>
+        /// Pre-scans all files in the batch: reads and cleans tags, finds duplicates.
+        /// No UI interaction. Returns a ScannedFile list for the duplicate review and routing phases.
+        /// </summary>
+        internal List<ScannedFile> PreScanFiles(string[] files, Dictionary<string, List<string>> tagChanges, Dictionary<string, TagFixer.FixLog> tagLogs = null)
+        {
+            var mirrorIndex = _mirror.BuildMirrorIndex();
+            var tagExceptions = TagFixExceptions.Load(); // NotDuplicate rows in config/tagfix-exceptions.xml
+            var result = new List<ScannedFile>();
+            foreach (var sourcePath in files)
+            {
+                var entry = new LogEntry { Filename = Path.GetFileName(sourcePath), SourceRel = MusicIntegrator.RelToNewMusic(sourcePath, _roots.NewMusic) };
+                var sf = new ScannedFile { SourcePath = sourcePath, LogEntry = entry };
+                try
+                {
+                    Track track = new Track();
+                    if (_batchTagCache != null && _batchTagCache.TryGetValue(sourcePath, out var cached))
+                    {
+                        // Use cached tags from RunScanAhead - avoids a second TagLib read per file
+                        track.Title   = string.IsNullOrEmpty(cached.title)   ? Constants.MissingTag : cached.title;
+                        track.Artists = string.IsNullOrEmpty(cached.artists) ? Constants.MissingTag : cached.artists;
+                        track.Album   = string.IsNullOrEmpty(cached.album)   ? Constants.MissingTag : cached.album;
+                        track.Genres  = string.IsNullOrEmpty(cached.genres)  ? Constants.MissingTag : cached.genres;
+                        track.Year    = (cached.year == 0)                   ? Constants.MissingTag : cached.year.ToString();
+                    }
+                    else
+                    {
+                        using (TagLib.File tagFile = TagLib.File.Create(sourcePath))
+                        {
+                            Tag tag = tagFile.Tag;
+                            track.Title   = string.IsNullOrEmpty(tag.Title)           ? Constants.MissingTag : tag.Title;
+                            track.Artists = string.IsNullOrEmpty(tag.JoinedPerformers) ? Constants.MissingTag : tag.JoinedPerformers;
+                            track.Album   = string.IsNullOrEmpty(tag.Album)           ? Constants.MissingTag : tag.Album;
+                            track.Genres  = string.IsNullOrEmpty(tag.JoinedGenres)    ? Constants.MissingTag : tag.JoinedGenres;
+                            track.Year    = (tag.Year == 0)                           ? Constants.MissingTag : tag.Year.ToString();
+                        }
+                    }
+
+                    // Inherit album from immediate subfolder name when tag is missing.
+                    // Files grouped under an album folder in NewMusic but lacking the album tag
+                    // would otherwise all route to Singles regardless of batch count.
+                    if (track.Album.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase)
+                        && sourcePath.StartsWith(_roots.NewMusic, StringComparison.OrdinalIgnoreCase))
+                    {
+                        string relPath = sourcePath.Substring(_roots.NewMusic.Length).TrimStart(Path.DirectorySeparatorChar);
+                        int sep = relPath.IndexOf(Path.DirectorySeparatorChar);
+                        if (sep > 0)
+                            track.Album = relPath.Substring(0, sep);
+                    }
+
+                    if (dryRun && !track.Title.Equals(Constants.MissingTag) && !track.Artists.Equals(Constants.MissingTag))
+                    {
+                        string rawTitle = track.Title;
+                        if (_previewTagFixer != null)
+                        {
+                            // Same keep= flags and custom rules the real run applies.
+                            string rawAlbum = track.Album.Equals(Constants.MissingTag) ? "" : track.Album;
+                            var p = _previewTagFixer.PreviewFields(sourcePath, rawTitle, track.Artists, rawAlbum, track.Genres);
+                            track.Title = p.title;
+                            track.Artists = p.artists;
+                            track.Genres = p.genres;
+                            if (!track.Album.Equals(Constants.MissingTag))
+                                track.Album = RulesEngine.NormalizeAlbum(p.album);
+                        }
+                        else
+                        {
+                            var simArtistList = TagFixer.ExtractAndFixArtists(rawTitle, track.Artists);
+                            track.Title = TagFixer.RemoveParentheticals(rawTitle);
+                            track.Artists = string.Join("; ", simArtistList);
+                            if (!track.Album.Equals(Constants.MissingTag))
+                                track.Album = RulesEngine.NormalizeAlbum(track.Album);
+                            if (TagFixer.ShouldFixGenre(track.Artists, track.Genres))
+                                track.Genres = TagFixer.DetermineGenre(track.Artists);
+                        }
+                    }
+
+                    entry.Title = track.Title;
+                    entry.Artists = track.Artists;
+                    entry.Album = track.Album;
+                    sf.Track = track;
+                    sf.LengthSec = DuplicateAdvisor.ReadLengthSeconds(sourcePath);
+                    sf.IsReadable = true;
+
+                    // Populate tag changes for combined routing display
+                    string filename = Path.GetFileName(sourcePath);
+                    if (tagChanges != null && tagChanges.TryGetValue(filename, out var changes))
+                    {
+                        entry.TagChanges.AddRange(changes);
+                        if (tagLogs != null && tagLogs.TryGetValue(filename, out var tagLog))
+                            entry.TagFix = tagLog;
+                    }
+
+                    // NotDuplicate matches the ORIGINAL NewMusic name; a tag fix may have renamed the file already.
+                    string exceptionKey = tagLogs != null && tagLogs.TryGetValue(filename, out var nameLog) ? nameLog.OriginalFilename : filename;
+                    // Same-folder rename: the original path is the current folder plus the original name.
+                    string currentRel = MusicIntegrator.RelToNewMusic(sourcePath, _roots.NewMusic);
+                    string originalRel = currentRel == null ? null : Path.Combine(Path.GetDirectoryName(currentRel) ?? "", exceptionKey);
+                    entry.OriginalSourceRel = originalRel ?? entry.SourceRel;
+                    string duplicatePath = tagExceptions.IsNotDuplicate(exceptionKey, originalRel) ? null : _mirror.FindDuplicateInMirror(track, mirrorIndex);
+                    if (!string.IsNullOrEmpty(duplicatePath))
+                    {
+                        sf.Duplicate = _advisor.BuildDupData(sourcePath, track, duplicatePath);
+                        // Populated once here regardless of which D/L/K decision is made later,
+                        // so the JSON always carries the library-duplicate block for review.
+                        entry.LibraryDuplicate = true;
+                        entry.DupLibraryPath = sf.Duplicate.RelMirrorPath;
+                        entry.DupLibraryTrack = sf.Duplicate.MirrorTrack;
+                        entry.DupLibraryAlbum = sf.Duplicate.MirrorAlbum;
+                        entry.DupNewAlbum = track.Album;
+                        entry.DupRecommendationKey = sf.Duplicate.RecommendedKey == '\0'
+                            ? "K" : sf.Duplicate.RecommendedKey.ToString();
+                        entry.DupRecommendation = DuplicateAdvisor.DupRecommendationText(sf.Duplicate.RecommendedKey);
+                        entry.DupReason = sf.Duplicate.DupReason;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    sf.IsReadable = false;
+                    sf.ReadError = ex.Message;
+                    sf.ReadException = ex;
+                }
+                result.Add(sf);
+            }
             return result;
         }
 
