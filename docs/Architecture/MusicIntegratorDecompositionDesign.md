@@ -2,7 +2,7 @@
 
 Status: PROPOSAL. No code has moved. David approves this document before any extraction starts.
 
-Date: 2026-10-12. Source: `src/AudioManager/Code/Doer/MusicIntegrator.cs`, about 2,400 lines as of this date (it was 2,201 when the 2026-09-06 design review flagged it).
+Date: 2026-10-12. Source: `src/AudioManager/Code/Doer/MusicIntegrator.cs`, about 2,400 lines as of this date (it was 2,201 when the 2026-09-06 design review flagged it). Refreshed 2026-11-12: about 3,700 lines, none of the classes in section 3 extracted yet; the ranked engine assessment in `IntegrationAndParseCacheArchitecture.md` lists the current longest members.
 
 ## 1. Why
 
