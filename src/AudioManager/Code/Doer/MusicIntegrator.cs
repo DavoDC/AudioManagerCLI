@@ -34,7 +34,7 @@ namespace AudioManager
         private bool dryRun;
         private bool noInput;
         private bool jsonOutput;
-        private Dictionary<string, List<string>> _miscMigrationCandidates = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        internal Dictionary<string, List<string>> _miscMigrationCandidates = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         // Populated by RunScanAhead; used by GetDestDir to build full routing reason for Misc fallback
         private Dictionary<string, int> _scanAheadBatchCounts;
         private Dictionary<string, string> _scanAheadSpellings;
@@ -468,7 +468,7 @@ namespace AudioManager
         /// Step 2: presents all in-batch duplicates for review before routing begins.
         /// Returns false if the user quits (constructor must return immediately without routing).
         /// </summary>
-        private bool RunDuplicateReview(List<ScannedFile> scannedFiles, List<LogEntry> logEntries)
+        internal bool RunDuplicateReview(List<ScannedFile> scannedFiles, List<LogEntry> logEntries)
         {
             var duplicateFiles = scannedFiles.Where(sf => sf.Duplicate != null).ToList();
             if (duplicateFiles.Count == 0) return true;
@@ -771,7 +771,7 @@ namespace AudioManager
         }
 
         /// <summary>Commits the L-staged library copy paired with this replacement once it has routed.</summary>
-        private void CommitIfStaged(ScannedFile sf)
+        internal void CommitIfStaged(ScannedFile sf)
         {
             if (!_lStagedBySource.TryGetValue(sf.SourcePath, out string libPath)) return;
             if (_lStaged.TryGetValue(libPath, out string bakPath)) ReplaceGuard.Commit(bakPath);
@@ -780,7 +780,7 @@ namespace AudioManager
         }
 
         /// <summary>Restores the L-staged library copy paired with this replacement when its routing is skipped.</summary>
-        private void RollbackIfStaged(ScannedFile sf)
+        internal void RollbackIfStaged(ScannedFile sf)
         {
             if (!_lStagedBySource.TryGetValue(sf.SourcePath, out string libPath)) return;
             if (_lStaged.TryGetValue(libPath, out string bakPath)) ReplaceGuard.Rollback(bakPath, libPath);
@@ -790,7 +790,7 @@ namespace AudioManager
         }
 
         /// <summary>Rolls back every L-staged library copy still pending at the end of routing.</summary>
-        private void RollbackAllStaged()
+        internal void RollbackAllStaged()
         {
             foreach (var kv in _lStaged.ToList())
             {
@@ -1324,7 +1324,7 @@ namespace AudioManager
             }
         }
 
-        private int RunMiscMigration()
+        internal int RunMiscMigration()
         {
             if (_miscMigrationCandidates.Count == 0) return 0;
             var journaledMoves = new List<MiscMigrationMove>();
@@ -2466,7 +2466,7 @@ namespace AudioManager
         /// AudioMirror: C:\...\AudioMirror\AUDIO_MIRROR\Artist\Album\Track.xml
         /// Library:     <home>\Audio\Artist\Album\Track.mp3
         /// </summary>
-        private string DeriveLibraryPathFromMirrorPath(string mirrorXmlPath)
+        internal string DeriveLibraryPathFromMirrorPath(string mirrorXmlPath)
         {
             try
             {
@@ -2573,7 +2573,7 @@ namespace AudioManager
         /// are found, which catches both traditional compilations (many primary artists) and
         /// ATD-style albums (one primary artist featuring many different people).
         /// </summary>
-        private bool IsAlbumFolderCompilation(string xmlPath)
+        internal bool IsAlbumFolderCompilation(string xmlPath)
         {
             try
             {
@@ -2863,7 +2863,7 @@ namespace AudioManager
         /// Builds a DupData object for a duplicate found during pre-scan.
         /// Computes all display strings and the [L]/[D] recommendation.
         /// </summary>
-        private DupData BuildDupData(string sourcePath, Track track, string duplicatePath)
+        internal DupData BuildDupData(string sourcePath, Track track, string duplicatePath)
         {
             string libraryFilePath = DeriveLibraryPathFromMirrorPath(duplicatePath);
             string relLibraryPath = libraryFilePath.StartsWith(Constants.AudioFolderPath, StringComparison.OrdinalIgnoreCase)

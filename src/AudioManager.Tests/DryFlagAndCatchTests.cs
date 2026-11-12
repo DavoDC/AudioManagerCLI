@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 
 namespace AudioManager
 {
@@ -179,7 +178,7 @@ namespace AudioManager
             finally { Directory.Delete(dir, true); }
         }
 
-        // ---- Item 2b: MusicIntegrator.DeriveLibraryPathFromMirrorPath (instance, private) ----
+        // ---- Item 2b: MusicIntegrator.DeriveLibraryPathFromMirrorPath (instance, internal) ----
 
         public static void DeriveLibraryPath_InvalidChars_ReturnsInputAndWarns()
         {
@@ -189,11 +188,8 @@ namespace AudioManager
                 var integrator = new MusicIntegrator(dir);
                 // Concatenate, not Path.Combine: Combine rejects the invalid '|' in the test itself.
                 string badXml = Constants.MirrorFolderPath + "\\bad|name.xml";
-                MethodInfo method = typeof(MusicIntegrator).GetMethod(
-                    "DeriveLibraryPathFromMirrorPath", BindingFlags.Instance | BindingFlags.NonPublic);
-
                 string result = null;
-                string output = CaptureConsole(() => result = (string)method.Invoke(integrator, new object[] { badXml }));
+                string output = CaptureConsole(() => result = integrator.DeriveLibraryPathFromMirrorPath(badXml));
 
                 Assert.Equal(badXml, result, "Failure must still return the mirror XML path unchanged");
                 Assert.True(output.IndexOf("[WARN]", StringComparison.Ordinal) >= 0,
@@ -204,7 +200,7 @@ namespace AudioManager
             finally { Directory.Delete(dir, true); }
         }
 
-        // ---- Item 2c: MusicIntegrator.IsAlbumFolderCompilation (instance, private) ----
+        // ---- Item 2c: MusicIntegrator.IsAlbumFolderCompilation (instance, internal) ----
 
         public static void IsAlbumFolderCompilation_InvalidPath_ReturnsFalseAndWarns()
         {
@@ -213,11 +209,8 @@ namespace AudioManager
             {
                 var integrator = new MusicIntegrator(dir);
                 string badXml = "C:\\Music|Mirror\\Album\\track.xml";
-                MethodInfo method = typeof(MusicIntegrator).GetMethod(
-                    "IsAlbumFolderCompilation", BindingFlags.Instance | BindingFlags.NonPublic);
-
                 bool result = true;
-                string output = CaptureConsole(() => result = (bool)method.Invoke(integrator, new object[] { badXml }));
+                string output = CaptureConsole(() => result = integrator.IsAlbumFolderCompilation(badXml));
 
                 Assert.True(!result, "Unreadable album must still report not-a-compilation");
                 Assert.True(output.IndexOf("[WARN]", StringComparison.Ordinal) >= 0,

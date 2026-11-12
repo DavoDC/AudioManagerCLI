@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using AudioManager.Code.Modules;
 
 namespace AudioManager
@@ -103,20 +102,16 @@ namespace AudioManager
             Assert.True(realOccupiedKept, "real run must leave the occupying file untouched");
         }
 
-        /// <summary>Sets the private _miscMigrationCandidates map that RunMiscMigration reads.</summary>
+        /// <summary>Sets the internal _miscMigrationCandidates map that RunMiscMigration reads.</summary>
         private static void SetMiscCandidates(MusicIntegrator integrator, string artist, List<string> xmlPaths)
         {
-            FieldInfo field = typeof(MusicIntegrator).GetField("_miscMigrationCandidates", BindingFlags.Instance | BindingFlags.NonPublic);
-            var candidates = (Dictionary<string, List<string>>)field.GetValue(integrator);
-            candidates[artist] = xmlPaths;
+            integrator._miscMigrationCandidates[artist] = xmlPaths;
         }
 
-        /// <summary>Invokes the private RunMiscMigration and returns its failed count, or -1 if it reports none.</summary>
+        /// <summary>Invokes RunMiscMigration and returns its failed count.</summary>
         private static int InvokeMiscMigration(MusicIntegrator integrator)
         {
-            MethodInfo method = typeof(MusicIntegrator).GetMethod("RunMiscMigration", BindingFlags.Instance | BindingFlags.NonPublic);
-            object result = method.Invoke(integrator, null);
-            return result is int ? (int)result : -1;
+            return integrator.RunMiscMigration();
         }
 
         /// <summary>

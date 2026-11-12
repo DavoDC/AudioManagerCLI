@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using AudioManager.Code.Modules;
 
 namespace AudioManager
@@ -10,7 +9,7 @@ namespace AudioManager
     /// Direct tests for MusicIntegrator's duplicate review and L-stage bookkeeping: RunDuplicateReview
     /// (noInput path, with and without a manifest), CommitIfStaged / RollbackIfStaged / RollbackAllStaged
     /// (driven by a real L stage from ExecuteDuplicateDecisions), and dry-run parity for D and L decisions.
-    /// Private methods are reached by reflection, as in MusicIntegratorDryRunParity2Tests. Temp trees only.
+    /// Internal members are called directly. Temp trees only.
     /// </summary>
     internal static class MusicIntegratorDuplicateStagingTests
     {
@@ -68,20 +67,12 @@ namespace AudioManager
 
         private static bool InvokeRunDuplicateReview(MusicIntegrator integrator, List<MusicIntegrator.ScannedFile> files, List<MusicIntegrator.LogEntry> logs)
         {
-            MethodInfo method = typeof(MusicIntegrator).GetMethod("RunDuplicateReview", BindingFlags.Instance | BindingFlags.NonPublic);
-            return (bool)method.Invoke(integrator, new object[] { files, logs });
-        }
-
-        private static void InvokeStagedHelper(string methodName, MusicIntegrator integrator, MusicIntegrator.ScannedFile sf)
-        {
-            MethodInfo method = typeof(MusicIntegrator).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
-            method.Invoke(integrator, new object[] { sf });
+            return integrator.RunDuplicateReview(files, logs);
         }
 
         private static void InvokeRollbackAllStaged(MusicIntegrator integrator)
         {
-            MethodInfo method = typeof(MusicIntegrator).GetMethod("RollbackAllStaged", BindingFlags.Instance | BindingFlags.NonPublic);
-            method.Invoke(integrator, null);
+            integrator.RollbackAllStaged();
         }
 
         // ExecuteDuplicateDecisions acts only on a Decision set by review; these fixtures carry the
@@ -255,7 +246,7 @@ namespace AudioManager
                 Assert.True(HasMarker(libCopy + BakSuffix, 1), "precondition: the real L stage must move the library copy aside");
                 Assert.True(!File.Exists(libCopy), "precondition: the library copy must be gone while staged");
 
-                InvokeStagedHelper("CommitIfStaged", integrator, sf);
+                integrator.CommitIfStaged(sf);
 
                 Assert.True(!File.Exists(libCopy + BakSuffix), "commit must delete the staged backup once the replacement has landed");
                 Assert.True(!File.Exists(libCopy), "commit must not restore the library copy");
@@ -281,7 +272,7 @@ namespace AudioManager
                 var integrator = new MusicIntegrator(lib, false, true, null);
                 RunExecute(integrator, new List<MusicIntegrator.ScannedFile> { sf }, new List<MusicIntegrator.LogEntry>());
 
-                InvokeStagedHelper("RollbackIfStaged", integrator, sf);
+                integrator.RollbackIfStaged(sf);
 
                 Assert.True(HasMarker(libCopy, 1), "rollback must restore the original library copy bytes");
                 Assert.True(!File.Exists(libCopy + BakSuffix), "rollback must consume the staged backup");
@@ -308,7 +299,7 @@ namespace AudioManager
                 RunExecute(integrator, new List<MusicIntegrator.ScannedFile> { sf }, new List<MusicIntegrator.LogEntry>());
                 WriteLibCopy(libCopy, 3);
 
-                InvokeStagedHelper("RollbackIfStaged", integrator, sf);
+                integrator.RollbackIfStaged(sf);
 
                 Assert.True(HasMarker(libCopy, 3), "rollback must never overwrite an occupying file at the library path");
                 Assert.True(HasMarker(libCopy + BakSuffix, 1), "with the library path occupied the staged backup must be kept for manual recovery");
@@ -334,7 +325,7 @@ namespace AudioManager
                 var integrator = new MusicIntegrator(lib, false, true, null);
                 RunExecute(integrator, new List<MusicIntegrator.ScannedFile> { sfA, sfB }, new List<MusicIntegrator.LogEntry>());
 
-                InvokeStagedHelper("CommitIfStaged", integrator, sfA);
+                integrator.CommitIfStaged(sfA);
                 InvokeRollbackAllStaged(integrator);
 
                 Assert.True(!File.Exists(copyA), "a committed stage must not be restored by RollbackAllStaged");
@@ -358,8 +349,8 @@ namespace AudioManager
                 var sf = MakeDup(Path.Combine(newMusic, "Good Artist - Good Song.mp3"), "Good Artist", "Good Song", libCopy, 'K');
                 var integrator = new MusicIntegrator(lib, false, true, null);
 
-                InvokeStagedHelper("CommitIfStaged", integrator, sf);
-                InvokeStagedHelper("RollbackIfStaged", integrator, sf);
+                integrator.CommitIfStaged(sf);
+                integrator.RollbackIfStaged(sf);
 
                 Assert.True(HasMarker(libCopy, 1), "commit or rollback of a source that was never staged must leave the library copy alone");
                 Assert.True(!File.Exists(libCopy + BakSuffix), "no backup must appear for an unstaged source");

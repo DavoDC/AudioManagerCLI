@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 
 namespace AudioManager
 {
@@ -21,10 +20,8 @@ namespace AudioManager
 
                 var integrator = new MusicIntegrator(lib, dryRun: dryRun);
                 integrator.MigrationJournalDir = journalDir;
-                var candidates = (Dictionary<string, List<string>>)typeof(MusicIntegrator)
-                    .GetField("_miscMigrationCandidates", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(integrator);
-                candidates["Good Artist"] = new List<string> { from };
-                typeof(MusicIntegrator).GetMethod("RunMiscMigration", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(integrator, null);
+                integrator._miscMigrationCandidates["Good Artist"] = new List<string> { from };
+                integrator.RunMiscMigration();
 
                 bool moved = File.Exists(to);
                 Assert.True(moved == !dryRun, "real run moves the song, dry run leaves it");
@@ -51,10 +48,8 @@ namespace AudioManager
 
                 var integrator = new MusicIntegrator(lib, dryRun: false);
                 integrator.MigrationJournalDir = journalDir;
-                var candidates = (Dictionary<string, List<string>>)typeof(MusicIntegrator)
-                    .GetField("_miscMigrationCandidates", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(integrator);
-                candidates["Good Artist"] = new List<string> { from };
-                typeof(MusicIntegrator).GetMethod("RunMiscMigration", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(integrator, null);
+                integrator._miscMigrationCandidates["Good Artist"] = new List<string> { from };
+                integrator.RunMiscMigration();
 
                 string[] files = Directory.Exists(journalDir) ? Directory.GetFiles(journalDir, "misc-migration-*.json") : new string[0];
                 Assert.Equal("1", files.Length.ToString(), "one journal file per migration run");

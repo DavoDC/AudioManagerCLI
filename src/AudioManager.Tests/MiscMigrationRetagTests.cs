@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 
 namespace AudioManager
 {
@@ -79,11 +78,8 @@ namespace AudioManager
         /// <summary>Sets the candidate for artist, invokes the private RunMiscMigration and returns its failed count.</summary>
         private static int RunMigration(MusicIntegrator integrator, string artist, string libSong)
         {
-            var candidates = (Dictionary<string, List<string>>)typeof(MusicIntegrator)
-                .GetField("_miscMigrationCandidates", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(integrator);
-            candidates[artist] = new List<string> { libSong };
-            object result = typeof(MusicIntegrator).GetMethod("RunMiscMigration", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(integrator, null);
-            return result is int ? (int)result : -1;
+            integrator._miscMigrationCandidates[artist] = new List<string> { libSong };
+            return integrator.RunMiscMigration();
         }
 
         private static string JournalPath(Fixture f)
@@ -228,9 +224,7 @@ namespace AudioManager
                 RunMigration(NewIntegrator(f, dryRun: false), "TJ Hickey", f.Song);
                 Assert.True(ExactNames(f.SinglesDir).Contains("TJ Hickey - Good Song.mp3"), "precondition: the song was migrated and renamed");
 
-                MethodInfo revert = typeof(MusicIntegrator).GetMethod("RevertMiscMigration", BindingFlags.Instance | BindingFlags.NonPublic);
-                Assert.True(revert != null, "RevertMiscMigration(string journalPath) must exist");
-                revert.Invoke(NewIntegrator(f, dryRun: false), new object[] { JournalPath(f) });
+                NewIntegrator(f, dryRun: false).RevertMiscMigration(JournalPath(f));
 
                 string miscDir = Path.GetDirectoryName(f.Song);
                 Assert.True(ExactNames(miscDir).Contains("Tj Hickey - Good Song.mp3"), "revert moves the song back to Misc under its original name");

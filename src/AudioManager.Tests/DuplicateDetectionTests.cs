@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using AudioManager.Code.Modules;
 
 namespace AudioManager
@@ -202,15 +201,14 @@ namespace AudioManager
         private static string SizeDupPath(string root, string libraryAlbum) =>
             Path.Combine(root, "Musivation", SizeArtist, "People", "Naval Ravikant", libraryAlbum, SizeArtist + " - " + SizeTitle + ".xml");
 
-        /// <summary>Runs the private BuildDupData for the incoming track against the duplicate path.</summary>
+        /// <summary>Runs BuildDupData for the incoming track against the duplicate path.</summary>
         private static MusicIntegrator.DupData BuildSizeDup(string root, string libraryAlbum, string incomingAlbum, int incomingBatchTracks)
         {
             var batch = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
             batch[SizeArtist] = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { { incomingAlbum, incomingBatchTracks } };
             var integrator = new MusicIntegrator(root, batch);
             var track = new Track { Artists = SizeArtist, Title = SizeTitle, Album = incomingAlbum, Genres = "Missing" };
-            MethodInfo method = typeof(MusicIntegrator).GetMethod("BuildDupData", BindingFlags.Instance | BindingFlags.NonPublic);
-            return (MusicIntegrator.DupData)method.Invoke(integrator, new object[] { "C:\\unused\\new.mp3", track, SizeDupPath(root, libraryAlbum) });
+            return integrator.BuildDupData("C:\\unused\\new.mp3", track, SizeDupPath(root, libraryAlbum));
         }
 
         public static void SameSongSize_LargerIncomingAlbum_RecommendsL()
