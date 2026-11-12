@@ -131,6 +131,13 @@ namespace AudioManager
             Assert.True(Program.ValidateTagfixArgs(new[] { "tagfix", "--dry-run" }) == null, "--dry-run alone is valid");
         }
 
+        public static void ValidateTagfixArgs_DryRunWithRevert_IsRejected()
+        {
+            Assert.True(Program.ValidateTagfixArgs(new[] { "tagfix", "--dry-run", "--revert", "j.json" }) != null,
+                "--dry-run with --revert must be rejected, the revert branch ignores dry run and would run for real");
+            Assert.True(Program.ValidateTagfixArgs(new[] { "tagfix", "--revert", "j.json" }) == null, "--revert alone is valid");
+        }
+
         // ---- Item 2a: StatsJson library byte walk (Doer/Analyser/StatsJson.cs) ----
 
         public static void StatsJsonLibraryBytes_MissingFolder_ReturnsZeroAndWarnsWithPath()

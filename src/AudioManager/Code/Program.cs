@@ -667,7 +667,10 @@ namespace AudioManager
         /// the flag is absent. Exit code 0 only when nothing failed; a missing path, an unreadable journal or a journal that is
         /// not a Misc migration journal exits 1. Writes nothing but the journal's own moves and tag restores.
         /// </summary>
-        internal static bool TryRunMiscRevert(string[] args, out int exitCode)
+        internal static bool TryRunMiscRevert(string[] args, out int exitCode) => TryRunMiscRevert(args, Constants.AudioFolderPath, out exitCode);
+
+        /// <summary>Same as TryRunMiscRevert, with the library root the journal paths must stay under (tests pass a temp library).</summary>
+        internal static bool TryRunMiscRevert(string[] args, string libraryPath, out int exitCode)
         {
             exitCode = 1;
             int idx = Array.FindIndex(args, a => a.Equals("--misc-revert", StringComparison.OrdinalIgnoreCase));
@@ -681,7 +684,7 @@ namespace AudioManager
             MusicIntegrator.MiscRevertResult result;
             try
             {
-                result = new MusicIntegrator(Constants.AudioFolderPath).RevertMiscMigration(args[idx + 1]);
+                result = new MusicIntegrator(libraryPath).RevertMiscMigration(args[idx + 1]);
             }
             catch (Exception ex)
             {
@@ -707,6 +710,9 @@ namespace AudioManager
             bool applyPlan = args.Any(a => a.Equals("--apply-plan", StringComparison.OrdinalIgnoreCase));
             if (dryRun && applyPlan)
                 return "--dry-run cannot be combined with --apply-plan. Nothing was run.";
+            // The revert branch does not read dryRun, so the combination would revert for real
+            if (dryRun && revertIdx >= 0)
+                return "--dry-run cannot be combined with --revert. Nothing was run.";
             return null;
         }
 

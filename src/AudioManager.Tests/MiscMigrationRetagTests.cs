@@ -353,7 +353,7 @@ namespace AudioManager
                 string output;
                 using (new FileStream(migrated, FileMode.Open, FileAccess.Read, FileShare.None))
                 {
-                    output = CaptureConsole(() => Program.TryRunMiscRevert(new[] { "--misc-revert", journal }, out code));
+                    output = CaptureConsole(() => Program.TryRunMiscRevert(new[] { "--misc-revert", journal }, f.Lib, out code));
                 }
 
                 Assert.Equal("1", code.ToString(), "failed > 0 exits 1");
@@ -369,7 +369,7 @@ namespace AudioManager
             {
                 string journal = AppliedJournal(f);
                 int code = -1;
-                string output = CaptureConsole(() => Program.TryRunMiscRevert(new[] { "--misc-revert", journal }, out code));
+                string output = CaptureConsole(() => Program.TryRunMiscRevert(new[] { "--misc-revert", journal }, f.Lib, out code));
 
                 Assert.Equal("0", code.ToString(), "failed is 0, so the exit code is 0");
                 Assert.True(output.Contains("- Misc revert: 1 reverted, 0 skipped, 0 failed"), "the summary line is printed");
@@ -396,6 +396,132 @@ namespace AudioManager
                 Assert.True(!Directory.Exists(f.SinglesDir), "the Singles folder the migration created is removed after a failed move");
             }
             finally { Cleanup(f); }
+        }
+
+        /// <summary>Rewrites the single move in a journal so its from and to point where a test needs them.</summary>
+        private static void SetJournalMove(string journalPath, string from, string to)
+        {
+            var ser = new System.Web.Script.Serialization.JavaScriptSerializer();
+            var root = (Dictionary<string, object>)ser.DeserializeObject(File.ReadAllText(journalPath));
+            var move = (Dictionary<string, object>)((object[])root["moves"])[0];
+            move["from"] = from;
+            move["to"] = to;
+            File.WriteAllText(journalPath, ser.Serialize(root));
+        }
+
+        public static void Revert_RetagFails_SongStaysAtMigratedPlaceAndCountsFailed()
+        {
+            var f = NewFixture("Tj Hickey");
+            string migrated = Path.Combine(f.SinglesDir, "TJ Hickey - Good Song.mp3");
+            try
+            {
+                string journal = AppliedJournal(f);
+                // A read-only file cannot be opened for tag writing, so the retag throws, but it can still be moved.
+                File.SetAttributes(migrated, FileAttributes.ReadOnly);
+                MusicIntegrator.MiscRevertResult result = NewIntegrator(f, dryRun: false).RevertMiscMigration(journal);
+
+                Assert.Equal("1", result.Failed.ToString(), "a retag that throws is counted as failed");
+                Assert.Equal("0", result.Reverted.ToString(), "a failed revert is not counted as reverted");
+                Assert.True(File.Exists(migrated), "a failed retag leaves the song unmoved at its migrated place");
+                Assert.True(!File.Exists(f.Song), "the song is not moved back to Misc when its retag fails");
+            }
+            finally
+            {
+                foreach (string p in new[] { migrated, f.Song })
+                    if (File.Exists(p)) File.SetAttributes(p, FileAttributes.Normal);
+                Cleanup(f);
+            }
+        }
+
+        public static void Revert_MoveFailsAfterRetag_RestoresMigratedTagAndCountsFailed()
+        {
+            var f = NewFixture("Tj Hickey");
+            try
+            {
+                string journal = AppliedJournal(f);
+                string migrated = Path.Combine(f.SinglesDir, "TJ Hickey - Good Song.mp3");
+                // A directory where the old file must go makes the move back throw after the retag has succeeded.
+                Directory.CreateDirectory(f.Song);
+                MusicIntegrator.MiscRevertResult result = NewIntegrator(f, dryRun: false).RevertMiscMigration(journal);
+
+                Assert.Equal("1", result.Failed.ToString(), "a move that throws after the retag is counted as failed");
+                Assert.True(File.Exists(migrated), "the song stays at its migrated place when its move back fails");
+                Assert.Equal("TJ Hickey", ReadPerformers(migrated)[0], "the migrated ARTIST tag is restored after the failed move");
+            }
+            finally { Cleanup(f); }
+        }
+
+        public static void Revert_MalformedEntry_FailsAloneAndOtherEntriesStillRevert()
+        {
+            var f = NewFixture("Tj Hickey");
+            try
+            {
+                string journal = AppliedJournal(f);
+                var ser = new System.Web.Script.Serialization.JavaScriptSerializer();
+                var root = (Dictionary<string, object>)ser.DeserializeObject(File.ReadAllText(journal));
+                var moves = new List<object>((object[])root["moves"]);
+                moves.Add("not a move object"); // processed first (newest first), so it must not stop the valid entry
+                root["moves"] = moves.ToArray();
+                File.WriteAllText(journal, ser.Serialize(root));
+
+                MusicIntegrator.MiscRevertResult result = NewIntegrator(f, dryRun: false).RevertMiscMigration(journal);
+
+                Assert.Equal("1", result.Failed.ToString(), "the malformed entry is counted as failed");
+                Assert.Equal("1", result.Reverted.ToString(), "the valid entry is still reverted");
+                Assert.True(File.Exists(f.Song), "the valid song is back at its original Misc path");
+            }
+            finally { Cleanup(f); }
+        }
+
+        public static void Revert_FromOutsideLibrary_IsRefusedAndNothingMoves()
+        {
+            var f = NewFixture("Tj Hickey");
+            string outsideDir = Path.Combine(Path.GetTempPath(), "am_outside_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            try
+            {
+                string journal = AppliedJournal(f);
+                string migrated = Path.Combine(f.SinglesDir, "TJ Hickey - Good Song.mp3");
+                string outsideFrom = Path.Combine(outsideDir, "outside.mp3");
+                SetJournalMove(journal, outsideFrom, migrated);
+
+                MusicIntegrator.MiscRevertResult result = NewIntegrator(f, dryRun: false).RevertMiscMigration(journal);
+
+                Assert.Equal("1", result.Failed.ToString(), "a from path outside the library is refused and counted as failed");
+                Assert.Equal("0", result.Reverted.ToString(), "nothing is reverted");
+                Assert.True(File.Exists(migrated), "the library song is not moved out of the library");
+                Assert.True(!File.Exists(outsideFrom), "nothing is written outside the library");
+            }
+            finally
+            {
+                if (Directory.Exists(outsideDir)) Directory.Delete(outsideDir, true);
+                Cleanup(f);
+            }
+        }
+
+        public static void Revert_ToOutsideLibrary_IsRefusedAndOutsideFileIsUntouched()
+        {
+            var f = NewFixture("Tj Hickey");
+            string outsideDir = Path.Combine(Path.GetTempPath(), "am_outside_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            try
+            {
+                string journal = AppliedJournal(f);
+                Directory.CreateDirectory(outsideDir);
+                string outsideTo = Path.Combine(outsideDir, "outside.mp3");
+                File.WriteAllText(outsideTo, "not a song");
+                SetJournalMove(journal, f.Song, outsideTo);
+
+                MusicIntegrator.MiscRevertResult result = NewIntegrator(f, dryRun: false).RevertMiscMigration(journal);
+
+                Assert.Equal("1", result.Failed.ToString(), "a to path outside the library is refused and counted as failed");
+                Assert.Equal("0", result.Reverted.ToString(), "nothing is reverted");
+                Assert.True(File.Exists(outsideTo), "the file outside the library is left where it is");
+                Assert.True(!File.Exists(f.Song), "nothing is moved into the library from outside");
+            }
+            finally
+            {
+                if (Directory.Exists(outsideDir)) Directory.Delete(outsideDir, true);
+                Cleanup(f);
+            }
         }
     }
 }
