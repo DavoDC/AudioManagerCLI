@@ -25,10 +25,36 @@ scripts\dev\verify.bat
 
 ## CLI Usage
 
-Run via the CLI:
+Run `AudioManager.exe <verb> [flags]`. With no arguments it opens the interactive menu.
 
-- **CLI:** `AudioManager.exe analysis [--force-regen]` | `AudioManager.exe tagfix [--dry-run]` | `AudioManager.exe integrate [--dry-run]`
-- **Dry run:** always run with `--dry-run` first - prints every planned action without modifying files
+| Verb | Aliases | What it does |
+|------|---------|--------------|
+| `analysis` | `analyse`, `analyze` | Rebuilds or updates the AudioMirror, runs the LibChecker validations, and auto-commits the mirror when clean. |
+| `integrate` | `integration` | Runs the pre-integration gate, then moves files from NewMusic into the library. |
+| `tagfix` | `fix-tags` | Cleans tags on files in NewMusic, and applies or reverts a reviewed tag-fix plan. |
+
+| Flag | Takes a value | Works with | Effect |
+|------|---------------|------------|--------|
+| `--dry-run` | no | `integrate`, `tagfix` (rejected with `analysis`) | Prints every planned action and modifies no files. |
+| `--force-regen` | no | `analysis` | Deletes and rebuilds the AudioMirror instead of updating it incrementally. |
+| `--no-input` | no | `integrate` | Skips interactive prompts and accepts the recommended decisions. |
+| `--json-output` | no | `analysis`, `integrate`, `tagfix` | Writes machine-readable JSON (see [docs/Contracts](docs/Contracts/)). Tagfix writes its plan JSON only with `--dry-run`. |
+| `--no-auto-commit` | no | `analysis`, `integrate`, `--mirror-retry` | Skips the AudioMirror auto-commit. |
+| `--manifest <path>` | yes, a manifest file | `integrate` | Integrates only the NewMusic files the manifest selects. |
+| `--apply-plan` | no | `tagfix` (rejected with `--dry-run`) | Applies the reviewed tag-fix plan, with guards. |
+| `--revert <journal>` | yes, a tagfix journal | `tagfix` (rejected with `--dry-run`) | Reverts a tag-fix apply from its journal. |
+| `--mirror-retry` | no | standalone | Re-runs only the post-integration mirror step after a failed one. |
+| `--fingerprint` | no | standalone | Prints one JSON line with the current NewMusic fingerprint. Read-only. |
+| `--libfix-plan` | no | standalone | Writes the library fix plan for album_in_singles hits. Moves nothing. |
+| `--libfix-apply <plan>` | yes, a plan file | standalone | Applies a library fix plan, journaling each move. |
+| `--libfix-revert <journal>` | yes, a journal file | standalone | Reverts a library fix from its journal. |
+| `--misc-revert <journal>` | yes, a Misc migration journal | standalone | Undoes a Misc migration from its journal. |
+
+Standalone flags run and exit before any verb is read.
+
+Always run with `--dry-run` first. It prints every planned action without modifying files.
+
+Unknown or bare tokens are rejected and nothing runs. A standalone flag runs first, so it ignores other tokens on the same line.
 
 ## LibChecker Validations
 

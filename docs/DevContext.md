@@ -296,6 +296,24 @@ Review screens show FINAL values (after tag fixes and normalisation), see [Music
 - **Check library via filesystem:** check artist/folder existence by browsing `<home>\Audio\` directly - not by opening the AudioManager app.
 - **Tag editing tool: Mp3tag.** When a library file needs its tags fixed manually, advise the user to use Mp3tag. Do not suggest VLC or Windows file properties for tag editing.
 
+## CLI Argument Rules
+
+Line references are to `src/AudioManager/Code/Program.cs`. The README CLI table is the user-facing version of this list.
+
+- **Standalone flags run first.** `--mirror-retry`, `--fingerprint`, `--libfix-plan|apply|revert` and `--misc-revert` are checked in `Main` before any mode parsing (Program.cs:33, 42, 50, 58). They return or exit before the verb is read.
+- **Everything else is validated by `FindUnknownFlag`.** It scans args from index 1 (the verb is args[0], checked later at Program.cs:118). A bare token or an unknown flag prints `unknown option '<token>'. Nothing was run.` and exits 1 (Program.cs:75-82, 723-743).
+- **Value-taking flags consume the next token.** `--manifest`, `--revert`, `--libfix-apply`, `--libfix-revert` and `--misc-revert` read `args[idx + 1]` and skip it in the scan (Program.cs:731-740). `--apply-plan` and `--libfix-plan` take no value.
+- **Verb-specific flags are not tied to a verb.** `--revert` and `--apply-plan` are read only in the tagfix branch (Program.cs:314-350). `--force-regen` is read only for analysis (Program.cs:84, 104). `--manifest` and `--no-input` reach only integrate (Program.cs:290). Other verbs accept and ignore them.
+- **Rejected combinations, exactly as coded:**
+  - `analysis --dry-run`: `--dry-run is not supported in analysis mode` and exit 1 (Program.cs:137-142; helper at 601).
+  - `tagfix --dry-run --apply-plan`: `--dry-run cannot be combined with --apply-plan` (Program.cs:709-712).
+  - `tagfix --dry-run --revert <path>`: `--dry-run cannot be combined with --revert` (Program.cs:713-715).
+  - `tagfix --revert` with no path, or with a path that starts `--`: `--revert requires a journal path argument` (Program.cs:706-708).
+  - `ValidateTagfixArgs` runs only when the verb is tagfix (Program.cs:314).
+  - More than one of `--libfix-plan`, `--libfix-apply`, `--libfix-revert`: `use only one of ...` (Program.cs:615-621).
+  - Missing path for `--libfix-apply`, `--libfix-revert`, `--misc-revert` or `--manifest`: each prints a `requires a ... path argument` error and exits (Program.cs:638-643, 678-682, 92-96).
+- **Known gap, not yet changed.** A standalone flag is matched anywhere in args, so it runs even when a verb and other flags are present. `Main` tests `args.Any(... "--mirror-retry" ...)` before any verb parsing (Program.cs:33). So `integrate --dry-run --mirror-retry` runs the mirror retry, not a dry run, and the integrate verb and `--dry-run` are never read. `--fingerprint` and the libfix and misc flags behave the same way (Program.cs:42, 50, 58). The unknown-token check at Program.cs:75 never runs in that case either. Rejecting these mixes is pending an owner decision.
+
 ## Audit Metadata in Version Control
 
 **AudioMirror audit metadata (LastRunInfo.txt) is as much part of the artifact as the data itself.** It lives in git because:
