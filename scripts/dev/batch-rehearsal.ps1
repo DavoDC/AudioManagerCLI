@@ -13,9 +13,9 @@
 param(
     [string]$Exe,
     [string]$WorkDir,
-    [string]$SourceNewMusic = 'C:\Users\David\Downloads\NewMusic',
-    [string]$SourceLibrary = 'C:\Users\David\Audio',
-    [string]$SourceMirror = 'C:\Users\David\GitHubRepos\AudioMirror',
+    [string]$SourceNewMusic = (Join-Path $env:USERPROFILE 'Downloads\NewMusic'),
+    [string]$SourceLibrary = (Join-Path $env:USERPROFILE 'Audio'),
+    [string]$SourceMirror = (Join-Path $PSScriptRoot '..\..\..\AudioMirror'),
     [switch]$Integrate,
     [switch]$SpellingFromSuggested,
     [switch]$KeepCopy
