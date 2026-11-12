@@ -264,6 +264,17 @@ namespace AudioManager
                         res.Failed++;
                         res.Notes.Add(e.File + ": pending (apply did not finish), not reverted; byte backup: " + e.Backup);
                     }
+                    else if (e.Status == "failed")
+                    {
+                        // The apply threw: the file may hold a partial write. Only a file still identical to its backup is quietly left alone.
+                        string hashOriginal = File.Exists(original) ? HashFile(original) : null;
+                        string hashBackup = File.Exists(e.Backup) ? HashFile(e.Backup) : null;
+                        if (hashOriginal == null || hashBackup == null || hashOriginal != hashBackup)
+                        {
+                            res.Failed++;
+                            res.Notes.Add(e.File + ": apply failed, file state unknown, not reverted; byte backup: " + e.Backup);
+                        }
+                    }
                     else if (e.Status == "done")
                     {
                         string current = Path.Combine(Path.GetDirectoryName(original), e.NewName);
@@ -487,16 +498,25 @@ namespace AudioManager
                 DateTime created = Directory.GetCreationTime(dir);
                 if ((now - created).TotalDays > BackupRetentionDays)
                 {
-                    // A run whose journal still has pending entries (crash mid-apply) is the only copy of the original bytes.
+                    // A run whose journal still has pending (crash mid-apply) or failed entries holds the only copy of the original bytes.
                     if (logsDir != null)
                     {
                         string journal = Path.Combine(logsDir, "tagfix-journal-" + Path.GetFileName(dir) + ".json");
                         try
                         {
-                            if (File.Exists(journal) && File.ReadAllText(journal).Contains("\"status\": \"pending\""))
+                            if (File.Exists(journal))
                             {
-                                Console.WriteLine($" - [WARN] Keeping old backup '{dir}': its journal has pending entries.");
-                                continue;
+                                string text = File.ReadAllText(journal);
+                                if (text.Contains("\"status\": \"pending\""))
+                                {
+                                    Console.WriteLine($" - [WARN] Keeping old backup '{dir}': its journal has pending entries.");
+                                    continue;
+                                }
+                                if (text.Contains("\"status\": \"failed\""))
+                                {
+                                    Console.WriteLine($" - [WARN] Keeping old backup '{dir}': its journal has failed entries, file state unknown.");
+                                    continue;
+                                }
                             }
                         }
                         catch (IOException) { continue; }

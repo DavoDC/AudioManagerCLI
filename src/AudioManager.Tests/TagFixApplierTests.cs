@@ -327,6 +327,48 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void Revert_FailedEntryWithChangedFile_IsReportedNeverSilent()
+        {
+            var e = NewEnv();
+            try
+            {
+                string path = Messy(e);
+                var r = TagFixApplier.Apply(e.Folder, Plan(e), e.Logs, e.Backups, e.Quarantine, Now);
+                string j = File.ReadAllText(r.JournalPath);
+                Assert.True(j.Contains("\"status\": \"done\""), "journal has a done entry to simulate a failed apply with");
+                File.WriteAllText(r.JournalPath, j.Replace("\"status\": \"done\"", "\"status\": \"failed\""));
+                // The original path holds bytes that differ from the byte backup: the file state is unknown.
+                File.WriteAllText(path, "changed after the failed apply");
+
+                var rev = TagFixApplier.Revert(r.JournalPath, e.Folder, e.Quarantine);
+                Assert.True(rev.Failed == 1, "a failed entry whose file changed must be reported, not skipped silently");
+                Assert.True(rev.Notes.Any(n => n.Contains("apply failed")), "note names the failed state");
+                Assert.Equal("changed after the failed apply", File.ReadAllText(path), "the file at the original path is never written");
+            }
+            finally { Cleanup(e); }
+        }
+
+        public static void Revert_FailedEntryUnchangedFromBackup_IsQuietNoOp()
+        {
+            var e = NewEnv();
+            try
+            {
+                string path = Messy(e);
+                var r = TagFixApplier.Apply(e.Folder, Plan(e), e.Logs, e.Backups, e.Quarantine, Now);
+                string backup = Directory.GetFiles(e.Backups, "*.mp3", SearchOption.AllDirectories).Single();
+                File.Copy(backup, path, true);
+                string j = File.ReadAllText(r.JournalPath);
+                File.WriteAllText(r.JournalPath, j.Replace("\"status\": \"done\"", "\"status\": \"failed\""));
+                string before = Convert.ToBase64String(File.ReadAllBytes(path));
+
+                var rev = TagFixApplier.Revert(r.JournalPath, e.Folder, e.Quarantine);
+                Assert.True(rev.Failed == 0 && rev.Reverted == 0 && rev.SkippedModified == 0, "an unchanged failed entry is not counted");
+                Assert.True(rev.Notes.Count == 0, "an unchanged failed entry writes no note");
+                Assert.Equal(before, Convert.ToBase64String(File.ReadAllBytes(path)), "file untouched");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void Revert_JournalPathsOutsideFolder_AreRefusedAndNothingIsWritten()
         {
             var e = NewEnv();
@@ -431,6 +473,21 @@ namespace AudioManager
                 File.WriteAllText(Path.Combine(e.Logs, "tagfix-journal-20260101-000000.json"), "{ \"entries\": [ { \"status\": \"pending\" } ] }");
                 TagFixApplier.PruneOldBackups(e.Backups, Now, e.Logs);
                 Assert.True(Directory.Exists(run), "old backup of a journal with pending entries must be kept");
+            }
+            finally { Cleanup(e); }
+        }
+
+        public static void PruneOldBackups_RunWithFailedJournal_IsKept()
+        {
+            var e = NewEnv();
+            try
+            {
+                string run = Path.Combine(e.Backups, "20260101-000000");
+                Directory.CreateDirectory(run); Directory.CreateDirectory(e.Logs);
+                Directory.SetCreationTime(run, Now.AddDays(-30));
+                File.WriteAllText(Path.Combine(e.Logs, "tagfix-journal-20260101-000000.json"), "{ \"entries\": [ { \"status\": \"failed\" } ] }");
+                TagFixApplier.PruneOldBackups(e.Backups, Now, e.Logs);
+                Assert.True(Directory.Exists(run), "old backup of a journal with failed entries must be kept");
             }
             finally { Cleanup(e); }
         }
