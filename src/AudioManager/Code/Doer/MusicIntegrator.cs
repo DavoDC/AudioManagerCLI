@@ -68,6 +68,8 @@ namespace AudioManager
         private DestinationRouter Router => _routerInstance ?? (_routerInstance = new DestinationRouter(() => _libraryPath, () => _scan, Counter));
         private IntegrationReport _reportInstance;
         private IntegrationReport Report => _reportInstance ?? (_reportInstance = new IntegrationReport(() => _roots, () => dryRun, () => _scan, Router));
+        private ProjectedValidator _validatorInstance;
+        private ProjectedValidator Validator => _validatorInstance ?? (_validatorInstance = new ProjectedValidator(() => _roots, () => _scan, () => _miscMigrationCandidates, Router));
         // Library paths deleted by L-decisions during real integration; used in RunMiscMigration
         // to distinguish "deleted by dup resolution" from "genuinely stale mirror".
         private HashSet<string> _lDeletedLibraryPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2213,127 +2215,11 @@ namespace AudioManager
 
         // ---- Projected LibChecker ----
 
-        /// <summary>
-        /// Pure function: builds the projected post-integration tag list.
-        /// currentTags: current library state. removals: RelPaths to remove. additions: new TrackTags.
-        /// Extracted as a static so it is unit-testable without filesystem access.
-        /// </summary>
-        internal static List<TrackTag> BuildProjection(
-            IEnumerable<TrackTag> currentTags,
-            IEnumerable<TrackTag> additions,
-            ISet<string> removals)
-        {
-            var projected = currentTags
-                .Where(t => !removals.Contains(t.RelPath))
-                .ToList();
-            projected.AddRange(additions);
-            return projected;
-        }
+        internal static List<TrackTag> BuildProjection(IEnumerable<TrackTag> currentTags, IEnumerable<TrackTag> additions, ISet<string> removals) => ProjectedValidator.BuildProjection(currentTags, additions, removals);
 
-        /// <summary>
-        /// Loads current library tags, builds the projected post-integration tag list
-        /// (models all moves/deletes/misc-migrations), then runs LibChecker on the projection
-        /// and prints the result in a dry-run section.
-        /// Silently skips if AudioMirror is unavailable.
-        /// </summary>
-        private void RunProjectedLibChecker(List<ScannedFile> scannedFiles, HashSet<string> newArtistFolders)
-        {
-            Console.WriteLine("\n===========================================================================");
-            Console.WriteLine("Projected LibChecker (Dry Run)");
-            Console.WriteLine("===========================================================================");
+        private void RunProjectedLibChecker(List<ScannedFile> scannedFiles, HashSet<string> newArtistFolders) => Validator.RunProjectedLibChecker(scannedFiles, newArtistFolders);
 
-            List<TrackTag> currentTags;
-            try
-            {
-                var parser = new Parser(_roots.Mirror);
-                currentTags = parser.audioTags;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($" - SKIP: could not load current library tags: {ex.Message}");
-                return;
-            }
-
-            // Removals: L-decided library copies + Misc migration sources
-            var removals = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var sf in scannedFiles)
-            {
-                if (sf.Duplicate != null && sf.Duplicate.Decision == 'L')
-                    removals.Add(GetMirrorRelPath(sf.Duplicate.DuplicatePath));
-            }
-
-            foreach (var kvp in _miscMigrationCandidates)
-            {
-                foreach (var xmlPath in kvp.Value)
-                    removals.Add(GetMirrorRelPath(xmlPath));
-            }
-
-            // Additions: all files routed to the library (not D-decided) + Misc migration destinations
-            var additions = new List<TrackTag>();
-
-            foreach (var sf in scannedFiles)
-            {
-                if (!sf.IsReadable) continue;
-                if (sf.Duplicate?.Decision == 'D') continue; // deleted from NewMusic, library unchanged
-
-                Track track = sf.Track;
-                if (track.Title.Equals(Constants.MissingTag) || track.Artists.Equals(Constants.MissingTag)) continue;
-
-                string destDir = GetDestDir(track, newArtistFolders, _compilationAlbums, out _, out _);
-                string sanitisedArtists = Reflector.SanitiseFilename(track.Artists);
-                string sanitisedTitle = Reflector.SanitiseFilename(track.Title);
-                string destFilename = sanitisedArtists + " - " + sanitisedTitle + ".xml";
-
-                // RelPath: strip AudioFolderPath prefix, append filename - gives "\Artists\...\file.xml"
-                string destRelDir = destDir.StartsWith(_roots.Library, StringComparison.OrdinalIgnoreCase)
-                    ? destDir.Substring(_roots.Library.Length)
-                    : "\\" + Path.GetFileName(destDir);
-                string relPath = destRelDir + Path.DirectorySeparatorChar + destFilename;
-
-                var synthesized = new TrackTag(relPath,
-                    track.Title, track.Artists, track.Album,
-                    track.Year ?? Constants.MissingTag,
-                    track.TrackNumber ?? "0",
-                    track.Genres ?? Constants.MissingTag,
-                    track.Length ?? "00:00:00.0000000",
-                    "1",     // AlbumCoverCount: assume art present
-                    "True",  // Compilation: TagFixer sets TCMP=1
-                    "0", "0" // CoverWidth/Height: unknown (dimensions check disabled)
-                );
-                additions.Add(synthesized);
-            }
-
-            // Misc migration destinations: synthesize tag at Artists/{artist}/Singles/ location
-            foreach (var kvp in _miscMigrationCandidates)
-            {
-                string artist = kvp.Key;
-                string destRelDir = "\\" + Constants.ArtistsDir + "\\" + SanitiseFolderName(artist) + "\\" + Constants.SinglesDir;
-                foreach (var xmlPath in kvp.Value)
-                {
-                    string srcRelPath = GetMirrorRelPath(xmlPath);
-                    // Find existing tag to copy metadata from
-                    var srcTag = currentTags.FirstOrDefault(
-                        t => string.Equals(t.RelPath, srcRelPath, StringComparison.OrdinalIgnoreCase));
-                    if (srcTag == null) continue;
-
-                    string filename = Path.GetFileName(xmlPath);
-                    string newRelPath = destRelDir + "\\" + filename;
-                    var migratedTag = new TrackTag(newRelPath,
-                        srcTag.Title, srcTag.Artists, srcTag.Album, srcTag.Year,
-                        srcTag.TrackNumber, srcTag.Genres, srcTag.Length,
-                        srcTag.AlbumCoverCount, srcTag.Compilation,
-                        srcTag.CoverWidth, srcTag.CoverHeight);
-                    additions.Add(migratedTag);
-                }
-            }
-
-            var projected = BuildProjection(currentTags, additions, removals);
-            Console.WriteLine($" - Projected library: {currentTags.Count} current, -{removals.Count} removals, +{additions.Count} additions = {projected.Count} projected");
-            new LibChecker(projected);
-        }
-
-        private static string GetMirrorRelPath(string mirrorXmlPath) => MirrorIndex.GetMirrorRelPath(mirrorXmlPath);
+        internal static string GetMirrorRelPath(string mirrorXmlPath) => MirrorIndex.GetMirrorRelPath(mirrorXmlPath);
 
     }
 }

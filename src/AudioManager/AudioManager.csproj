@@ -89,6 +89,7 @@
     <Compile Include="Code\Doer\LibraryCounter.cs" />
     <Compile Include="Code\Doer\DestinationRouter.cs" />
     <Compile Include="Code\Doer\IntegrationReport.cs" />
+    <Compile Include="Code\Doer\ProjectedValidator.cs" />
     <Compile Include="Code\Doer\ScanAheadResult.cs" />
     <Compile Include="Code\Doer\ReplaceGuard.cs" />
     <Compile Include="Code\Doer\RecycleBin.cs" />
