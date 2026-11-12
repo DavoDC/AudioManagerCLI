@@ -75,6 +75,10 @@ The first proposal (2026-10-12) had the right order (output-only first, anything
 
 Every constructor sets `_roots = IntegrationRoots.FromConstants()`, and every instance read of those four constants inside MusicIntegrator becomes a read of `_roots`. As of 2026-11-12 the reads are in the public constructor, `ExecuteDuplicateDecisions`, `RouteAllFiles`, `RunScanAhead`, `PrintConfidenceReport`, `DeriveLibraryPathFromMirrorPath`, `BuildDupData`, `CountAkiraTheDonPersonSongs`, `CountAkiraTheDonPersonAlbumSongs`, `RunProjectedLibChecker`, `BuildMirrorIndex`, `CleanupNewMusicFolder`, `WriteExecutionRecord`, `PreScanFiles`, `RunMiscMigration`, `WriteJsonOutput` and `ApplyArtistFolderCaseRenames`. Static members that read a constant (`GetRouteCategory`, `GetMirrorRelPath`, `RelToNewMusic`) gain an overload that takes the root, and the existing signature delegates to it with the constant, the pattern `RelToNewMusic(string)` at line 84 already uses. The real-pass `TagFixer` at line 289 switches to the existing root overload with `_roots.NewMusic`, which the default constructor already chains to (`TagFixer.cs` line 97).
 
+<!-- md-block: roots-extra-members -->
+Two more members read those constants and were switched in step B2 as well: `PrintRouteDistributionPreview` and `PresentDuplicateAndDecide`.
+<!-- /md-block: roots-extra-members -->
+
 Because every run builds its roots from the same constants, this is behaviour-neutral by construction. The extracted classes receive `IntegrationRoots` in their constructors, so each can be tested on a temp folder tree without the environment variable. One test-only constructor `MusicIntegrator(string testLibraryPath, IntegrationRoots roots)` (no pipeline) lets the section 7 step B4 pins drive scan-ahead against a temp mirror.
 
 Known gap, kept on purpose: the test constructors set `_libraryPath` to a temp library while several members still read the library constant (through `_roots.Library` after step B2). Unifying the two changes test-mode output (for example a relative destination becomes absolute), so it is a separate late step (E4), never part of the roots step.
