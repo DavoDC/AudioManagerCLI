@@ -93,5 +93,26 @@ namespace AudioManager
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
+
+        public static void Preflight_ManifestRelativePathKeepsFileUnderTempRoot()
+        {
+            string root = TempRoot();
+            try
+            {
+                string lib = Path.Combine(root, "Audio");
+                string newMusic = Path.Combine(root, "NewMusic");
+                MakeFixture(Path.Combine(newMusic, "Album A"));
+                string mirror = MirrorProjectingTo(root, lib, 270);
+                // The row is given only by its relative path, so the file is kept only if the gate resolves it under the temp root.
+                var manifest = IntegrationManifest.Parse(@"[{""filename"": ""fixture.mp3"", ""sourceRel"": ""Album A\\fixture.mp3"", ""artist"": ""Primary Artist"", ""title"": ""Song Title""}]", out string error);
+                Assert.True(error == null, $"manifest parses, got: {error}");
+
+                var integrator = new MusicIntegrator(lib, dryRun: false);
+                bool clear = integrator.PreflightMirrorGate(newMusic, mirror, manifest);
+
+                Assert.True(!clear, "a kept file projecting past the limit must block; a file dropped by the manifest filter would pass");
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
     }
 }

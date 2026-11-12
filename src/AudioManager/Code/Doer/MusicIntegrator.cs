@@ -81,10 +81,13 @@ namespace AudioManager
 
 
         /// <summary>Path of a file relative to NewMusic with backslashes, or null when it is not under NewMusic.</summary>
-        internal static string RelToNewMusic(string path)
+        internal static string RelToNewMusic(string path) => RelToNewMusic(path, Constants.NewMusicPath);
+
+        /// <summary>Path of a file relative to the given root with backslashes, or null when it is not under that root.</summary>
+        internal static string RelToNewMusic(string path, string root)
         {
             if (string.IsNullOrEmpty(path)) return null;
-            string root = Constants.NewMusicPath?.TrimEnd('\\', '/');
+            root = root?.TrimEnd('\\', '/');
             if (string.IsNullOrEmpty(root)) return null;
             string full = path.Replace('/', '\\');
             if (!full.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) return null;
@@ -507,7 +510,7 @@ namespace AudioManager
             var files = Directory.Exists(newMusicRoot)
                 ? Directory.GetFiles(newMusicRoot, "*.mp3", SearchOption.AllDirectories)
                 : Array.Empty<string>();
-            Func<string, bool> keep = manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f)));
+            Func<string, bool> keep = manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f, newMusicRoot)));
             if (keep != null && files.Length > 0)
                 files = files.Where(keep).ToArray();
             if (files.Length == 0) return true; // the real pass reports "nothing to integrate" or the manifest error

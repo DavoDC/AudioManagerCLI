@@ -96,6 +96,14 @@ namespace AudioManager
             Assert.True(MusicIntegrator.RelToNewMusic(@"Z:\elsewhere\x.mp3") == null, "outside NewMusic gives null");
         }
 
+        public static void RelToNewMusic_UsesGivenRoot()
+        {
+            string root = @"C:\fixture\nm";
+            Assert.Equal(@"Album A\x.mp3", MusicIntegrator.RelToNewMusic(@"C:\fixture\nm\Album A\x.mp3", root), "relative path under the given root");
+            Assert.True(MusicIntegrator.RelToNewMusic(System.IO.Path.Combine(Constants.NewMusicPath, "Album A", "x.mp3"), root) == null, "path under Constants.NewMusicPath is outside the given root");
+            Assert.Equal(@"Album A\x.mp3", MusicIntegrator.RelToNewMusic(@"C:\fixture\nm\Album A\x.mp3", @"C:\fixture\nm\"), "trailing slash on the root is tolerated");
+        }
+
         public static void Matches_ByExactFilename()
         {
             var m = IntegrationManifest.Parse(SampleJson, out _);
