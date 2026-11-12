@@ -80,6 +80,9 @@ namespace AudioManager
         private Dictionary<string, string> _lSlotOwners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
 
+        // Per-run path roots. Every constructor sets _roots first thing, before any other statement (see IntegrationRoots).
+        private IntegrationRoots _roots;
+
         /// <summary>Path of a file relative to NewMusic with backslashes, or null when it is not under NewMusic.</summary>
         internal static string RelToNewMusic(string path) => RelToNewMusic(path, Constants.NewMusicPath);
 
@@ -108,6 +111,7 @@ namespace AudioManager
         public MusicIntegrator(bool dryRun = false, bool noInput = false, bool jsonOutput = false,
             IntegrationManifest manifest = null)
         {
+            _roots = IntegrationRoots.FromConstants();
             this.dryRun = dryRun;
             this.noInput = noInput;
             this.jsonOutput = jsonOutput;
@@ -117,7 +121,7 @@ namespace AudioManager
                 _artistSpellingChoices = manifest.ArtistSpellings;
                 foreach (string warning in manifest.SpellingWarnings) Console.WriteLine($" - [WARN] {warning}");
             }
-            _libraryPath = Constants.AudioFolderPath;
+            _libraryPath = _roots.Library;
             string modeLabel = dryRun ? " [DRY RUN - no files will be moved]" : "";
             Console.WriteLine($"\nIntegrating new music...{modeLabel}");
 
@@ -129,36 +133,36 @@ namespace AudioManager
             try
             {
                 // Fingerprint NewMusic before Tag Fix can touch anything: this is the state the user's preview was (or was not) made on.
-                _startFingerprint = NewMusicFingerprint(Constants.NewMusicPath);
+                _startFingerprint = NewMusicFingerprint(_roots.NewMusic);
                 if (!dryRun)
                 {
-                    _previewFingerprint = ReadLatestPreviewFingerprint(Constants.LogsPath);
+                    _previewFingerprint = ReadLatestPreviewFingerprint(_roots.Logs);
                     if (_previewFingerprint != null && _previewFingerprint != _startFingerprint)
                         Console.WriteLine(" - [WARN] preview_stale: NewMusic changed since the last dry run; the decisions you reviewed may not match what is integrated now.");
                 }
 
                 // A manifest declines files before Tag Fix too: declined files are never rewritten, renamed or quarantined.
                 // Recorded before the pre-flight so its keep set sees the same preexisting files as the real pass.
-                if (manifest != null && Directory.Exists(Constants.NewMusicPath))
+                if (manifest != null && Directory.Exists(_roots.NewMusic))
                 {
-                    manifest.RecordPreexisting(Directory.GetFiles(Constants.NewMusicPath, "*.mp3", SearchOption.AllDirectories)
-                        .Select(RelToNewMusic).Where(r => r != null));
+                    manifest.RecordPreexisting(Directory.GetFiles(_roots.NewMusic, "*.mp3", SearchOption.AllDirectories)
+                        .Select(f => RelToNewMusic(f, _roots.NewMusic)).Where(r => r != null));
                 }
 
                 // Pre-flight (real runs only): the dry-run steps plus the MAX_PATH gate, on the tag values the real run
                 // will produce. Writes nothing. A block stops the batch before the real TagFixer rewrites NewMusic.
-                if (!dryRun && !PreflightMirrorGate(Constants.NewMusicPath, Constants.MirrorFolderPath, manifest))
+                if (!dryRun && !PreflightMirrorGate(_roots.NewMusic, _roots.Mirror, manifest))
                 {
                     WriteJsonOutput(logEntries, Blocked);
                     return;
                 }
 
                 // Step 1: Fix tags in NewMusic folder
-                var tagFixer = new TagFixer(dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))), _artistSpellingChoices);
+                var tagFixer = new TagFixer(_roots.NewMusic, dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f, _roots.NewMusic))), _artistSpellingChoices);
                 var tagChanges = tagFixer.FileChanges;
 
-                var files = Directory.Exists(Constants.NewMusicPath)
-                    ? Directory.GetFiles(Constants.NewMusicPath, "*.mp3", SearchOption.AllDirectories)
+                var files = Directory.Exists(_roots.NewMusic)
+                    ? Directory.GetFiles(_roots.NewMusic, "*.mp3", SearchOption.AllDirectories)
                     : Array.Empty<string>();
 
                 // Selective integration: keep only manifest-accepted files. Applied before
@@ -167,7 +171,7 @@ namespace AudioManager
                 if (manifest != null && files.Length > 0)
                 {
                     int beforeCount = files.Length;
-                    files = files.Where(f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))).ToArray();
+                    files = files.Where(f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f, _roots.NewMusic))).ToArray();
                     int excluded = beforeCount - files.Length;
                     _declinedCount = excluded;
                     Console.WriteLine($" - Manifest filter: {files.Length} of {beforeCount} NewMusic file(s) selected" +
@@ -222,7 +226,7 @@ namespace AudioManager
 
                 // Pre-move MAX_PATH gate: a planned destination whose staged XML temp path would reach the limit
                 // stops the whole batch here, before ExecuteDuplicateDecisions or RouteAllFiles moves anything.
-                if (!RunMirrorPathGate(scannedFiles, newArtistFolders, Constants.MirrorFolderPath))
+                if (!RunMirrorPathGate(scannedFiles, newArtistFolders, _roots.Mirror))
                 {
                     WriteJsonOutput(logEntries, Blocked);
                     return;
@@ -286,6 +290,7 @@ namespace AudioManager
         /// <summary>Constructor that does not run the integration pipeline. Used by the tests and by --misc-revert (Program.TryRunMiscRevert).</summary>
         internal MusicIntegrator(string testLibraryPath)
         {
+            _roots = IntegrationRoots.FromConstants();
             _libraryPath = testLibraryPath;
             _scanAheadBatchCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             _scanAheadMiscCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -324,6 +329,7 @@ namespace AudioManager
         /// </summary>
         internal MusicIntegrator(string testLibraryPath, Dictionary<string, Dictionary<string, int>> batchAlbumCounts)
         {
+            _roots = IntegrationRoots.FromConstants();
             _libraryPath = testLibraryPath;
             _scanAheadBatchCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             _scanAheadMiscCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -566,8 +572,8 @@ namespace AudioManager
                         string lDestDir = GetDestDir(track, newArtistFolders, _compilationAlbums, out string lReason, out _);
                         string lDestFile = Reflector.SanitiseFilename(track.Artists) + " - " + Reflector.SanitiseFilename(track.Title) + ".mp3";
                         string lDestPath = Path.Combine(lDestDir, lDestFile);
-                        string lRelDest = lDestPath.StartsWith(Constants.AudioFolderPath, StringComparison.OrdinalIgnoreCase)
-                            ? lDestPath.Substring(Constants.AudioFolderPath.Length).TrimStart('\\', '/')
+                        string lRelDest = lDestPath.StartsWith(_roots.Library, StringComparison.OrdinalIgnoreCase)
+                            ? lDestPath.Substring(_roots.Library.Length).TrimStart('\\', '/')
                             : lDestPath;
                         // Real run: the library copy is staged, then 3b routes with no batch set, so only an occupied
                         // destination (other than the copy being replaced) skips the replacement.
@@ -764,9 +770,9 @@ namespace AudioManager
 
                     // Compute relative destination path for display
                     string relativeDest = destPath;
-                    if (destPath.StartsWith(Constants.AudioFolderPath, StringComparison.OrdinalIgnoreCase))
+                    if (destPath.StartsWith(_roots.Library, StringComparison.OrdinalIgnoreCase))
                     {
-                        int startIndex = Constants.AudioFolderPath.Length;
+                        int startIndex = _roots.Library.Length;
                         if (startIndex <= destPath.Length)
                         {
                             relativeDest = destPath.Substring(startIndex);
@@ -915,7 +921,7 @@ namespace AudioManager
                         batchCounts[primary] = batchCounts.ContainsKey(primary) ? batchCounts[primary] + 1 : 1;
                         if (!spellings.TryGetValue(primary, out var spellList)) spellings[primary] = spellList = new List<string>();
                         spellList.Add(primary);
-                        spellingPairs.Add((RelToNewMusic(f) ?? Path.GetFileName(f), primary));
+                        spellingPairs.Add((RelToNewMusic(f, _roots.NewMusic) ?? Path.GetFileName(f), primary));
                         string album = tf.Tag.Album;
                         if (!string.IsNullOrEmpty(album) && !album.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase))
                         {
@@ -944,7 +950,7 @@ namespace AudioManager
             var miscCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var miscFilesByArtist = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             string mirrorMiscPath = Path.GetFullPath(Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory, Constants.MirrorFolderPath, Constants.MiscDir));
+                AppDomain.CurrentDomain.BaseDirectory, _roots.Mirror, Constants.MiscDir));
             if (Directory.Exists(mirrorMiscPath))
             {
                 var miscXmlFiles = Directory.GetFiles(mirrorMiscPath, "*.xml");
@@ -979,7 +985,7 @@ namespace AudioManager
             // Sources/ tracks count toward the 3-song threshold but are NOT migrated - they stay
             // in Sources/ regardless of whether the artist gets a new Artists/ folder.
             var sourcesCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            string mirrorSourcesPath = Path.Combine(Constants.MirrorFolderPath, Constants.SourcesDir);
+            string mirrorSourcesPath = Path.Combine(_roots.Mirror, Constants.SourcesDir);
             if (Directory.Exists(mirrorSourcesPath))
             {
                 var sourcesXmlFiles = Directory.GetFiles(mirrorSourcesPath, "*.xml", SearchOption.AllDirectories);
@@ -1014,8 +1020,8 @@ namespace AudioManager
                 int sourcesCount = sourcesCounts.ContainsKey(artist) ? sourcesCounts[artist] : 0;
                 int total = batchCount + miscCount + sourcesCount;
 
-                string artistFolder = Path.Combine(Constants.AudioFolderPath, Constants.ArtistsDir, SanitiseFolderName(artist));
-                string musivArtistFolder = Path.Combine(Constants.AudioFolderPath, Constants.MusivDir, SanitiseFolderName(artist));
+                string artistFolder = Path.Combine(_roots.Library, Constants.ArtistsDir, SanitiseFolderName(artist));
+                string musivArtistFolder = Path.Combine(_roots.Library, Constants.MusivDir, SanitiseFolderName(artist));
                 bool hasExistingFolder = Directory.Exists(artistFolder) || Directory.Exists(musivArtistFolder);
                 if (RulesEngine.EarnsArtistFolder(total) && !hasExistingFolder)
                 {
@@ -1093,7 +1099,7 @@ namespace AudioManager
             foreach (var sf in scannedFiles.Where(s => s.IsReadable && s.Duplicate?.SkipRouting != true))
             {
                 string preDestDir = GetDestDir(sf.Track, newArtistFolders, _compilationAlbums, out _, out _);
-                string cat = GetRouteCategory(preDestDir);
+                string cat = GetRouteCategory(preDestDir, _roots.Library);
                 routeCounts[cat] = routeCounts.ContainsKey(cat) ? routeCounts[cat] + 1 : 1;
             }
             var summaryParts = routeCounts.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key}: {kv.Value}");
@@ -1187,7 +1193,7 @@ namespace AudioManager
         {
             if (_miscMigrationCandidates.Count == 0) return 0;
             var journaledMoves = new List<MiscMigrationMove>();
-            string journalDir = MigrationJournalDir ?? Constants.LogsPath;
+            string journalDir = MigrationJournalDir ?? _roots.Logs;
             string journalPath = Path.Combine(journalDir, $"misc-migration-{DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.json");
 
             Console.WriteLine("\n===========================================================================");
@@ -1486,7 +1492,7 @@ namespace AudioManager
         /// parents, are kept; the root is never removed. Remaining files are reported, never blocking the cleanup.
         /// No-op if NewMusic doesn't exist or has no subdirectories to clean.
         /// </summary>
-        private void CleanupNewMusicFolder() => CleanupNewMusicFolder(Constants.NewMusicPath);
+        private void CleanupNewMusicFolder() => CleanupNewMusicFolder(_roots.NewMusic);
 
         /// <summary>
         /// Snapshot of what NewMusic holds now, for the execution record's "leftovers" block. Read-only.
@@ -1933,9 +1939,9 @@ namespace AudioManager
             try
             {
                 string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-                if (!Directory.Exists(Constants.LogsPath))
-                    Directory.CreateDirectory(Constants.LogsPath);
-                string jsonPath = Path.Combine(Constants.LogsPath, $"routing-{timestamp}.json");
+                if (!Directory.Exists(_roots.Logs))
+                    Directory.CreateDirectory(_roots.Logs);
+                string jsonPath = Path.Combine(_roots.Logs, $"routing-{timestamp}.json");
 
                 AtomicFile.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary(), dryRun: dryRun, blocked: blocked, newMusicFingerprint: _startFingerprint,
                     artistSpellingCandidates: _artistSpellingCandidates), System.Text.Encoding.UTF8);
@@ -1969,8 +1975,8 @@ namespace AudioManager
             string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
             string json = BuildJson(entries, BuildCurrentSummary(), dryRun: false, confidence: confidence, replaced: ReplaceGuard.Retired,
                 newMusicFingerprint: _startFingerprint, previewFingerprint: _previewFingerprint, artistSpellingCandidates: _artistSpellingCandidates,
-                leftovers: ComputeLeftovers(Constants.NewMusicPath, _declinedCount));
-            WriteExecutionRecordWithRetry(Constants.LogsPath, timestamp, json, Console.WriteLine);
+                leftovers: ComputeLeftovers(_roots.NewMusic, _declinedCount));
+            WriteExecutionRecordWithRetry(_roots.Logs, timestamp, json, Console.WriteLine);
         }
 
         /// <summary>
@@ -2096,7 +2102,7 @@ namespace AudioManager
                     string destFolder = Path.GetDirectoryName(e.Destination);
                     if (!string.IsNullOrEmpty(destFolder))
                     {
-                        string fullDir = Path.Combine(Constants.AudioFolderPath, destFolder);
+                        string fullDir = Path.Combine(_roots.Library, destFolder);
                         if (Directory.Exists(fullDir) && Directory.GetFiles(fullDir).Length == 1)
                             newFolders.Add(destFolder);
                     }
@@ -2118,7 +2124,7 @@ namespace AudioManager
                 {
                     if (string.IsNullOrEmpty(e.Destination)) continue;
                     sanityChecked++;
-                    string fullPath = Path.Combine(Constants.AudioFolderPath, e.Destination);
+                    string fullPath = Path.Combine(_roots.Library, e.Destination);
                     if (!File.Exists(fullPath))
                     {
                         failedSanity.Add($"  [MISSING] {e.Destination}");
@@ -2255,9 +2261,9 @@ namespace AudioManager
 
         private Dictionary<string, string> BuildMirrorIndex()
         {
-            if (!Directory.Exists(Constants.MirrorFolderPath)) return new Dictionary<string, string>(StringComparer.Ordinal);
+            if (!Directory.Exists(_roots.Mirror)) return new Dictionary<string, string>(StringComparer.Ordinal);
 
-            var xmlFiles = Directory.GetFiles(Constants.MirrorFolderPath, "*.xml", SearchOption.AllDirectories);
+            var xmlFiles = Directory.GetFiles(_roots.Mirror, "*.xml", SearchOption.AllDirectories);
             Console.Write($"\nIndexing AudioMirror for duplicates ({xmlFiles.Length} tracks)...");
 
             // Load aliases once - read-only during parallel phase, safe to share
@@ -2323,7 +2329,7 @@ namespace AudioManager
         {
             try
             {
-                string mirrorBaseFolder = Constants.MirrorFolderPath;
+                string mirrorBaseFolder = _roots.Mirror;
                 if (!mirrorXmlPath.StartsWith(mirrorBaseFolder, StringComparison.OrdinalIgnoreCase))
                     return mirrorXmlPath;
 
@@ -2332,7 +2338,7 @@ namespace AudioManager
                 if (relativePath.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
                     relativePath = relativePath.Substring(0, relativePath.Length - 4) + ".mp3";
 
-                return Path.Combine(Constants.AudioFolderPath, relativePath);
+                return Path.Combine(_roots.Library, relativePath);
             }
             catch (Exception ex)
             {
@@ -2345,11 +2351,14 @@ namespace AudioManager
         /// Extracts a display category name from a full destination directory path.
         /// Used to build the route distribution summary at the top of a dry-run routing section.
         /// </summary>
-        private static string GetRouteCategory(string destDir)
+        private static string GetRouteCategory(string destDir) => GetRouteCategory(destDir, Constants.AudioFolderPath);
+
+        /// <summary>Same as GetRouteCategory(string), with the library root passed in.</summary>
+        private static string GetRouteCategory(string destDir, string libraryRoot)
         {
             if (string.IsNullOrEmpty(destDir)) return "Unknown";
-            string rel = destDir.StartsWith(Constants.AudioFolderPath, StringComparison.OrdinalIgnoreCase)
-                ? destDir.Substring(Constants.AudioFolderPath.Length).TrimStart('\\', '/')
+            string rel = destDir.StartsWith(libraryRoot, StringComparison.OrdinalIgnoreCase)
+                ? destDir.Substring(libraryRoot.Length).TrimStart('\\', '/')
                 : destDir;
             string first = rel.Split(new[] { '\\', '/' }, 2)[0];
             return first.Equals("Miscellaneous Songs", StringComparison.OrdinalIgnoreCase) ? "Misc" : first;
@@ -2500,7 +2509,7 @@ namespace AudioManager
             var result = new List<ScannedFile>();
             foreach (var sourcePath in files)
             {
-                var entry = new LogEntry { Filename = Path.GetFileName(sourcePath), SourceRel = RelToNewMusic(sourcePath) };
+                var entry = new LogEntry { Filename = Path.GetFileName(sourcePath), SourceRel = RelToNewMusic(sourcePath, _roots.NewMusic) };
                 var sf = new ScannedFile { SourcePath = sourcePath, LogEntry = entry };
                 try
                 {
@@ -2531,9 +2540,9 @@ namespace AudioManager
                     // Files grouped under an album folder in NewMusic but lacking the album tag
                     // would otherwise all route to Singles regardless of batch count.
                     if (track.Album.Equals(Constants.MissingTag, StringComparison.OrdinalIgnoreCase)
-                        && sourcePath.StartsWith(Constants.NewMusicPath, StringComparison.OrdinalIgnoreCase))
+                        && sourcePath.StartsWith(_roots.NewMusic, StringComparison.OrdinalIgnoreCase))
                     {
-                        string relPath = sourcePath.Substring(Constants.NewMusicPath.Length).TrimStart(Path.DirectorySeparatorChar);
+                        string relPath = sourcePath.Substring(_roots.NewMusic.Length).TrimStart(Path.DirectorySeparatorChar);
                         int sep = relPath.IndexOf(Path.DirectorySeparatorChar);
                         if (sep > 0)
                             track.Album = relPath.Substring(0, sep);
@@ -2584,7 +2593,7 @@ namespace AudioManager
                     // NotDuplicate matches the ORIGINAL NewMusic name; a tag fix may have renamed the file already.
                     string exceptionKey = tagLogs != null && tagLogs.TryGetValue(filename, out var nameLog) ? nameLog.OriginalFilename : filename;
                     // Same-folder rename: the original path is the current folder plus the original name.
-                    string currentRel = RelToNewMusic(sourcePath);
+                    string currentRel = RelToNewMusic(sourcePath, _roots.NewMusic);
                     string originalRel = currentRel == null ? null : Path.Combine(Path.GetDirectoryName(currentRel) ?? "", exceptionKey);
                     entry.OriginalSourceRel = originalRel ?? entry.SourceRel;
                     string duplicatePath = tagExceptions.IsNotDuplicate(exceptionKey, originalRel) ? null : FindDuplicateInMirror(track, mirrorIndex);
@@ -2710,11 +2719,11 @@ namespace AudioManager
         internal DupData BuildDupData(string sourcePath, Track track, string duplicatePath)
         {
             string libraryFilePath = DeriveLibraryPathFromMirrorPath(duplicatePath);
-            string relLibraryPath = libraryFilePath.StartsWith(Constants.AudioFolderPath, StringComparison.OrdinalIgnoreCase)
-                ? libraryFilePath.Substring(Constants.AudioFolderPath.Length).TrimStart('\\', '/')
+            string relLibraryPath = libraryFilePath.StartsWith(_roots.Library, StringComparison.OrdinalIgnoreCase)
+                ? libraryFilePath.Substring(_roots.Library.Length).TrimStart('\\', '/')
                 : libraryFilePath;
-            string relMirrorPath = duplicatePath.StartsWith(Constants.MirrorFolderPath, StringComparison.OrdinalIgnoreCase)
-                ? duplicatePath.Substring(Constants.MirrorFolderPath.Length).TrimStart('\\', '/')
+            string relMirrorPath = duplicatePath.StartsWith(_roots.Mirror, StringComparison.OrdinalIgnoreCase)
+                ? duplicatePath.Substring(_roots.Mirror.Length).TrimStart('\\', '/')
                 : Path.GetFileName(duplicatePath);
             string relNewPath = Path.GetFileName(sourcePath);
 
@@ -2831,7 +2840,7 @@ namespace AudioManager
                 // the exact same auto-accept-recommendation behavior as before - unresolved
                 // batches stay safe by construction, not by a second code path.
                 char manifestDecision = _manifest?.GetDupResolution(
-                    Path.GetFileName(sf.SourcePath), track.Artists, track.Title, RelToNewMusic(sf.SourcePath)) ?? '\0';
+                    Path.GetFileName(sf.SourcePath), track.Artists, track.Title, RelToNewMusic(sf.SourcePath, _roots.NewMusic)) ?? '\0';
                 if (manifestDecision != '\0')
                 {
                     dup.Decision = manifestDecision;
@@ -3109,7 +3118,7 @@ namespace AudioManager
         {
             if (plan == null || plan.Count == 0) return null;
             string root = Path.Combine(_libraryPath, Constants.ArtistsDir);
-            string dir = MigrationJournalDir ?? Constants.LogsPath;
+            string dir = MigrationJournalDir ?? _roots.Logs;
             Directory.CreateDirectory(dir);
             string journal = Path.Combine(dir, "artist-folder-rename-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".json");
             var sb = new System.Text.StringBuilder();
@@ -3255,7 +3264,7 @@ namespace AudioManager
         /// </summary>
         private int CountAkiraTheDonPersonSongs(string sampledPerson, string libraryPath = null)
         {
-            string libPath = libraryPath ?? Constants.AudioFolderPath;
+            string libPath = libraryPath ?? _roots.Library;
             int count = 0;
 
             // Count in library (scan Musivation/Akira The Don/People/{person}/)
@@ -3295,9 +3304,9 @@ namespace AudioManager
             }
 
             // Count in new batch (scan NewMusic for Akira The Don files with matching sampled person)
-            if (Directory.Exists(Constants.NewMusicPath))
+            if (Directory.Exists(_roots.NewMusic))
             {
-                var newMusicFiles = Directory.GetFiles(Constants.NewMusicPath, "*.mp3", SearchOption.AllDirectories);
+                var newMusicFiles = Directory.GetFiles(_roots.NewMusic, "*.mp3", SearchOption.AllDirectories);
                 foreach (var filePath in newMusicFiles)
                 {
                     try
@@ -3338,7 +3347,7 @@ namespace AudioManager
         /// </summary>
         private int CountAkiraTheDonPersonAlbumSongs(string sampledPerson, string album, string libraryPath = null)
         {
-            string libPath = libraryPath ?? Constants.AudioFolderPath;
+            string libPath = libraryPath ?? _roots.Library;
             int count = 0;
 
             // Count in library: Musivation/Akira The Don/People/{sampledPerson}/{album}/
@@ -3350,9 +3359,9 @@ namespace AudioManager
             }
 
             // Count in new batch: ATD songs with matching sampled person + same album
-            if (Directory.Exists(Constants.NewMusicPath))
+            if (Directory.Exists(_roots.NewMusic))
             {
-                foreach (var filePath in Directory.GetFiles(Constants.NewMusicPath, "*.mp3", SearchOption.AllDirectories))
+                foreach (var filePath in Directory.GetFiles(_roots.NewMusic, "*.mp3", SearchOption.AllDirectories))
                 {
                     try
                     {
@@ -3443,7 +3452,7 @@ namespace AudioManager
             List<TrackTag> currentTags;
             try
             {
-                var parser = new Parser(Constants.MirrorFolderPath);
+                var parser = new Parser(_roots.Mirror);
                 currentTags = parser.audioTags;
             }
             catch (Exception ex)
@@ -3484,8 +3493,8 @@ namespace AudioManager
                 string destFilename = sanitisedArtists + " - " + sanitisedTitle + ".xml";
 
                 // RelPath: strip AudioFolderPath prefix, append filename - gives "\Artists\...\file.xml"
-                string destRelDir = destDir.StartsWith(Constants.AudioFolderPath, StringComparison.OrdinalIgnoreCase)
-                    ? destDir.Substring(Constants.AudioFolderPath.Length)
+                string destRelDir = destDir.StartsWith(_roots.Library, StringComparison.OrdinalIgnoreCase)
+                    ? destDir.Substring(_roots.Library.Length)
                     : "\\" + Path.GetFileName(destDir);
                 string relPath = destRelDir + Path.DirectorySeparatorChar + destFilename;
 
