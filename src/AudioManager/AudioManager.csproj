@@ -85,6 +85,7 @@
     <Compile Include="Code\Doer\MusicIntegrator.cs" />
     <Compile Include="Code\Doer\MusicIntegrator.Models.cs" />
     <Compile Include="Code\Doer\RoutingJsonWriter.cs" />
+    <Compile Include="Code\Doer\MirrorIndex.cs" />
     <Compile Include="Code\Doer\ScanAheadResult.cs" />
     <Compile Include="Code\Doer\ReplaceGuard.cs" />
     <Compile Include="Code\Doer\RecycleBin.cs" />
