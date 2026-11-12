@@ -8,6 +8,8 @@ Each `files` row carries `filename` and, when the source is under NewMusic, `sou
 
 `integrate --manifest <accepted.json>` takes an array of accepted rows: `filename`, `sourceRel` (optional), `artist`, `title`, `dupResolution` (optional, `D`/`L`/`K`). A row with `sourceRel` matches only that exact file (or its Tag Fix rename in the same folder), so a same-named file in another folder stays declined. A row without `sourceRel` matches by filename in any folder (older manifests keep working). Clients should send `sourceRel` for every row. Every row of an execution record's `files` carries `sourceRel`, and so does each entry of `confidence.errors` (beside `filename`), so a failed row can be keyed too; it is omitted only when the source was not under NewMusic.
 
+Each `files` row also carries `originalSourceRel`: the same NewMusic-relative path as the file was before Tag Fix renamed it in place. It equals `sourceRel` when Tag Fix did not rename the file. A `--manifest` built from a dry run holds the pre-rename name, so a client matches a real run's renamed row by `originalSourceRel`. Records written before this field existed carry only `sourceRel`.
+
 ## summary.counts
 
 Stage counts so a client does not have to scan the rows. All integers, derived from the same rows written to `files`.

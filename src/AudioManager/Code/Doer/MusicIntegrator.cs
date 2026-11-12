@@ -97,6 +97,9 @@ namespace AudioManager
             public string Filename;
             // Path relative to NewMusic (null when the source is not under it); lets a client key rows per file.
             public string SourceRel;
+            // The same path before Tag Fix renamed the file in place (equal to SourceRel when not renamed). A dry-run
+            // manifest is built from the pre-rename name, so a client matches a renamed row by this one.
+            public string OriginalSourceRel;
             public string Title;
             public string Artists;
             public string Album;
@@ -1834,6 +1837,7 @@ namespace AudioManager
                 sb.AppendLine("  {");
                 sb.AppendLine($"    \"filename\": {JStr(e.Filename)},");
                 if (!string.IsNullOrEmpty(e.SourceRel)) sb.AppendLine($"    \"sourceRel\": {JStr(e.SourceRel)},");
+                if (!string.IsNullOrEmpty(e.SourceRel)) sb.AppendLine($"    \"originalSourceRel\": {JStr(string.IsNullOrEmpty(e.OriginalSourceRel) ? e.SourceRel : e.OriginalSourceRel)},");
                 sb.AppendLine($"    \"artist\": {JStr(e.Artists)},");
                 sb.AppendLine($"    \"title\": {JStr(e.Title)},");
                 sb.AppendLine($"    \"album\": {JStr(e.Album)},");
@@ -2692,6 +2696,7 @@ namespace AudioManager
                     // Same-folder rename: the original path is the current folder plus the original name.
                     string currentRel = RelToNewMusic(sourcePath);
                     string originalRel = currentRel == null ? null : Path.Combine(Path.GetDirectoryName(currentRel) ?? "", exceptionKey);
+                    entry.OriginalSourceRel = originalRel ?? entry.SourceRel;
                     string duplicatePath = tagExceptions.IsNotDuplicate(exceptionKey, originalRel) ? null : FindDuplicateInMirror(track, mirrorIndex);
                     if (!string.IsNullOrEmpty(duplicatePath))
                     {

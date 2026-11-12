@@ -80,6 +80,15 @@ namespace AudioManager
             Assert.True(json.Contains("\"sourceRel\": \"Album A\\\\Intro.mp3\""), "routing JSON carries sourceRel, got: " + json);
         }
 
+        public static void RoutingJson_EmitsOriginalSourceRelBeforeTagFixRename()
+        {
+            var renamed = new MusicIntegrator.LogEntry { Filename = "Lukis Mac - Intro.mp3", SourceRel = @"Album A\Lukis Mac - Intro.mp3", OriginalSourceRel = @"Album A\1.mp3", Status = "moved" };
+            var plain = new MusicIntegrator.LogEntry { Filename = "Intro.mp3", SourceRel = @"Album A\Intro.mp3", Status = "moved" };
+            string json = MusicIntegrator.BuildJson(new System.Collections.Generic.List<MusicIntegrator.LogEntry> { renamed, plain }, dryRun: false);
+            Assert.True(json.Contains("\"originalSourceRel\": \"Album A\\\\1.mp3\""), "a renamed row carries its pre-rename path, got: " + json);
+            Assert.True(json.Contains("\"originalSourceRel\": \"Album A\\\\Intro.mp3\""), "an unrenamed row repeats sourceRel, got: " + json);
+        }
+
         public static void RelToNewMusic_OnlyForFilesUnderNewMusic()
         {
             string inside = System.IO.Path.Combine(Constants.NewMusicPath, "Album A", "x.mp3");

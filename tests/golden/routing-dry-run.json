@@ -28,6 +28,7 @@
     {
       "filename": "03 - Some Song (Explicit).mp3",
       "sourceRel": "03 - Some Song (Explicit).mp3",
+      "originalSourceRel": "03 - Some Song (Explicit).mp3",
       "artist": "Some Artist feat. Guest",
       "title": "Some Song",
       "album": "Some Album",
@@ -73,6 +74,7 @@
     {
       "filename": "Drake - Hotline Bling.mp3",
       "sourceRel": "Drake - Hotline Bling.mp3",
+      "originalSourceRel": "Drake - Hotline Bling.mp3",
       "artist": "Drake",
       "title": "Hotline Bling",
       "album": "Views",
@@ -97,6 +99,7 @@
     {
       "filename": "Jay-Z - Encore.mp3",
       "sourceRel": "Jay-Z - Encore.mp3",
+      "originalSourceRel": "Jay-Z - Encore.mp3",
       "artist": "Jay-Z",
       "title": "Encore",
       "album": "The Black Album",
@@ -121,6 +124,7 @@
     {
       "filename": "Kanye West - Flashing Lights.mp3",
       "sourceRel": "Kanye West - Flashing Lights.mp3",
+      "originalSourceRel": "Kanye West - Flashing Lights.mp3",
       "artist": "Kanye West",
       "title": "Flashing Lights",
       "album": "Graduation",
@@ -145,6 +149,7 @@
     {
       "filename": "Kanye West - Stronger.mp3",
       "sourceRel": "Kanye West - Stronger.mp3",
+      "originalSourceRel": "Kanye West - Stronger.mp3",
       "artist": "Kanye West",
       "title": "Stronger",
       "album": "Graduation",
