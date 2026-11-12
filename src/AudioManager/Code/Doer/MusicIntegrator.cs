@@ -2202,7 +2202,7 @@ namespace AudioManager
         /// before this record existed.
         /// Covers: count check, per-file table, new folders, destination sanity check, errors.
         /// </summary>
-        private ConfidenceRecord PrintConfidenceReport(List<LogEntry> entries, int totalFiles, int movedCount, int skippedCount)
+        internal ConfidenceRecord PrintConfidenceReport(List<LogEntry> entries, int totalFiles, int movedCount, int skippedCount)
         {
             var record = new ConfidenceRecord();
 

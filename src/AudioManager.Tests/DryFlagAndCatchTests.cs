@@ -200,6 +200,24 @@ namespace AudioManager
             finally { Directory.Delete(dir, true); }
         }
 
+        // Pins current behaviour: a path outside the mirror root is returned unchanged and logs nothing (no WARN).
+        public static void DeriveLibraryPath_OutsideMirrorRoot_ReturnsInputUnchangedWithoutWarning()
+        {
+            string dir = NewTempDir();
+            try
+            {
+                var integrator = new MusicIntegrator(dir);
+                string outside = Path.Combine(Path.GetTempPath(), "am_outside_mirror", "Album", "Track.xml");
+                string result = null;
+                string output = CaptureConsole(() => result = integrator.DeriveLibraryPathFromMirrorPath(outside));
+
+                Assert.Equal(outside, result, "A path outside the mirror root must come back unchanged, not mapped into the library");
+                Assert.True(output.IndexOf("[WARN]", StringComparison.Ordinal) < 0,
+                    "A path outside the mirror root is not an error and must not warn");
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
         // ---- Item 2c: MusicIntegrator.IsAlbumFolderCompilation (instance, internal) ----
 
         public static void IsAlbumFolderCompilation_InvalidPath_ReturnsFalseAndWarns()

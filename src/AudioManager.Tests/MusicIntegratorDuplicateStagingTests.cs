@@ -431,6 +431,63 @@ namespace AudioManager
             }
         }
 
+        // Pins the current real-run 3a result for one batch holding K, L and D: D is sent to the bin and counted as skipped,
+        // L stages the library copy and is left for 3b, K is not touched in 3a (no status, not skipped, library copy untouched).
+        public static void RealRun_KLandDInOneBatch_KIsUntouchedInThreeA()
+        {
+            ReplaceGuardTests.UseTempHolding();
+            string lib = RoutingFixtures.CreateLibraryFixture();
+            string newMusic = NewMusicDir();
+            try
+            {
+                string dLib = LibCopyPath(lib, "Good Artist", "Good Song");
+                string lLib = LibCopyPath(lib, "Other Artist", "Other Song");
+                string kLib = LibCopyPath(lib, "Keep Artist", "Keep Song");
+                WriteLibCopy(dLib, 1);
+                WriteLibCopy(lLib, 2);
+                WriteLibCopy(kLib, 3);
+                var sfD = MakeDup(Path.Combine(newMusic, "Good Artist - Good Song.mp3"), "Good Artist", "Good Song", dLib, 'D');
+                var sfL = MakeDup(Path.Combine(newMusic, "Other Artist - Other Song.mp3"), "Other Artist", "Other Song", lLib, 'L');
+                var sfK = MakeDup(Path.Combine(newMusic, "Keep Artist - Keep Song.mp3"), "Keep Artist", "Keep Song", kLib, 'K');
+                var integrator = new MusicIntegrator(lib, false, true, null);
+                var logs = new List<MusicIntegrator.LogEntry>();
+                var sent = new List<string>();
+                Action<string> original = RecycleBin.Sender;
+                int skipped;
+                try
+                {
+                    // Fake bin: records the path and removes the file, as the Recycle Bin would.
+                    RecycleBin.Sender = path => { sent.Add(path); File.Delete(path); };
+                    skipped = RunExecute(integrator, new List<MusicIntegrator.ScannedFile> { sfD, sfL, sfK }, logs);
+                }
+                finally
+                {
+                    RecycleBin.Sender = original;
+                }
+
+                Assert.Equal("1", skipped.ToString(), "only the D decision is counted as skipped in 3a");
+                Assert.Equal("1", sent.Count.ToString(), "exactly one file (the D source) reaches the bin");
+                Assert.Equal(sfD.SourcePath, sent[0], "the bin receives the NewMusic D source");
+                Assert.Equal("deleted", sfD.LogEntry.Status, "D status after the real run");
+                Assert.True(sfD.Duplicate.SkipRouting, "D is skipped in routing");
+                Assert.Equal("1", logs.Count.ToString(), "only D writes a log entry in 3a");
+
+                Assert.True(HasMarker(lLib + BakSuffix, 2) && !File.Exists(lLib), "L stages the library copy aside");
+                Assert.True(File.Exists(sfL.SourcePath), "L leaves its NewMusic file for 3b");
+                Assert.True(!sfL.Duplicate.SkipRouting, "L is routed in 3b, not skipped in 3a");
+
+                Assert.True(HasMarker(kLib, 3), "K must leave the library copy in place");
+                Assert.True(!File.Exists(kLib + BakSuffix), "K must not stage the library copy");
+                Assert.True(File.Exists(sfK.SourcePath), "K leaves its NewMusic file for 3b");
+                Assert.Equal("(null)", sfK.LogEntry.Status ?? "(null)", "K writes no status in 3a");
+                Assert.True(!sfK.Duplicate.SkipRouting, "K is routed in 3b, not skipped in 3a");
+            }
+            finally
+            {
+                CleanUp(lib, newMusic);
+            }
+        }
+
         // Dry-run L with a free destination is not counted as skipped in 3a; 3b counts it as moved, as the real run does.
         public static void DryRun_ReplaceWithFreeDestination_NotCountedAsSkipped()
         {

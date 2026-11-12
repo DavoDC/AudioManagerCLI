@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Globalization;
+using System.Web.Script.Serialization;
 
 namespace AudioManager
 {
@@ -208,6 +210,61 @@ namespace AudioManager
             {
                 File.Delete(logsPath);
             }
+        }
+
+        // ---------------------------------------------------------------- 3. dry and real record, value by value
+
+        private static Dictionary<string, object> ParseRecord(string json) =>
+            new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.DeserializeObject(json) as Dictionary<string, object>;
+
+        private static string Show(object value) =>
+            value == null ? "null" : Convert.ToString(value, CultureInfo.InvariantCulture);
+
+        // Pins the current values of one dry-run and one real-run record built from the same entry. Only the
+        // dryRun-dependent fields may differ between the two; the per-file row must be identical.
+        public static void BuildJson_DryAndRealRecordFromSameEntry_ComparesValueByValue()
+        {
+            var entry = new MusicIntegrator.LogEntry
+            {
+                Filename = "A.mp3", Artists = "Artist", Title = "Song", Album = "Album",
+                Destination = "Artists\\Artist\\Album\\A.mp3", Status = "moved"
+            };
+            var entries = new List<MusicIntegrator.LogEntry> { entry };
+            var confidence = new MusicIntegrator.ConfidenceRecord
+            {
+                TotalFiles = 1, Moved = 1, Skipped = 0, ExpectedMoved = 1, CountOk = true, SanityRan = true, SanityChecked = 1
+            };
+
+            var dry = ParseRecord(MusicIntegrator.BuildJson(entries, dryRun: true, confidence: null));
+            var real = ParseRecord(MusicIntegrator.BuildJson(entries, dryRun: false, confidence: confidence));
+
+            Assert.Equal("1", Show(dry["schemaVersion"]), "dry schemaVersion");
+            Assert.Equal("1", Show(real["schemaVersion"]), "real schemaVersion");
+            Assert.Equal("routing", Show(dry["recordType"]), "dry recordType");
+            Assert.Equal("execution", Show(real["recordType"]), "real recordType");
+            Assert.Equal("True", Show(dry["dryRun"]), "dry dryRun");
+            Assert.Equal("False", Show(real["dryRun"]), "real dryRun");
+            Assert.Equal("null", Show(dry["confidence"]), "dry confidence is null");
+            Assert.True(real["confidence"] != null, "real confidence is populated");
+            Assert.Equal("1", Show(((Dictionary<string, object>)real["confidence"])["countCheck"] is Dictionary<string, object> cc ? cc["moved"] : null),
+                "real confidence.countCheck.moved");
+
+            var dryFiles = (object[])dry["files"];
+            var realFiles = (object[])real["files"];
+            Assert.Equal("1", dryFiles.Length.ToString(), "dry file row count");
+            Assert.Equal("1", realFiles.Length.ToString(), "real file row count");
+            var dryRow = (Dictionary<string, object>)dryFiles[0];
+            var realRow = (Dictionary<string, object>)realFiles[0];
+            foreach (string key in new[] { "filename", "artist", "title", "album", "destination", "reason", "status", "detail",
+                                           "isNewFolder", "inBatchDuplicate", "compilationAlbum", "libraryDuplicate", "dupLibraryPath", "tagChanges" })
+            {
+                Assert.Equal(Show(dryRow[key]), Show(realRow[key]), "per-file field must match between dry and real: " + key);
+            }
+            Assert.Equal("A.mp3", Show(realRow["filename"]), "per-file filename");
+            Assert.Equal("Artists\\Artist\\Album\\A.mp3", Show(realRow["destination"]), "per-file destination");
+            Assert.Equal("moved", Show(realRow["status"]), "per-file status is taken from the entry, not from dryRun");
+            Assert.Equal("False", Show(realRow["libraryDuplicate"]), "per-file libraryDuplicate");
+            Assert.Equal("null", Show(realRow["dupLibraryPath"]), "per-file dupLibraryPath when no duplicate");
         }
     }
 }
