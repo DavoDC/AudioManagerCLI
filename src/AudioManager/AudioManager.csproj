@@ -84,6 +84,7 @@
     <Compile Include="Code\Doer\IntegrationRoots.cs" />
     <Compile Include="Code\Doer\MusicIntegrator.cs" />
     <Compile Include="Code\Doer\MusicIntegrator.Models.cs" />
+    <Compile Include="Code\Doer\ScanAheadResult.cs" />
     <Compile Include="Code\Doer\ReplaceGuard.cs" />
     <Compile Include="Code\Doer\RecycleBin.cs" />
     <Compile Include="Code\Doer\IntegrationManifest.cs" />

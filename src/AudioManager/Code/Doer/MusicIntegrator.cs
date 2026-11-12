@@ -36,18 +36,21 @@ namespace AudioManager
         private bool jsonOutput;
         internal Dictionary<string, List<string>> _miscMigrationCandidates = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         // Populated by RunScanAhead; used by GetDestDir to build full routing reason for Misc fallback
-        private Dictionary<string, int> _scanAheadBatchCounts;
-        private Dictionary<string, string> _scanAheadSpellings;
+        // The scan-ahead values live in one ScanAheadResult that RunScanAhead replaces stage by stage (same order as the old field writes);
+        // the old field names stay as read-only accessors so every reader is unchanged.
+        private ScanAheadResult _scan = ScanAheadResult.Empty();
+        private Dictionary<string, int> _scanAheadBatchCounts => _scan.BatchCounts;
+        private Dictionary<string, string> _scanAheadSpellings => _scan.Spellings;
         // Set by RunScanAhead: artists whose batch and Misc tags carry 2+ spellings (suggestion only, written to the routing JSON).
-        private List<ArtistSpellingCandidate> _artistSpellingCandidates = new List<ArtistSpellingCandidate>();
+        private List<ArtistSpellingCandidate> _artistSpellingCandidates => _scan.SpellingCandidates;
         /// <summary>The run's TagFixer, so the dry-run preview applies keep= flags and custom rules like the real run.</summary>
         private TagFixer _previewTagFixer;
-        private Dictionary<string, int> _scanAheadMiscCounts;
-        private Dictionary<string, int> _scanAheadSourcesCounts;
+        private Dictionary<string, int> _scanAheadMiscCounts => _scan.MiscCounts;
+        private Dictionary<string, int> _scanAheadSourcesCounts => _scan.SourcesCounts;
         // primaryArtist -> album -> count; avoids O(N*M) TagLib re-reads in CountAlbumSongs batch side
-        private Dictionary<string, Dictionary<string, int>> _scanAheadBatchAlbumCounts;
+        private Dictionary<string, Dictionary<string, int>> _scanAheadBatchAlbumCounts => _scan.BatchAlbumCounts;
         // Album names with 3+ distinct primary artists in the batch - routed to Compilations/ when no artist folder
-        private HashSet<string> _compilationAlbums;
+        private HashSet<string> _compilationAlbums => _scan.CompilationAlbums;
         private string _libraryPath;
         // Selective-integration manifest, if any - consulted in PresentDuplicateAndDecide's
         // noInput branch so a review-stage duplicate resolution overrides the exe's own
@@ -58,7 +61,7 @@ namespace AudioManager
         // Manifest-chosen artist spellings (object manifest form). Passed to TagFixer for batch files and used to name folders.
         private Dictionary<string, string> _artistSpellingChoices = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         // Raw tag data cached from RunScanAhead so PreScanFiles avoids a second TagLib read per file
-        private Dictionary<string, (string artists, string title, string album, string genres, uint year)> _batchTagCache;
+        private Dictionary<string, (string artists, string title, string album, string genres, uint year)> _batchTagCache => _scan.BatchTagCache;
         // Library-side album song count cache: "artist\0album" -> count. Avoids O(N) Directory.GetFiles
         // calls when the same artist+album appears multiple times in a batch (e.g. 6 Blueprint tracks).
         private Dictionary<string, int> _albumLibraryCountCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -292,11 +295,15 @@ namespace AudioManager
         {
             _roots = IntegrationRoots.FromConstants();
             _libraryPath = testLibraryPath;
-            _scanAheadBatchCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            _scanAheadMiscCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            _scanAheadSourcesCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            _scanAheadBatchAlbumCounts = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
-            _compilationAlbums = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _scan = new ScanAheadResult(
+                batchCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+                spellings: null,
+                spellingCandidates: new List<ArtistSpellingCandidate>(),
+                miscCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+                sourcesCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+                batchAlbumCounts: new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase),
+                compilationAlbums: new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                batchTagCache: null);
         }
 
         /// <summary>Test constructor with injected roots; runs no pipeline.</summary>
@@ -337,11 +344,15 @@ namespace AudioManager
         {
             _roots = IntegrationRoots.FromConstants();
             _libraryPath = testLibraryPath;
-            _scanAheadBatchCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            _scanAheadMiscCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            _scanAheadSourcesCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            _scanAheadBatchAlbumCounts = batchAlbumCounts ?? new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
-            _compilationAlbums = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _scan = new ScanAheadResult(
+                batchCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+                spellings: null,
+                spellingCandidates: new List<ArtistSpellingCandidate>(),
+                miscCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+                sourcesCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
+                batchAlbumCounts: batchAlbumCounts ?? new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase),
+                compilationAlbums: new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                batchTagCache: null);
         }
 
         /// <summary>
@@ -950,7 +961,7 @@ namespace AudioManager
                 }
                 catch { /* skip unreadable files - no cache entry, PreScanFiles falls back to TagLib */ }
             }
-            _batchTagCache = tagCache;
+            _scan = _scan.WithBatchTagCache(tagCache);
 
             // Count existing Misc songs by artist from AudioMirror XML
             var miscCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -1061,7 +1072,7 @@ namespace AudioManager
                 if (RulesEngine.IsCompilation(kvp.Value.Count))
                     compilationAlbums.Add(kvp.Key);
             }
-            _compilationAlbums = compilationAlbums;
+            _scan = _scan.WithCompilationAlbums(compilationAlbums);
             if (compilationAlbums.Count > 0)
             {
                 Console.WriteLine($"Scan-ahead: {compilationAlbums.Count} compilation album(s) detected:");
@@ -1078,19 +1089,17 @@ namespace AudioManager
             }
 
             // Store counts so GetDestDir can build a full routing reason for Misc fallback
-            _scanAheadBatchCounts = batchCounts;
-            _scanAheadSpellings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var scanSpellings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _scan = _scan.WithBatchCountsAndSpellings(batchCounts, scanSpellings);
             foreach (var kv in spellings)
             {
-                _scanAheadSpellings[kv.Key] = FolderSpellingFor(kv.Key, _artistSpellingChoices, ChooseCanonicalSpelling(kv.Value));
+                scanSpellings[kv.Key] = FolderSpellingFor(kv.Key, _artistSpellingChoices, ChooseCanonicalSpelling(kv.Value));
                 var distinct = new HashSet<string>(kv.Value, StringComparer.Ordinal);
                 if (distinct.Count > 1)
-                    Console.WriteLine($"  [review] '{kv.Key}' is spelled {distinct.Count} ways in the batch and Misc ({string.Join(", ", distinct)}); folder uses '{_scanAheadSpellings[kv.Key]}', tracks tagged otherwise are listed in their routing reason. Tags are not edited.");
+                    Console.WriteLine($"  [review] '{kv.Key}' is spelled {distinct.Count} ways in the batch and Misc ({string.Join(", ", distinct)}); folder uses '{scanSpellings[kv.Key]}', tracks tagged otherwise are listed in their routing reason. Tags are not edited.");
             }
-            _artistSpellingCandidates = ArtistSpellingCandidates.BuildSpellingCandidates(spellingPairs);
-            _scanAheadBatchAlbumCounts = batchAlbumCounts;
-            _scanAheadMiscCounts = miscCounts;
-            _scanAheadSourcesCounts = sourcesCounts;
+            var spellingCandidates = ArtistSpellingCandidates.BuildSpellingCandidates(spellingPairs);
+            _scan = _scan.WithFinalCounts(spellingCandidates, batchAlbumCounts, miscCounts, sourcesCounts);
 
             return result;
         }
