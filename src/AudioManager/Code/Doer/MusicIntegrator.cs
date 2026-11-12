@@ -273,6 +273,11 @@ namespace AudioManager
 
                 // Step 1: Fix tags in NewMusic folder
                 // A manifest declines files before Tag Fix too: declined files are never rewritten, renamed or quarantined.
+                if (manifest != null && Directory.Exists(Constants.NewMusicPath))
+                {
+                    manifest.RecordPreexisting(Directory.GetFiles(Constants.NewMusicPath, "*.mp3", SearchOption.AllDirectories)
+                        .Select(RelToNewMusic).Where(r => r != null));
+                }
                 var tagFixer = new TagFixer(dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f))), _artistSpellingChoices);
                 var tagChanges = tagFixer.FileChanges;
 

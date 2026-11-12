@@ -195,5 +195,34 @@ namespace AudioManager
                 out _);
             Assert.Equal("\0", m.GetDupResolution("A - B.mp3", "A", "B").ToString());
         }
+
+        // A DECLINED file that already carries the canonical name must not be matched through
+        // the same-folder rename fallback of an accepted raw-named entry.
+        private const string DeclinedCanonicalJson = @"[
+          {""filename"": ""1.mp3"", ""sourceRel"": ""Album A\\1.mp3"", ""artist"": ""Lukis Mac"", ""title"": ""Intro""}
+        ]";
+
+        public static void Preexisting_CanonicalNameNotMatchedByRenameFallback()
+        {
+            var m = IntegrationManifest.Parse(DeclinedCanonicalJson, out _);
+            m.RecordPreexisting(new[] { @"Album A\1.mp3", @"Album A\Lukis Mac - Intro.mp3" });
+            Assert.True(!m.Matches("Lukis Mac - Intro.mp3", @"Album A\Lukis Mac - Intro.mp3"),
+                "a declined file that existed before Tag Fix must not match via the canonical rename fallback");
+        }
+
+        public static void Preexisting_RenamedAcceptedEntryStillMatchesWhenCanonicalWasNew()
+        {
+            var m = IntegrationManifest.Parse(DeclinedCanonicalJson, out _);
+            m.RecordPreexisting(new[] { @"Album A\1.mp3" });
+            Assert.True(m.Matches("Lukis Mac - Intro.mp3", @"Album A\Lukis Mac - Intro.mp3"),
+                "the accepted file renamed by Tag Fix to a name that did not exist before still matches");
+        }
+
+        public static void Preexisting_ExactSourceRelStillMatches()
+        {
+            var m = IntegrationManifest.Parse(DeclinedCanonicalJson, out _);
+            m.RecordPreexisting(new[] { @"Album A\1.mp3", @"Album A\Lukis Mac - Intro.mp3" });
+            Assert.True(m.Matches("1.mp3", @"Album A\1.mp3"), "the accepted file still matches by its exact sourceRel");
+        }
     }
 }

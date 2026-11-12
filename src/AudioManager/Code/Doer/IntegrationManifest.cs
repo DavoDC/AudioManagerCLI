@@ -50,6 +50,19 @@ namespace AudioManager
         private readonly Dictionary<string, Entry> relCanonical =
             new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<Entry> matchedEntries = new HashSet<Entry>();
+        // NewMusic rels that existed before Tag Fix ran. Such a file is matched only by its exact sourceRel,
+        // never by the same-folder canonical-rename fallback (a declined file already named "Artist - Title").
+        private readonly HashSet<string> preexisting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Records the NewMusic rels present before Tag Fix runs (see FindEntry).</summary>
+        internal void RecordPreexisting(IEnumerable<string> rels)
+        {
+            foreach (var rel in rels)
+            {
+                string norm = NormRel(rel);
+                if (!string.IsNullOrEmpty(norm)) preexisting.Add(norm);
+            }
+        }
 
         /// <summary>
         /// Loads and validates a manifest file. Returns null (with error set) on
@@ -164,7 +177,7 @@ namespace AudioManager
                 if (!string.IsNullOrEmpty(sanArtist) && !string.IsNullOrEmpty(sanTitle))
                     candidateToEntry.TryGetValue($"{sanArtist} - {sanTitle}.mp3", out entry);
             }
-            if (entry == null && !string.IsNullOrEmpty(rel))
+            if (entry == null && !string.IsNullOrEmpty(rel) && !preexisting.Contains(rel))
             {
                 // Same-folder canonical rename of a sourceRel entry (Tag Fix renamed the file in place).
                 string dir = Path.GetDirectoryName(rel) ?? "";
