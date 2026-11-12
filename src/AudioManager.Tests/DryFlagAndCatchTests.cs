@@ -79,6 +79,58 @@ namespace AudioManager
             Assert.True(Program.FindUnknownFlag(new[] { "analysis", "--force-regen", "--mirror-retry" }) == null, "analysis flags");
         }
 
+        public static void FindUnknownFlag_BareWordAfterMode_IsReported()
+        {
+            Assert.Equal("dry-run", Program.FindUnknownFlag(new[] { "integrate", "dry-run" }),
+                "a bare dry-run word must be rejected, it would otherwise run a real integrate");
+            Assert.Equal("stray", Program.FindUnknownFlag(new[] { "integrate", "--no-input", "stray" }),
+                "a stray word that follows a boolean flag is not a value");
+        }
+
+        public static void FindUnknownFlag_DashVariantsOfDryRun_AreReported()
+        {
+            string emDash = ((char)0x2014).ToString() + "dry-run";
+            string enDash = ((char)0x2013).ToString() + "dry-run";
+            Assert.Equal(emDash, Program.FindUnknownFlag(new[] { "integrate", emDash }),
+                "a long-dash dry-run must be rejected");
+            Assert.Equal(enDash, Program.FindUnknownFlag(new[] { "integrate", enDash }),
+                "a medium-dash dry-run must be rejected");
+        }
+
+        public static void FindUnknownFlag_ValueAfterValueTakingFlag_IsAccepted()
+        {
+            Assert.True(Program.FindUnknownFlag(new[] { "integrate", "--manifest", "m.xml" }) == null, "--manifest value");
+            Assert.True(Program.FindUnknownFlag(new[] { "tagfix", "--revert", "j.json" }) == null, "--revert value");
+            Assert.True(Program.FindUnknownFlag(new[] { "x", "--libfix-apply", "p.json" }) == null, "--libfix-apply value");
+            Assert.True(Program.FindUnknownFlag(new[] { "x", "--libfix-revert", "j.json" }) == null, "--libfix-revert value");
+            Assert.True(Program.FindUnknownFlag(new[] { "x", "--misc-revert", "j.json" }) == null, "--misc-revert value");
+        }
+
+        public static void TagfixRevertExitCode_AnySkippedOrFailed_IsOne()
+        {
+            Assert.True(Program.TagfixRevertExitCode(0, 0) == 0, "clean revert exits 0");
+            Assert.True(Program.TagfixRevertExitCode(0, 2) == 1, "a partial revert (skipped, edited since) must exit 1");
+            Assert.True(Program.TagfixRevertExitCode(1, 0) == 1, "a failed revert exits 1");
+        }
+
+        public static void ValidateTagfixArgs_RevertWithoutPath_IsRejected()
+        {
+            Assert.True(Program.ValidateTagfixArgs(new[] { "tagfix", "--revert" }) != null,
+                "--revert with no path must be rejected, not fall through to a real run");
+            Assert.True(Program.ValidateTagfixArgs(new[] { "tagfix", "--revert", "--dry-run" }) != null,
+                "a flag after --revert is not a journal path");
+            Assert.True(Program.ValidateTagfixArgs(new[] { "tagfix", "--revert", "j.json" }) == null,
+                "--revert with a path is valid");
+        }
+
+        public static void ValidateTagfixArgs_DryRunWithApplyPlan_IsRejected()
+        {
+            Assert.True(Program.ValidateTagfixArgs(new[] { "tagfix", "--dry-run", "--apply-plan" }) != null,
+                "--dry-run with --apply-plan must be rejected, it would apply for real");
+            Assert.True(Program.ValidateTagfixArgs(new[] { "tagfix", "--apply-plan" }) == null, "--apply-plan alone is valid");
+            Assert.True(Program.ValidateTagfixArgs(new[] { "tagfix", "--dry-run" }) == null, "--dry-run alone is valid");
+        }
+
         // ---- Item 2a: StatsJson library byte walk (Doer/Analyser/StatsJson.cs) ----
 
         public static void StatsJsonLibraryBytes_MissingFolder_ReturnsZeroAndWarnsWithPath()

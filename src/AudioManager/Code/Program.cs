@@ -311,6 +311,14 @@ namespace AudioManager
                     }
                     else if (mode == 3)
                     {
+                        string tagfixArgError = ValidateTagfixArgs(args);
+                        if (tagfixArgError != null)
+                        {
+                            Console.WriteLine($" - ERROR: {tagfixArgError}");
+                            teeWriter.CloseLogFile(); // Exit skips finally, so close the log first
+                            Environment.Exit(1);
+                        }
+
                         string exceptionsError = TagFixExceptions.CheckFile();
                         if (exceptionsError != null && !args.Any(a => a.Equals("--revert", StringComparison.OrdinalIgnoreCase)))
                         {
@@ -326,7 +334,8 @@ namespace AudioManager
                             var rev = TagFixApplier.Revert(args[revertIdx + 1], Constants.NewMusicPath, Constants.QuarantinePath);
                             Console.WriteLine($" - Revert: {rev.Reverted} reverted, {rev.SkippedModified} left alone (edited since), {rev.Failed} failed");
                             foreach (string note in rev.Notes) Console.WriteLine($"   {note}");
-                            if (rev.Failed > 0) { teeWriter.CloseLogFile(); Environment.Exit(1); }
+                            // A partial revert (files left alone because they were edited since) is not a success either.
+                            if (TagfixRevertExitCode(rev.Failed, rev.SkippedModified) != 0) { teeWriter.CloseLogFile(); Environment.Exit(1); }
                             return;
                         }
                         if (args.Any(a => a.Equals("--apply-plan", StringComparison.OrdinalIgnoreCase)))
@@ -685,7 +694,26 @@ namespace AudioManager
             return true;
         }
 
-        /// <summary>Returns the first dash-prefixed arg that is not a known flag (null when all are known).</summary>
+        /// <summary>Exit code for a tagfix --revert: 1 when any file failed or was left alone (edited since), else 0.</summary>
+        internal static int TagfixRevertExitCode(int failed, int skippedModified) => failed > 0 || skippedModified > 0 ? 1 : 0;
+
+        /// <summary>Returns an error for an invalid tagfix argument combination, or null when the combination is valid.</summary>
+        internal static string ValidateTagfixArgs(string[] args)
+        {
+            int revertIdx = Array.FindIndex(args, a => a.Equals("--revert", StringComparison.OrdinalIgnoreCase));
+            if (revertIdx >= 0 && (revertIdx + 1 >= args.Length || args[revertIdx + 1].StartsWith("--", StringComparison.Ordinal)))
+                return "--revert requires a journal path argument. Nothing was run.";
+            bool dryRun = args.Any(a => a.Equals("--dry-run", StringComparison.OrdinalIgnoreCase));
+            bool applyPlan = args.Any(a => a.Equals("--apply-plan", StringComparison.OrdinalIgnoreCase));
+            if (dryRun && applyPlan)
+                return "--dry-run cannot be combined with --apply-plan. Nothing was run.";
+            return null;
+        }
+
+        /// <summary>
+        /// Returns the first arg (after the mode word) that is not a known flag or the value of a value-taking flag,
+        /// null when all are accepted. A bare word, a mistyped flag or an em/en-dash flag is reported, never run.
+        /// </summary>
         internal static string FindUnknownFlag(string[] args)
         {
             var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -694,10 +722,16 @@ namespace AudioManager
                 "--manifest", "--revert", "--apply-plan", "--mirror-retry", "--fingerprint",
                 "--libfix-plan", "--libfix-apply", "--libfix-revert", "--misc-revert"
             };
+            // Value-taking flags: the next token is read as args[idx + 1] (Main, TryRunLibFix, TryRunMiscRevert).
+            var valueFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "--manifest", "--revert", "--libfix-apply", "--libfix-revert", "--misc-revert"
+            };
             for (int i = 1; i < args.Length; i++)
             {
                 string a = args[i];
-                if (a.StartsWith("-") && !known.Contains(a)) return a;
+                if (!known.Contains(a)) return a;
+                if (valueFlags.Contains(a)) i++; // skip this flag's path value
             }
             return null;
         }
