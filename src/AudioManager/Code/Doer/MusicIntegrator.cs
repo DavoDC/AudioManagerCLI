@@ -1509,48 +1509,9 @@ namespace AudioManager
         /// </summary>
         private void CleanupNewMusicFolder() => CleanupNewMusicFolder(_roots.NewMusic);
 
-        /// <summary>
-        /// Snapshot of what NewMusic holds now, for the execution record's "leftovers" block. Read-only.
-        /// EmptyFolders: every subdirectory with no file at any depth (so an empty folder and its empty
-        /// parents are both listed). OtherFiles: every file that is not an mp3 (the only audio the
-        /// run processes); declined mp3s are left out and counted by declinedCount instead. Both lists
-        /// are relative to newMusicPath with backslashes, sorted ordinal. A missing folder gives empty lists.
-        /// </summary>
-        internal static LeftoversSnapshot ComputeLeftovers(string newMusicPath, int declinedCount)
-        {
-            var snap = new LeftoversSnapshot { DeclinedCount = declinedCount };
-            if (!Directory.Exists(newMusicPath)) return snap;
-
-            // A directory is non-empty when a file sits anywhere under it, so mark each file's
-            // directory and its ancestors up to (not including) the root.
-            var nonEmpty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string file in Directory.GetFiles(newMusicPath, "*", SearchOption.AllDirectories))
-            {
-                if (!file.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase))
-                    snap.OtherFiles.Add(RelToNewMusicRoot(file, newMusicPath));
-                string dir = Path.GetDirectoryName(file);
-                while (dir != null && dir.Length > newMusicPath.Length && nonEmpty.Add(dir))
-                    dir = Path.GetDirectoryName(dir);
-            }
-
-            foreach (string dir in Directory.GetDirectories(newMusicPath, "*", SearchOption.AllDirectories))
-            {
-                if (!nonEmpty.Contains(dir))
-                    snap.EmptyFolders.Add(RelToNewMusicRoot(dir, newMusicPath));
-            }
-
-            snap.EmptyFolders.Sort(StringComparer.Ordinal);
-            snap.OtherFiles.Sort(StringComparer.Ordinal);
-            return snap;
-        }
-
-        private static string RelToNewMusicRoot(string fullPath, string newMusicPath)
-        {
-            string rel = fullPath.StartsWith(newMusicPath, StringComparison.OrdinalIgnoreCase)
-                ? fullPath.Substring(newMusicPath.Length)
-                : fullPath;
-            return rel.TrimStart('\\', '/').Replace('/', '\\');
-        }
+        /// <summary>Forwards to RoutingJsonWriter.ComputeLeftovers.</summary>
+        internal static LeftoversSnapshot ComputeLeftovers(string newMusicPath, int declinedCount) =>
+            RoutingJsonWriter.ComputeLeftovers(newMusicPath, declinedCount);
 
         /// <summary>Path seam for CleanupNewMusicFolder: same behaviour, operating on newMusicPath.</summary>
         internal void CleanupNewMusicFolder(string newMusicPath)
@@ -1638,46 +1599,13 @@ namespace AudioManager
         /// <summary>Builds the BatchSummary from the integrator's current batch-level state
         /// (Misc auto-migration candidates, detected compilation albums). Shared by WriteJsonOutput
         /// and WriteExecutionRecord so both emit an identical summary block for the same run.</summary>
-        /// <summary>
-        /// SHA-256 (hex) over the sorted mp3 files under folder: relative path, size and last-write ticks per file.
-        /// A missing folder hashes as empty. Any add, remove, rename, resize or touch changes the value.
-        /// </summary>
-        internal static string NewMusicFingerprint(string folder)
-        {
-            var lines = new List<string>();
-            try
-            {
-                if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
-                {
-                    string root = folder.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
-                    foreach (string p in Directory.GetFiles(folder, "*.mp3", SearchOption.AllDirectories))
-                    {
-                        var fi = new FileInfo(p);
-                        string rel = p.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? p.Substring(root.Length) : Path.GetFileName(p);
-                        lines.Add($"{rel}|{fi.Length}|{fi.LastWriteTimeUtc.Ticks}");
-                    }
-                }
-            }
-            catch (Exception) { lines.Add("unreadable"); }
-            lines.Sort(StringComparer.Ordinal);
-            using (var sha = System.Security.Cryptography.SHA256.Create())
-                return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(string.Join("\n", lines)))).Replace("-", "").ToLowerInvariant();
-        }
+        /// <summary>Forwards to RoutingJsonWriter.NewMusicFingerprint.</summary>
+        internal static string NewMusicFingerprint(string folder) =>
+            RoutingJsonWriter.NewMusicFingerprint(folder);
 
-        /// <summary>newMusicFingerprint of the newest routing-*.json in logsDir; null when there is none or it carries no stamp.</summary>
-        internal static string ReadLatestPreviewFingerprint(string logsDir)
-        {
-            try
-            {
-                if (!Directory.Exists(logsDir)) return null;
-                string newest = Directory.GetFiles(logsDir, "routing-*.json")
-                    .OrderBy(f => Path.GetFileName(f), StringComparer.Ordinal).LastOrDefault();
-                if (newest == null) return null;
-                var m = System.Text.RegularExpressions.Regex.Match(File.ReadAllText(newest), "\"newMusicFingerprint\"\\s*:\\s*\"([0-9a-zA-Z]+)\"");
-                return m.Success ? m.Groups[1].Value : null;
-            }
-            catch (Exception) { return null; }
-        }
+        /// <summary>Forwards to RoutingJsonWriter.ReadLatestPreviewFingerprint.</summary>
+        internal static string ReadLatestPreviewFingerprint(string logsDir) =>
+            RoutingJsonWriter.ReadLatestPreviewFingerprint(logsDir);
 
         private string _startFingerprint;
         private string _previewFingerprint;
@@ -1737,45 +1665,9 @@ namespace AudioManager
             WriteExecutionRecordWithRetry(_roots.Logs, timestamp, json, Console.WriteLine);
         }
 
-        /// <summary>
-        /// The write-with-one-retry logic extracted out of WriteExecutionRecord so it is reachable
-        /// from a test without reflecting into a private instance method (docs/
-        /// design/Execution-Record-Fallback-Removal-Design.md section 5.3, test 11/12) - takes the logs
-        /// directory, timestamp and pre-built JSON as plain values and a log sink instead of writing
-        /// to Console directly, so a test can capture the printed lines. Returns true when either the
-        /// primary or the retry write succeeded, false only when both failed - the caller (a real run)
-        /// never inspects this return value today because a failed write must never fail an
-        /// integration run that already moved files (see WriteExecutionRecord's own doc comment), but
-        /// the return value lets a test assert success/failure without parsing console text.
-        /// </summary>
-        internal static bool WriteExecutionRecordWithRetry(string logsPath, string timestamp, string json, Action<string> log)
-        {
-            try
-            {
-                if (!Directory.Exists(logsPath))
-                    Directory.CreateDirectory(logsPath);
-                string jsonPath = Path.Combine(logsPath, $"execution-{timestamp}.json");
-
-                AtomicFile.WriteAllText(jsonPath, json, System.Text.Encoding.UTF8);
-                log(FormatExecutionJsonLine(jsonPath));
-                return true;
-            }
-            catch (Exception)
-            {
-                try
-                {
-                    string retryPath = Path.Combine(logsPath, $"execution-{timestamp}-retry.json");
-                    AtomicFile.WriteAllText(retryPath, json, System.Text.Encoding.UTF8);
-                    log(FormatExecutionJsonLine(retryPath));
-                    return true;
-                }
-                catch (Exception retryEx)
-                {
-                    log($"\n  [ERROR] EXECUTION RECORD FAILED: {retryEx.Message}");
-                    return false;
-                }
-            }
-        }
+        /// <summary>Forwards to RoutingJsonWriter.WriteExecutionRecordWithRetry.</summary>
+        internal static bool WriteExecutionRecordWithRetry(string logsPath, string timestamp, string json, Action<string> log) =>
+            RoutingJsonWriter.WriteExecutionRecordWithRetry(logsPath, timestamp, json, log);
 
         private static string JStr(string s) => RoutingJsonWriter.JStr(s);
 
