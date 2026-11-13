@@ -142,7 +142,7 @@ namespace AudioManager
         /// One real Misc move as journaled. From and To are library paths. RetagFrom and RetagTo are set only when
         /// the ARTIST tag was retagged to the artist folder spelling after the move (BL-149).
         /// </summary>
-        private sealed class MiscMigrationMove
+        internal sealed class MiscMigrationMove
         {
             public string From, To, RetagFrom, RetagTo;
         }
