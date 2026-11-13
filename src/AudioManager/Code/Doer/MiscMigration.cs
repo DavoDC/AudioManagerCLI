@@ -1,4 +1,5 @@
 using MiscMigrationMove = AudioManager.MusicIntegrator.MiscMigrationMove;
+using MiscRevertResult = AudioManager.MusicIntegrator.MiscRevertResult;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -11,7 +12,7 @@ namespace AudioManager
     /// <summary>
     /// Moves Misc tracks whose artist now has a library folder into that folder (Artists/{artist}/Singles/), retags
     /// case-only artist mismatches to the folder spelling, and journals every move before it happens (misc-migration-*.json).
-    /// MusicIntegrator forwards to this class; the revert stays in MusicIntegrator.
+    /// MusicIntegrator forwards to this class; the class also reverts a migration from its journal.
     /// </summary>
     internal sealed class MiscMigration
     {
@@ -280,6 +281,94 @@ namespace AudioManager
                 if (tf.Tag.AlbumArtists != null && tf.Tag.AlbumArtists.Contains(oldEntry))
                     tf.Tag.AlbumArtists = tf.Tag.AlbumArtists.Select(e => e == oldEntry ? newEntry : e).ToArray();
                 tf.Save();
+            }
+        }
+
+        /// <summary>
+        /// Undoes a Misc migration from its journal (misc-migration-*.json), newest move first. A song moves back only when
+        /// its migrated copy exists and its old path is free, so nothing is overwritten. A move carrying a "retag" gets its
+        /// old ARTIST tag entry restored BEFORE the move back, so a failed retag leaves the file unmoved (Failed). A failed
+        /// move after a retag puts the migrated tag back (best effort). Every from and to must resolve under the library root
+        /// (_libraryPath), else that entry is refused (Failed) and nothing is touched. Dry run prints what would be reverted and changes nothing;
+        /// its counts are the moves that would be reverted. Throws when the journal is not a Misc migration journal.
+        /// </summary>
+        internal MiscRevertResult RevertMiscMigration(string journalPath)
+        {
+            var result = new MiscRevertResult();
+            var ser = new System.Web.Script.Serialization.JavaScriptSerializer();
+            var root = ser.DeserializeObject(File.ReadAllText(journalPath)) as Dictionary<string, object>;
+            if (root == null || !"miscMigration".Equals(root.TryGetValue("recordType", out object rt) ? rt as string : null))
+                throw new InvalidDataException("not a Misc migration journal: " + journalPath);
+            var moves = root.TryGetValue("moves", out object mv) ? mv as object[] : null;
+            if (moves == null) return result;
+            // Every journal path must resolve under the library root: the Misc migration only ever moves files inside it
+            string libRoot = Path.GetFullPath(_libraryPath).TrimEnd('\\', '/') + "\\";
+            for (int i = moves.Length - 1; i >= 0; i--)
+            {
+                string fileName = null;
+                try
+                {
+                    var m = (Dictionary<string, object>)moves[i];
+                    string from = Path.GetFullPath((string)m["from"]);
+                    string to = Path.GetFullPath((string)m["to"]);
+                    fileName = Path.GetFileName(from);
+                    if (!from.StartsWith(libRoot, StringComparison.OrdinalIgnoreCase) || !to.StartsWith(libRoot, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine($"  [ERROR] Revert refused for {fileName}: a journal path is outside the library");
+                        result.Failed++;
+                        continue;
+                    }
+                    if (!File.Exists(to) || File.Exists(from))
+                    {
+                        Console.WriteLine($"  [SKIP] Revert: {fileName} is not at its migrated place, or its old place is taken");
+                        result.Skipped++;
+                        continue;
+                    }
+                    if (dryRun)
+                    {
+                        Console.WriteLine($"[DRY RUN] Would revert: {fileName}");
+                        result.Reverted++;
+                        continue;
+                    }
+
+                    // Retag where the file is now, before the move: a failed retag leaves the file in place and counted as failed,
+                    // so a re-run still sees it at its migrated place
+                    Dictionary<string, object> retag = m.ContainsKey("retag") ? (Dictionary<string, object>)m["retag"] : null;
+                    if (retag != null)
+                        ReplaceArtistTagEntry(to, (string)retag["to"], (string)retag["from"]);
+                    try
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(from));
+                        File.Move(to, from);
+                    }
+                    catch
+                    {
+                        // The move failed after a successful retag: put the migrated tag back so the file matches its journal state
+                        if (retag != null) RestoreMigratedTagBestEffort(to, (string)retag["from"], (string)retag["to"]);
+                        throw;
+                    }
+                    Console.WriteLine($"  Reverted: {fileName}");
+                    result.Reverted++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"  [ERROR] Revert failed for {fileName ?? "a journal entry"}: {ex.Message}");
+                    result.Failed++;
+                }
+            }
+            return result;
+        }
+
+        /// <summary>Best-effort undo of a retag whose move failed. A failure here is printed, never thrown.</summary>
+        internal static void RestoreMigratedTagBestEffort(string path, string fromEntry, string toEntry)
+        {
+            try
+            {
+                ReplaceArtistTagEntry(path, fromEntry, toEntry);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [WARN] Could not restore the migrated artist tag on {Path.GetFileName(path)}: {ex.Message}");
             }
         }
     }
