@@ -415,23 +415,6 @@ namespace AudioManager
             WriteJournal(path, JStrVal(root, "folder"), JStrVal(root, "quarantineRoot"), entries, gen);
         }
 
-        private static TagFixer.TagState ReadTags(string line, string p)
-        {
-            if (!line.Contains($"\"{p}Title\"")) return null;
-            return new TagFixer.TagState
-            {
-                Title = Str(line, p + "Title"), Album = Str(line, p + "Album"), Artists = Str(line, p + "Artists"),
-                Genre = Str(line, p + "Genre"), Compilation = Regex.IsMatch(line, $"\"{p}Compilation\": true"),
-            };
-        }
-
-        private static string Str(string line, string key)
-        {
-            var m = Regex.Match(line, "\"" + key + "\": (null|\"((?:[^\"\\\\]|\\\\.)*)\")");
-            if (!m.Success || m.Groups[1].Value == "null") return null;
-            return Regex.Replace(m.Groups[2].Value, "\\\\(.)", x => x.Groups[1].Value == "n" ? "\n" : x.Groups[1].Value);
-        }
-
         // ---- tag helpers ----
 
         private static bool TagsMatch(string path, TagFixer.TagState expected)

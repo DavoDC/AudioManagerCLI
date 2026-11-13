@@ -49,7 +49,7 @@ namespace AudioManager
             var sb = new StringBuilder();
             sb.AppendLine("{");
             sb.AppendLine($"  \"schemaVersion\": {SchemaVersion},");
-            sb.AppendLine($"  \"generatedAt\": {JStr(DateTime.Now.ToString("s", CultureInfo.InvariantCulture))},");
+            sb.AppendLine($"  \"generatedAt\": {JsonText.Quote(DateTime.Now.ToString("s", CultureInfo.InvariantCulture))},");
             sb.AppendLine($"  \"trackCount\": {audioTags.Count},");
             sb.AppendLine("  \"tracks\": [");
 
@@ -66,25 +66,25 @@ namespace AudioManager
                 string decade = Decade(t.Year);
 
                 sb.AppendLine("    {");
-                sb.AppendLine($"      \"id\": {JStr(t.RelPath)},");
-                sb.AppendLine($"      \"title\": {JStr(t.Title)},");
-                sb.AppendLine($"      \"artists\": {JStr(t.Artists)},");
-                sb.AppendLine($"      \"primaryArtist\": {JStr(t.PrimaryArtist)},");
-                sb.AppendLine($"      \"album\": {JStr(t.Album)},");
-                sb.AppendLine($"      \"year\": {JStr(t.Year)},");
-                sb.AppendLine($"      \"decade\": {(decade == null ? "null" : JStr(decade))},");
-                sb.AppendLine($"      \"genres\": {JStr(t.Genres)},");
-                sb.AppendLine($"      \"primaryGenre\": {JStr(PrimaryGenre(t.Genres))},");
-                sb.AppendLine($"      \"trackNumber\": {JStr(t.TrackNumber)},");
+                sb.AppendLine($"      \"id\": {JsonText.Quote(t.RelPath)},");
+                sb.AppendLine($"      \"title\": {JsonText.Quote(t.Title)},");
+                sb.AppendLine($"      \"artists\": {JsonText.Quote(t.Artists)},");
+                sb.AppendLine($"      \"primaryArtist\": {JsonText.Quote(t.PrimaryArtist)},");
+                sb.AppendLine($"      \"album\": {JsonText.Quote(t.Album)},");
+                sb.AppendLine($"      \"year\": {JsonText.Quote(t.Year)},");
+                sb.AppendLine($"      \"decade\": {(decade == null ? "null" : JsonText.Quote(decade))},");
+                sb.AppendLine($"      \"genres\": {JsonText.Quote(t.Genres)},");
+                sb.AppendLine($"      \"primaryGenre\": {JsonText.Quote(PrimaryGenre(t.Genres))},");
+                sb.AppendLine($"      \"trackNumber\": {JsonText.Quote(t.TrackNumber)},");
                 sb.AppendLine($"      \"lengthSeconds\": {(seconds.HasValue ? Num(seconds.Value) : "null")},");
-                sb.AppendLine($"      \"length\": {JStr(FormatLength(seconds))},");
+                sb.AppendLine($"      \"length\": {JsonText.Quote(FormatLength(seconds))},");
                 sb.AppendLine($"      \"compilation\": {(IsTrue(t.Compilation) ? "true" : "false")},");
                 sb.AppendLine($"      \"coverWidth\": {(hasArt ? w.ToString(CultureInfo.InvariantCulture) : "null")},");
                 sb.AppendLine($"      \"coverHeight\": {(hasArt ? h.ToString(CultureInfo.InvariantCulture) : "null")},");
                 sb.AppendLine($"      \"hasArt\": {(hasArt ? "true" : "false")},");
                 sb.AppendLine($"      \"hiResArt\": {(hiRes ? "true" : "false")},");
-                sb.AppendLine($"      \"addedDate\": {(addedDate == null ? "null" : JStr(addedDate))},");
-                sb.AppendLine($"      \"filePath\": {JStr(mp3Path)}");
+                sb.AppendLine($"      \"addedDate\": {(addedDate == null ? "null" : JsonText.Quote(addedDate))},");
+                sb.AppendLine($"      \"filePath\": {JsonText.Quote(mp3Path)}");
                 sb.AppendLine($"    }}{comma}");
             }
 
@@ -162,10 +162,5 @@ namespace AudioManager
         }
 
         private static string Num(double d) => d.ToString("0.###", CultureInfo.InvariantCulture);
-
-        private static string JStr(string s)
-        {
-            return JsonText.Quote(s);
-        }
     }
 }

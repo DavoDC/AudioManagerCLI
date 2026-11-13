@@ -23,7 +23,7 @@ The engine is one exe with three verbs (`analysis`, `integrate`, `tagfix`) plus 
 | Medium | README CLI section lists three verbs and two flags; the exe accepts fourteen flags with strict rules (bare tokens rejected, value-taking flags, no `--dry-run` with `--apply-plan` or `--revert`). | The public face of the repo under-describes the product, and the strict rules live only in code. | Fixed: README lists every verb and flag; `DevContext.md` has a CLI Argument Rules section. |
 | Medium | Dry run checks a stale `.replaced.bak` with a plain file check, while the real `ReplaceGuard.Stage` first resolves leftovers and may clear it. | The dry run can warn where the real run would succeed; it never reports clean where the real run fails, so it errs safe. | Open. |
 | Low | `AudioMirrorCommitter.GetTrackedArtists` ignores the git exit code. | A git failure gives a wrong artist list in the commit text, never a wrong commit. | Open. |
-| Low | `MusicIntegrator.JStr` is a private copy of `JsonText.Quote`. | Identical today; two escapers can drift. | Open; folds into the JSON writer extraction. |
+| Low | `MusicIntegrator.JStr` is a private copy of `JsonText.Quote`. | Identical today; two escapers can drift. | Closed: every JSON writer now calls `JsonText.Quote`, pinned by `JsonTextQuote_EscapesEveryCharLikeTheSpec`. |
 | Low | `CLAUDE.md` says the repo holds no Python, but the golden generator and checker under `scripts/dev/golden/` are Python. | Doc says one thing, tree another. | Fixed: `CLAUDE.md` names the dev-only golden scripts. |
 | Low | Tag fix apply stamps runs to the second. | A run lock already prevents two applies at once, so a clash needs two runs in the same second in sequence. | Open. |
 

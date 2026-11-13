@@ -557,9 +557,6 @@ namespace AudioManager
             LeftoversSnapshot leftovers = null) =>
             RoutingJsonWriter.BuildJson(entries, summary, dryRun, confidence, blocked, replaced, newMusicFingerprint, previewFingerprint, artistSpellingCandidates, leftovers);
 
-        /// <summary>Builds the BatchSummary from the integrator's current batch-level state
-        /// (Misc auto-migration candidates, detected compilation albums). Shared by WriteJsonOutput
-        /// and WriteExecutionRecord so both emit an identical summary block for the same run.</summary>
         /// <summary>Forwards to RoutingJsonWriter.NewMusicFingerprint.</summary>
         internal static string NewMusicFingerprint(string folder) =>
             RoutingJsonWriter.NewMusicFingerprint(folder);
@@ -571,6 +568,9 @@ namespace AudioManager
         private string _startFingerprint;
         private string _previewFingerprint;
 
+        /// <summary>Builds the BatchSummary from the integrator's current batch-level state
+        /// (Misc auto-migration candidates, detected compilation albums). Shared by WriteJsonOutput
+        /// and WriteExecutionRecord so both emit an identical summary block for the same run.</summary>
         private BatchSummary BuildCurrentSummary()
         {
             var summary = new BatchSummary();
@@ -629,8 +629,6 @@ namespace AudioManager
         /// <summary>Forwards to RoutingJsonWriter.WriteExecutionRecordWithRetry.</summary>
         internal static bool WriteExecutionRecordWithRetry(string logsPath, string timestamp, string json, Action<string> log) =>
             RoutingJsonWriter.WriteExecutionRecordWithRetry(logsPath, timestamp, json, log);
-
-        private static string JStr(string s) => RoutingJsonWriter.JStr(s);
 
         internal ConfidenceRecord PrintConfidenceReport(List<LogEntry> entries, int totalFiles, int movedCount, int skippedCount) => Report.PrintConfidenceReport(entries, totalFiles, movedCount, skippedCount);
 

@@ -110,7 +110,7 @@ namespace AudioManager
             var sb = new StringBuilder();
             sb.AppendLine("{");
             sb.AppendLine($"  \"schemaVersion\": {SchemaVersion},");
-            sb.AppendLine($"  \"generatedAt\": {JStr(DateTime.Now.ToString("s", CultureInfo.InvariantCulture))},");
+            sb.AppendLine($"  \"generatedAt\": {JsonText.Quote(DateTime.Now.ToString("s", CultureInfo.InvariantCulture))},");
 
             sb.AppendLine("  \"summary\": {");
             sb.AppendLine($"    \"trackCount\": {trackCount},");
@@ -192,7 +192,7 @@ namespace AudioManager
             for (int i = 0; i < items.Count; i++)
             {
                 string comma = i < items.Count - 1 ? "," : "";
-                sb.AppendLine($"{ipad}{{\"label\": {JStr(items[i].Key)}, \"count\": {items[i].Value}}}{comma}");
+                sb.AppendLine($"{ipad}{{\"label\": {JsonText.Quote(items[i].Key)}, \"count\": {items[i].Value}}}{comma}");
             }
             sb.AppendLine($"{pad}]{(trailingComma ? "," : "")}");
         }
@@ -251,11 +251,5 @@ namespace AudioManager
 
         /// <summary>Formats a double as a culture-invariant JSON number (always '.' decimal).</summary>
         private static string Num(double d) => d.ToString("0.###", CultureInfo.InvariantCulture);
-
-        /// <summary>JSON-escapes a string value into a quoted literal (or null).</summary>
-        private static string JStr(string s)
-        {
-            return JsonText.Quote(s);
-        }
     }
 }

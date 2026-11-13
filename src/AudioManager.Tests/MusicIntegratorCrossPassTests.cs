@@ -105,7 +105,7 @@ namespace AudioManager
             return Path.Combine(root, "AudioMirror", "AUDIO_MIRROR") + new string((char)120, extra);
         }
 
-        // Open item 4. The per-instance album count cache keeps the first library count, so a second call on the same
+        // The per-instance album count cache keeps the first library count, so a second call on the same
         // instance after the folder changed returns the stale value; a fresh instance sees the change (3, not 2), which
         // shows the cache is what holds the old number.
         public static void CountAlbumSongs_SecondCallAfterLibraryChange_ReturnsCachedCount()

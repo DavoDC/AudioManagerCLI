@@ -63,11 +63,11 @@ namespace AudioManager
             var sb = new StringBuilder();
             sb.AppendLine("{");
             sb.AppendLine($"  \"schemaVersion\": {SchemaVersion},");
-            sb.AppendLine($"  \"generatedAt\": {JStr(generatedAt.ToString("s", CultureInfo.InvariantCulture))},");
+            sb.AppendLine($"  \"generatedAt\": {JsonText.Quote(generatedAt.ToString("s", CultureInfo.InvariantCulture))},");
             sb.AppendLine("  \"fingerprint\": {");
             sb.AppendLine("    \"algorithm\": \"sha256\",");
             sb.AppendLine($"    \"fileCount\": {scanned.Count},");
-            sb.AppendLine($"    \"value\": {JStr(Fingerprint(folder, scanned))}");
+            sb.AppendLine($"    \"value\": {JsonText.Quote(Fingerprint(folder, scanned))}");
             sb.AppendLine("  },");
             sb.AppendLine("  \"counts\": {");
             sb.AppendLine($"    \"pending\": {files.Count},");
@@ -81,11 +81,11 @@ namespace AudioManager
             {
                 var f = files[i];
                 sb.AppendLine("    {");
-                sb.AppendLine($"      \"file\": {JStr(RelativePath(folder, f.SourcePath, f.OriginalFilename))},");
+                sb.AppendLine($"      \"file\": {JsonText.Quote(RelativePath(folder, f.SourcePath, f.OriginalFilename))},");
                 sb.AppendLine($"      \"oldTags\": {TagsJson(f.OldTags)},");
                 sb.AppendLine($"      \"newTags\": {TagsJson(f.NewTags)},");
-                sb.AppendLine($"      \"oldName\": {JStr(f.OriginalFilename)},");
-                sb.AppendLine($"      \"newName\": {JStr(NewName(f))},");
+                sb.AppendLine($"      \"oldName\": {JsonText.Quote(f.OriginalFilename)},");
+                sb.AppendLine($"      \"newName\": {JsonText.Quote(NewName(f))},");
                 sb.AppendLine($"      \"wouldQuarantine\": {(f.WouldQuarantine ? "true" : "false")}");
                 sb.AppendLine(i < files.Count - 1 ? "    }," : "    }");
             }
@@ -96,7 +96,7 @@ namespace AudioManager
             {
                 var m = manual[i];
                 string reason = m.Status == "error" ? (m.Detail ?? "error") : (m.ManualReason ?? "needs manual review");
-                sb.AppendLine($"    {{\"file\": {JStr(RelativePath(folder, m.SourcePath, m.OriginalFilename))}, \"reason\": {JStr(reason)}}}{(i < manual.Count - 1 ? "," : "")}");
+                sb.AppendLine($"    {{\"file\": {JsonText.Quote(RelativePath(folder, m.SourcePath, m.OriginalFilename))}, \"reason\": {JsonText.Quote(reason)}}}{(i < manual.Count - 1 ? "," : "")}");
             }
             if (manual.Count > 0) sb.AppendLine("  ]");
             sb.AppendLine("}");
@@ -139,19 +139,13 @@ namespace AudioManager
         {
             if (t == null) return "null";
             return "{" +
-                $"\"title\": {JStr(t.Title)}, " +
-                $"\"album\": {JStr(t.Album)}, " +
-                $"\"artists\": {JStr(t.Artists)}, " +
-                $"\"genre\": {JStr(t.Genre)}, " +
+                $"\"title\": {JsonText.Quote(t.Title)}, " +
+                $"\"album\": {JsonText.Quote(t.Album)}, " +
+                $"\"artists\": {JsonText.Quote(t.Artists)}, " +
+                $"\"genre\": {JsonText.Quote(t.Genre)}, " +
                 $"\"compilation\": {(t.Compilation ? "true" : "false")}, " +
                 $"\"artCount\": {t.ArtCount}" +
                 "}";
-        }
-
-        /// <summary>JSON-escapes a string value into a quoted literal (or null).</summary>
-        private static string JStr(string s)
-        {
-            return JsonText.Quote(s);
         }
     }
 }

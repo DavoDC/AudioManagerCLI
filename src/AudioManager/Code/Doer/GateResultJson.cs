@@ -49,10 +49,10 @@ namespace AudioManager
             var sb = new StringBuilder();
             sb.AppendLine("{");
             sb.AppendLine($"  \"schemaVersion\": {SchemaVersion},");
-            sb.AppendLine($"  \"generatedAt\": {JStr(DateTime.Now.ToString("s", CultureInfo.InvariantCulture))},");
+            sb.AppendLine($"  \"generatedAt\": {JsonText.Quote(DateTime.Now.ToString("s", CultureInfo.InvariantCulture))},");
             sb.AppendLine("  \"status\": \"gate_error\",");
             sb.AppendLine("  \"action\": \"fix_gate_error\",");
-            sb.AppendLine($"  \"error\": {JStr(message)}");
+            sb.AppendLine($"  \"error\": {JsonText.Quote(message)}");
             sb.AppendLine("}");
             AtomicFile.WriteAllText(Path.Combine(logsDir, OutputFileName), sb.ToString(), new UTF8Encoding(false));
         }
@@ -68,16 +68,16 @@ namespace AudioManager
             var sb = new StringBuilder();
             sb.AppendLine("{");
             sb.AppendLine($"  \"schemaVersion\": {SchemaVersion},");
-            sb.AppendLine($"  \"generatedAt\": {JStr(generatedAt.ToString("s", CultureInfo.InvariantCulture))},");
-            sb.AppendLine($"  \"status\": {JStr(StatusCode(result))},");
-            sb.AppendLine($"  \"action\": {JStr(ActionCode(result))},");
+            sb.AppendLine($"  \"generatedAt\": {JsonText.Quote(generatedAt.ToString("s", CultureInfo.InvariantCulture))},");
+            sb.AppendLine($"  \"status\": {JsonText.Quote(StatusCode(result))},");
+            sb.AppendLine($"  \"action\": {JsonText.Quote(ActionCode(result))},");
             sb.AppendLine($"  \"mirrorDirty\": {(mirrorDirty ? "true" : "false")},");
             sb.AppendLine($"  \"mirrorDirtyCount\": {(mirrorDirty ? dirty.Count : 0)},");
             sb.AppendLine($"  \"libCheckerIssues\": {libCheckerIssues},");
             var shown = mirrorDirty ? dirty : new List<string>();
             sb.AppendLine(shown.Count == 0 ? "  \"mirrorDirtyFiles\": []" : "  \"mirrorDirtyFiles\": [");
             for (int i = 0; i < shown.Count; i++)
-                sb.AppendLine($"    {JStr(shown[i].Trim())}{(i < shown.Count - 1 ? "," : "")}");
+                sb.AppendLine($"    {JsonText.Quote(shown[i].Trim())}{(i < shown.Count - 1 ? "," : "")}");
             if (shown.Count > 0) sb.AppendLine("  ]");
             sb.AppendLine("}");
             return sb.ToString();
@@ -105,11 +105,6 @@ namespace AudioManager
                 case Program.PreIntegrationGateResult.GitStatusFailed: return "fix_git";
                 default: return "none";
             }
-        }
-
-        private static string JStr(string s)
-        {
-            return JsonText.Quote(s);
         }
     }
 }
