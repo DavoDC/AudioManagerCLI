@@ -649,8 +649,6 @@ namespace AudioManager
 
         internal static string GetRouteCategory(string destDir, string libraryRoot) => DestinationRouter.GetRouteCategory(destDir, libraryRoot);
 
-        private void ReadMirrorTrackInfo(string xmlPath, out string trackDisplay, out string album) => Mirror.ReadMirrorTrackInfo(xmlPath, out trackDisplay, out album);
-
         internal static int CountLibraryAlbumTracks(string libraryFilePath) => LibraryCounter.CountLibraryAlbumTracks(libraryFilePath);
 
         internal static bool IsDeluxeVersionOf(string candidate, string baseAlbum) => LibraryCounter.IsDeluxeVersionOf(candidate, baseAlbum);
@@ -663,8 +661,6 @@ namespace AudioManager
 
         /// <summary>Lengths further apart than this (seconds) mean two different recordings.</summary>
         internal const double DistinctLengthToleranceSec = 3.0;
-
-        internal static bool LengthsDiffer(double a, double b) => DuplicateAdvisor.LengthsDiffer(a, b);
 
         internal static void RecommendDuplicate(DupFacts f, out char key, out string reason) => DuplicateAdvisor.RecommendDuplicate(f, out key, out reason);
 
@@ -688,15 +684,7 @@ namespace AudioManager
 
         internal static string FindDirNameIgnoreCase(string parent, string name) => ArtistFolderCaseRenamer.FindDirNameIgnoreCase(parent, name);
 
-        private string FindAlbumFolder(string artistFolder, string cleanAlbum) => Counter.FindAlbumFolder(artistFolder, cleanAlbum);
-
         internal int CountAlbumSongs(string artist, string album) => Counter.CountAlbumSongs(artist, album);
-
-        private int CountLibrarySinglesOfAlbum(string artist, string artistFolder, string album) => Counter.CountLibrarySinglesOfAlbum(artist, artistFolder, album);
-
-        private int CountAkiraTheDonPersonSongs(string sampledPerson, string libraryPath = null) => Counter.CountAkiraTheDonPersonSongs(sampledPerson, libraryPath);
-
-        private int CountAkiraTheDonPersonAlbumSongs(string sampledPerson, string album, string libraryPath = null) => Counter.CountAkiraTheDonPersonAlbumSongs(sampledPerson, album, libraryPath);
 
         internal static ConsoleKey ReadMenuKeyFrom(TextReader reader, TextWriter writer) => DuplicateAdvisor.ReadMenuKeyFrom(reader, writer);
 
