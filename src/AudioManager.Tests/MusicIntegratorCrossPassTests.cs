@@ -65,12 +65,11 @@ namespace AudioManager
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
 
-        // Open item 2. PreScanFiles applies the dry TagFixer's changes only when dryRun is true, so a real-mode
-        // pre-flight projects the RAW tags. The fixture's raw title carries a "(feat. ...)" parenthetical that the fix
-        // strips, so the raw destination is longer than the fixed one. The mirror is padded so the raw path is over the
-        // limit and the fixed path is under it: a real-mode gate blocks (it would pass if it used final tags), while a
-        // dry-mode gate on the same files and mirror passes because dry mode does apply the fix.
-        public static void PreflightMirrorGate_RealMode_ProjectsRawTagsNotFixedTags_KnownDivergence()
+        // The pre-flight projects the final (tag-fixed) tags in both modes. The fixture's raw title carries a
+        // "(feat. ...)" parenthetical that the fix strips, so the raw destination is longer than the fixed one. The
+        // mirror is padded so the raw path is over the limit and the fixed path is under it: both gates pass because
+        // both use the fixed title.
+        public static void PreflightMirrorGate_RealMode_ProjectsFixedTags_SameAsDryMode()
         {
             string root = TempRoot();
             try
@@ -89,15 +88,16 @@ namespace AudioManager
                 dry.dryRun = true;
                 bool dryClear = dry.PreflightMirrorGate(roots.NewMusic, mirror);
 
-                Assert.True(!realClear, "real mode projects the raw (longer) title: blocked. Would pass if final tags were used");
-                Assert.True(real.Blocked != null && real.Blocked.Files.Count == 1, "the raw projection is the recorded block");
+                Assert.True(realClear, "real mode projects the fixed (shorter) title: passes");
+                Assert.True(real.Blocked == null || real.Blocked.Files.Count == 0, "nothing is blocked in real mode");
                 Assert.True(dryClear, "dry mode projects the fixed (shorter) title on the same mirror: passes");
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
 
-        // Measured with a probe pad of 400: the real-mode (raw) destination projects 163 + pad characters, the dry-mode
-        // (fixed) one 156 + pad. Pad 100 gives 263 (over the 259 limit) and 256 (under it).
+        // Measured with a probe pad of 400: the raw destination projects 163 + pad characters, the fixed one 156 + pad.
+        // Pad 100 gives the raw path 263 (over the 259 limit) and the fixed path 256 (under it), so the test would fail
+        // if raw tags were used.
         private const int PadExtra = 100;
 
         private static string MirrorPadded(string root, int extra)

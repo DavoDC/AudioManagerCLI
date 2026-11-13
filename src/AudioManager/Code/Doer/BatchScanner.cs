@@ -265,8 +265,9 @@ namespace AudioManager
         /// <summary>
         /// Pre-scans all files in the batch: reads and cleans tags, finds duplicates.
         /// No UI interaction. Returns a ScannedFile list for the duplicate review and routing phases.
+        /// <param name="projectFixes">When true, applies the preview tag fixes in real mode too, so the pre-flight sees the final tags.</param>
         /// </summary>
-        internal List<ScannedFile> PreScanFiles(string[] files, Dictionary<string, List<string>> tagChanges, Dictionary<string, TagFixer.FixLog> tagLogs = null)
+        internal List<ScannedFile> PreScanFiles(string[] files, Dictionary<string, List<string>> tagChanges, Dictionary<string, TagFixer.FixLog> tagLogs = null, bool projectFixes = false)
         {
             var mirrorIndex = _mirror.BuildMirrorIndex();
             var tagExceptions = TagFixExceptions.Load(); // NotDuplicate rows in config/tagfix-exceptions.xml
@@ -312,7 +313,7 @@ namespace AudioManager
                             track.Album = relPath.Substring(0, sep);
                     }
 
-                    if (dryRun && !track.Title.Equals(Constants.MissingTag) && !track.Artists.Equals(Constants.MissingTag))
+                    if ((dryRun || projectFixes) && !track.Title.Equals(Constants.MissingTag) && !track.Artists.Equals(Constants.MissingTag))
                     {
                         string rawTitle = track.Title;
                         if (_previewTagFixer != null)

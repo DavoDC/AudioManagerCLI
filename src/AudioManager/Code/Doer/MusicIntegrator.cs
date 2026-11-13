@@ -397,7 +397,7 @@ namespace AudioManager
                 previewFixer = new TagFixer(newMusicRoot, true, keep, _artistSpellingChoices);
                 newArtistFolders = RunScanAhead(files);
                 _previewTagFixer = previewFixer;
-                scannedFiles = PreScanFiles(files, previewFixer.FileChanges, previewFixer.LogsByFile);
+                scannedFiles = PreScanFiles(files, previewFixer.FileChanges, previewFixer.LogsByFile, projectFixes: true);
             }
             bool clear = RunMirrorPathGate(scannedFiles, newArtistFolders, mirrorPath);
             if (clear) Console.WriteLine(" - Pre-flight: mirror path gate passed on final tag values");
@@ -661,7 +661,7 @@ namespace AudioManager
 
         internal static void MarkInBatchDuplicates(List<ScannedFile> scannedFiles) => DuplicateAdvisor.MarkInBatchDuplicates(scannedFiles);
 
-        private List<ScannedFile> PreScanFiles(string[] files, Dictionary<string, List<string>> tagChanges, Dictionary<string, TagFixer.FixLog> tagLogs = null) => Scanner.PreScanFiles(files, tagChanges, tagLogs);
+        private List<ScannedFile> PreScanFiles(string[] files, Dictionary<string, List<string>> tagChanges, Dictionary<string, TagFixer.FixLog> tagLogs = null, bool projectFixes = false) => Scanner.PreScanFiles(files, tagChanges, tagLogs, projectFixes);
 
         /// <summary>Lengths further apart than this (seconds) mean two different recordings.</summary>
         internal const double DistinctLengthToleranceSec = 3.0;
