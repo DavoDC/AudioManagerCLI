@@ -93,6 +93,7 @@
     <Compile Include="Code\Doer\DuplicateAdvisor.cs" />
     <Compile Include="Code\Doer\BatchScanner.cs" />
     <Compile Include="Code\Doer\ReplacementLedger.cs" />
+    <Compile Include="Code\Doer\DuplicateExecutor.cs" />
     <Compile Include="Code\Doer\ScanAheadResult.cs" />
     <Compile Include="Code\Doer\ReplaceGuard.cs" />
     <Compile Include="Code\Doer\RecycleBin.cs" />
