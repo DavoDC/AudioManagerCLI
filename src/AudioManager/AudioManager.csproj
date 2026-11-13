@@ -97,6 +97,7 @@
     <Compile Include="Code\Doer\FileMover.cs" />
     <Compile Include="Code\Doer\ArtistFolderCaseRenamer.cs" />
     <Compile Include="Code\Doer\MiscMigration.cs" />
+    <Compile Include="Code\Doer\NewMusicCleanup.cs" />
     <Compile Include="Code\Doer\ScanAheadResult.cs" />
     <Compile Include="Code\Doer\ReplaceGuard.cs" />
     <Compile Include="Code\Doer\RecycleBin.cs" />

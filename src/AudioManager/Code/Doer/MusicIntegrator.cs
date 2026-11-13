@@ -82,6 +82,8 @@ namespace AudioManager
         private ArtistFolderCaseRenamer CaseRenamer => _caseRenamerInstance ?? (_caseRenamerInstance = new ArtistFolderCaseRenamer(() => _libraryPath, () => _roots, () => MigrationJournalDir));
         private MiscMigration _miscMigrationInstance;
         private MiscMigration Migration => _miscMigrationInstance ?? (_miscMigrationInstance = new MiscMigration(() => _libraryPath, () => _roots, () => dryRun, () => MigrationJournalDir, () => _miscMigrationCandidates, _ledger));
+        private NewMusicCleanup _cleanupInstance;
+        private NewMusicCleanup Cleanup => _cleanupInstance ?? (_cleanupInstance = new NewMusicCleanup(() => dryRun));
         private readonly ReplacementLedger _ledger = new ReplacementLedger();
         private Dictionary<string, string> _lSlotOwners => _ledger._lSlotOwners;
 
@@ -543,79 +545,8 @@ namespace AudioManager
         internal static LeftoversSnapshot ComputeLeftovers(string newMusicPath, int declinedCount) =>
             RoutingJsonWriter.ComputeLeftovers(newMusicPath, declinedCount);
 
-        /// <summary>Path seam for CleanupNewMusicFolder: same behaviour, operating on newMusicPath.</summary>
-        internal void CleanupNewMusicFolder(string newMusicPath)
-        {
-            if (!Directory.Exists(newMusicPath)) return;
-
-            // A folder is kept when a file sits anywhere under it (its parents included); files that remain
-            // (integration skipped them, or they are leftovers like .tagfix.bak) never block the removal of
-            // folders with no file at any depth.
-            var remainingFiles = Directory.GetFiles(newMusicPath, "*", SearchOption.AllDirectories);
-            var nonEmpty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string file in remainingFiles)
-            {
-                string dir = Path.GetDirectoryName(file);
-                while (dir != null && dir.Length > newMusicPath.Length && nonEmpty.Add(dir))
-                    dir = Path.GetDirectoryName(dir);
-            }
-
-            // Collect empty subdirectories, deepest first so parents are empty by the time we reach them
-            var emptyDirs = Directory.GetDirectories(newMusicPath, "*", SearchOption.AllDirectories)
-                .Where(d => !nonEmpty.Contains(d))
-                .OrderByDescending(d => d.Length)
-                .ToList();
-
-            if (emptyDirs.Count == 0)
-            {
-                if (remainingFiles.Length > 0)
-                    Console.WriteLine($"\n[INFO] NewMusic cleanup: {remainingFiles.Length} file(s) remain, 0 empty folder(s) removed. Review remaining files manually.");
-                return;
-            }
-
-            Console.WriteLine("\n===========================================================================");
-            Console.WriteLine(dryRun ? "NewMusic Cleanup (Dry Run)" : "NewMusic Cleanup");
-            Console.WriteLine("===========================================================================");
-
-            int cleanedCount = 0;
-            foreach (var dir in emptyDirs)
-            {
-                string relDir = dir.StartsWith(newMusicPath, StringComparison.OrdinalIgnoreCase)
-                    ? dir.Substring(newMusicPath.Length).TrimStart('\\', '/')
-                    : dir;
-
-                if (dryRun)
-                {
-                    Console.WriteLine($"[DRY RUN] Would remove empty folder: {relDir}");
-                    cleanedCount++;
-                }
-                else
-                {
-                    try
-                    {
-                        if (Directory.Exists(dir) && Directory.GetFileSystemEntries(dir).Length == 0)
-                        {
-                            Directory.Delete(dir);
-                            Console.WriteLine($"  Removed empty folder: {relDir}");
-                            cleanedCount++;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"  [WARN] Could not remove '{relDir}': {ex.Message}");
-                    }
-                }
-            }
-
-            Console.WriteLine();
-            Console.WriteLine(dryRun
-                ? $"Would remove: {cleanedCount} empty folder(s)"
-                : $"Cleaned up: {cleanedCount} empty folder(s)");
-            if (remainingFiles.Length > 0)
-                Console.WriteLine(dryRun
-                    ? $"[INFO] NewMusic cleanup: {remainingFiles.Length} file(s) remain, {cleanedCount} empty folder(s) would be removed. Review remaining files manually."
-                    : $"[INFO] NewMusic cleanup: {remainingFiles.Length} file(s) remain, {cleanedCount} empty folder(s) removed. Review remaining files manually.");
-        }
+        /// <summary>Path seam for CleanupNewMusicFolder: forwards to NewMusicCleanup.</summary>
+        internal void CleanupNewMusicFolder(string newMusicPath) => Cleanup.CleanupNewMusicFolder(newMusicPath);
 
         /// <summary>
         /// Forwards to RoutingJsonWriter.BuildJson, which holds the routing and execution JSON contract.
