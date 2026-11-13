@@ -58,10 +58,14 @@ namespace AudioManager
         /// Checks existing Misc songs in AudioMirror XML + batch count.
         /// Returns a set of primary artist names that need a new Artists/ folder.
         /// Prints a preview of what will happen for those artists.
+        /// Resets the Misc migration candidates first, so only the latest scan-ahead's promotions are migrated.
         /// </summary>
         internal HashSet<string> RunScanAhead(string[] batchFiles)
         {
             var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Each scan-ahead decides the Misc migration candidates afresh: the pre-flight scan-ahead must not leave
+            // candidates the real pass no longer promotes.
+            _miscMigrationCandidates.Clear();
             Console.Write($"\nScan-ahead: reading {batchFiles.Length} file(s)...");
 
             // Count artists in the incoming batch; also map album -> distinct primary artists for compilation detection.

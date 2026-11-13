@@ -35,10 +35,9 @@ namespace AudioManager
                 "<Song><Artists>" + artist + "</Artists><Title>" + name + "</Title></Song>");
         }
 
-        // Open item 1. The candidates dictionary is only ever added to, so an artist promoted by the first scan-ahead
-        // (the pre-flight, raw tags) stays a migration candidate after a second scan-ahead (the real pass) whose batch
-        // no longer promotes them. If the dictionary were reset per call, the final Count would be 0 and the key absent.
-        public static void MiscCandidates_AddedByFirstScanAhead_SurviveSecondScanAheadThatDoesNotPromote()
+        // The candidates dictionary is reset per scan-ahead, so an artist promoted by the first scan-ahead (the pre-flight)
+        // is not migrated when the second scan-ahead (the real pass) no longer promotes them.
+        public static void MiscCandidates_AddedByFirstScanAhead_ClearedBySecondScanAheadThatDoesNotPromote()
         {
             string root = TempRoot();
             try
@@ -61,9 +60,7 @@ namespace AudioManager
                 var promotedAgain = integrator.RunScanAhead(new[] { second });
                 Assert.True(!promotedAgain.Contains("Promoted Artist"), "second batch must not promote the artist (precondition)");
 
-                Assert.True(integrator._miscMigrationCandidates.ContainsKey("Promoted Artist"),
-                    "known leak: the candidate from the first scan-ahead survives the second (would be absent if reset per call)");
-                Assert.Equal("2", integrator._miscMigrationCandidates["Promoted Artist"].Count.ToString(), "both Misc files stay queued for migration");
+                Assert.True(!integrator._miscMigrationCandidates.ContainsKey("Promoted Artist"), "the second scan-ahead clears the candidate the first one recorded");
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
