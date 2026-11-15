@@ -131,6 +131,13 @@ namespace AudioManager
             return found;
         }
 
+        /// <summary>Read-only dry-run scan: files with a pending fix or quarantine, plus errored or manual-review files.</summary>
+        internal static int CountPending(string folder, string quarantineRoot)
+        {
+            var scan = ForFolder(folder, true, quarantineRoot);
+            return scan.Results.Count(l => l.Status == "would-fix" || l.WouldQuarantine || l.Status == "error" || l.NeedsManual);
+        }
+
         private void ScanAndProcess(string folder, Func<string, bool> fileFilter = null)
         {
             foreach (string leftover in ListLeftoverBackups(folder))

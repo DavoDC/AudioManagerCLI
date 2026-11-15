@@ -593,6 +593,27 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void Gate_PendingTagfix_ReturnsTagfixPendingAndStatusString()
+        {
+            var r = Program.DecidePreIntegrationGate(true, () => "", () => true, () => 2);
+            Assert.Equal("TagfixPending", r.ToString(), "pending tagfix refuses");
+            Assert.Equal("tagfix_pending", GateResultJson.StatusCode(r), "status string");
+            Assert.Equal("Passed", Program.DecidePreIntegrationGate(true, () => "", () => true, () => 0).ToString(), "none pending passes");
+        }
+
+        public static void CountPending_CountsFixableAndManualFiles()
+        {
+            var e = NewEnv();
+            try
+            {
+                Assert.Equal("0", TagFixer.CountPending(e.Folder, e.Quarantine).ToString(), "empty folder");
+                Messy(e, "a.mp3");
+                TagFixerTests.CreateSilentMp3Fixture(e.Folder, "noname.mp3", "", "", "");
+                Assert.Equal("2", TagFixer.CountPending(e.Folder, e.Quarantine).ToString(), "one fixable plus one manual");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void ParseSelectionManifest_ReadsPathArray()
         {
             string p = Path.Combine(Path.GetTempPath(), "sel_" + Guid.NewGuid() + ".json");

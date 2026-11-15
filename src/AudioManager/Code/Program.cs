@@ -798,7 +798,8 @@ namespace AudioManager
                         LibChecker lc = new LibChecker(p.audioTags);
                         libIssues = lc.TotalHits;
                         return lc.IsClean;
-                    });
+                    },
+                    () => TagFixer.CountPending(Constants.NewMusicPath, Constants.QuarantinePath));
 
                 if (jsonOutput)
                 {
@@ -821,6 +822,9 @@ namespace AudioManager
                         return false;
                     case PreIntegrationGateResult.LibCheckerDirty:
                         Console.WriteLine(" - ERROR: LibChecker found issues in the library.");
+                        return false;
+                    case PreIntegrationGateResult.TagfixPending:
+                        Console.WriteLine(" - ERROR: NewMusic has pending tag fixes or files needing manual review. Run tagfix (dry-run, then apply) first; nothing was moved.");
                         return false;
                     default:
                         Console.WriteLine(" - Pre-integration validation passed.\n");
@@ -849,6 +853,7 @@ namespace AudioManager
             MirrorStale,
             LibCheckerDirty,
             GitStatusFailed,
+            TagfixPending,
         }
 
         /// <summary>
@@ -856,13 +861,15 @@ namespace AudioManager
         /// when the earlier checks have not already decided the outcome.
         /// </summary>
         internal static PreIntegrationGateResult DecidePreIntegrationGate(
-            bool mirrorRepoExists, Func<string> mirrorStatus, Func<bool> libCheckerClean)
+            bool mirrorRepoExists, Func<string> mirrorStatus, Func<bool> libCheckerClean, Func<int> tagfixPending = null)
         {
             if (!mirrorRepoExists) return PreIntegrationGateResult.MirrorRepoMissing;
             string status = mirrorStatus();
             if (status == "error") return PreIntegrationGateResult.GitStatusFailed;
             if (IsMirrorStale(status)) return PreIntegrationGateResult.MirrorStale;
             if (!libCheckerClean()) return PreIntegrationGateResult.LibCheckerDirty;
+            // Backstop for the GUI gate: NewMusic must have no pending tag fixes or manual items before anything moves.
+            if (tagfixPending != null && tagfixPending() > 0) return PreIntegrationGateResult.TagfixPending;
             return PreIntegrationGateResult.Passed;
         }
 
