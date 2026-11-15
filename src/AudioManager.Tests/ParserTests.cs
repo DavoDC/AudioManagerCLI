@@ -95,6 +95,45 @@ namespace AudioManager
             }
         }
 
+        public static void Parser_MissingMirrorFolder_ThrowsDirectoryNotFound()
+        {
+            // The mirror folder is never created; the constructor must fail before touching the cache.
+            string mirrorDir = TempDir();
+            string cacheFile = Path.Combine(Path.GetTempPath(), $"am_cache_{Guid.NewGuid():N}.txt");
+
+            bool threw = false;
+            string message = "";
+            try { new Parser(mirrorDir, cacheFile); }
+            catch (DirectoryNotFoundException ex) { threw = true; message = ex.Message; }
+
+            Assert.True(threw, "missing mirror folder should throw DirectoryNotFoundException");
+            Assert.True(message.Contains("Audio mirror folder not found"),
+                "exception message should name the missing mirror folder: " + message);
+        }
+
+        public static void Parser_UppercaseExtension_IsAccepted()
+        {
+            string mirrorDir = TempDir();
+            string cacheFile = Path.Combine(Path.GetTempPath(), $"am_cache_{Guid.NewGuid():N}.txt");
+            try
+            {
+                Directory.CreateDirectory(mirrorDir);
+                WriteXml(mirrorDir, "track1.XML", MakeTag("Song Upper"));
+
+                var parser = new Parser(mirrorDir, cacheFile);
+
+                Assert.Equal("1", parser.audioTags.Count.ToString(), "an upper-case .XML file should be parsed, not rejected");
+                Assert.True(
+                    parser.audioTags.Exists(t => t.Title == "Song Upper"),
+                    "upper-case .XML track should be present");
+            }
+            finally
+            {
+                if (Directory.Exists(mirrorDir)) Directory.Delete(Directory.GetParent(mirrorDir).FullName, recursive: true);
+                if (File.Exists(cacheFile)) File.Delete(cacheFile);
+            }
+        }
+
         public static void Parser_CacheHit_ReturnsCachedTags()
         {
             // After first parse, a second Parser with the same paths should hit the cache
