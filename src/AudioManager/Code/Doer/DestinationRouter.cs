@@ -118,7 +118,7 @@ namespace AudioManager
                     string sampledPerson = artists[1]; // Second artist is the sampled person
 
                     // Use existing library folder casing if one already exists (e.g. "Scott Adams" not "Scott adams")
-                    string peopleParent = Path.Combine(_libraryPath, Constants.MusivDir, "Akira The Don", "People");
+                    string peopleParent = Path.Combine(_libraryPath, Constants.MusivDir, Constants.AkiraDir, "People");
                     if (Directory.Exists(peopleParent))
                     {
                         foreach (var dir in Directory.GetDirectories(peopleParent))
@@ -168,7 +168,7 @@ namespace AudioManager
                     {
                         reason = $"{personSongCount} song(s) from {sampledPerson}, below People threshold";
                         isNewFolder = false;
-                        return Path.Combine(_libraryPath, Constants.MusivDir, "Akira The Don", Constants.SinglesDir);
+                        return Path.Combine(_libraryPath, Constants.MusivDir, Constants.AkiraDir, Constants.SinglesDir);
                     }
                 }
                 else
@@ -176,7 +176,7 @@ namespace AudioManager
                     // No sampled person listed, use Singles
                     reason = "No sampled person listed";
                     isNewFolder = false;
-                    return Path.Combine(_libraryPath, Constants.MusivDir, "Akira The Don", "Singles");
+                    return Path.Combine(_libraryPath, Constants.MusivDir, Constants.AkiraDir, Constants.SinglesDir);
                 }
             }
 
@@ -245,14 +245,14 @@ namespace AudioManager
                             ? $"Artist folder{scanNote}; no songs from album -> Singles/"
                             : $"Artist folder{scanNote}; only {albumCount} {(albumCount == 1 ? "song" : "songs")} from album -> Singles/";
                         isNewFolder = scanAheadNewFolder;
-                        return Path.Combine(artistFolder, "Singles");
+                        return Path.Combine(artistFolder, Constants.SinglesDir);
                     }
                 }
                 else
                 {
                     reason = $"Artist folder{scanNote}; no album tag -> Singles/";
                     isNewFolder = scanAheadNewFolder;
-                    return Path.Combine(artistFolder, "Singles");
+                    return Path.Combine(artistFolder, Constants.SinglesDir);
                 }
             }
 
