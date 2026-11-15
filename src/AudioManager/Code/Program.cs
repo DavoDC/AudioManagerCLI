@@ -341,7 +341,14 @@ namespace AudioManager
                         if (args.Any(a => a.Equals("--apply-plan", StringComparison.OrdinalIgnoreCase)))
                         {
                             string planFp = TagFixApplier.ReadPlanFingerprint(Path.Combine(Constants.LogsPath, TagFixPlanJson.OutputFileName));
-                            var ar = TagFixApplier.Apply(Constants.NewMusicPath, planFp, Constants.LogsPath, Constants.BackupsPath, Constants.QuarantinePath, DateTime.Now);
+                            List<string> onlySel = null;
+                            int onlyIdx = Array.FindIndex(args, a => a.Equals("--only", StringComparison.OrdinalIgnoreCase));
+                            if (onlyIdx >= 0)
+                            {
+                                try { onlySel = TagFixApplier.ReadSelectionManifest(args[onlyIdx + 1]); }
+                                catch (Exception ex) { Console.WriteLine($" - ERROR: cannot read --only manifest: {ex.Message}. Nothing was run."); teeWriter.CloseLogFile(); Environment.Exit(1); }
+                            }
+                            var ar = TagFixApplier.Apply(Constants.NewMusicPath, planFp, Constants.LogsPath, Constants.BackupsPath, Constants.QuarantinePath, DateTime.Now, only: onlySel);
                             Console.WriteLine($" - Tag Fix apply: {ar.Status} (applied {ar.Applied}, already done {ar.AlreadyDone}, quarantined {ar.Quarantined}, failed {ar.Failed}, pending after {ar.PendingAfter})");
                             if (ar.Status != "apply_locked") Console.WriteLine($" - Result JSON written: {Path.Combine(Constants.LogsPath, TagFixApplier.ResultFileName)}");
                             else foreach (string f in ar.Failures) Console.WriteLine($"   {f}");
@@ -708,6 +715,11 @@ namespace AudioManager
                 return "--revert requires a journal path argument. Nothing was run.";
             bool dryRun = args.Any(a => a.Equals("--dry-run", StringComparison.OrdinalIgnoreCase));
             bool applyPlan = args.Any(a => a.Equals("--apply-plan", StringComparison.OrdinalIgnoreCase));
+            int onlyIdx = Array.FindIndex(args, a => a.Equals("--only", StringComparison.OrdinalIgnoreCase));
+            if (onlyIdx >= 0 && !applyPlan)
+                return "--only is only valid with --apply-plan. Nothing was run.";
+            if (onlyIdx >= 0 && (onlyIdx + 1 >= args.Length || args[onlyIdx + 1].StartsWith("--", StringComparison.Ordinal)))
+                return "--only requires a manifest path argument. Nothing was run.";
             if (dryRun && applyPlan)
                 return "--dry-run cannot be combined with --apply-plan. Nothing was run.";
             // The revert branch does not read dryRun, so the combination would revert for real
@@ -725,13 +737,13 @@ namespace AudioManager
             var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 "--force-regen", "--dry-run", "--no-input", "--json-output", "--no-auto-commit",
-                "--manifest", "--revert", "--apply-plan", "--mirror-retry", "--fingerprint",
+                "--manifest", "--revert", "--apply-plan", "--only", "--mirror-retry", "--fingerprint",
                 "--libfix-plan", "--libfix-apply", "--libfix-revert", "--misc-revert"
             };
             // Value-taking flags: the next token is read as args[idx + 1] (Main, TryRunLibFix, TryRunMiscRevert).
             var valueFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "--manifest", "--revert", "--libfix-apply", "--libfix-revert", "--misc-revert"
+                "--manifest", "--revert", "--only", "--libfix-apply", "--libfix-revert", "--misc-revert"
             };
             for (int i = 1; i < args.Length; i++)
             {

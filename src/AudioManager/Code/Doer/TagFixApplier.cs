@@ -29,7 +29,7 @@ namespace AudioManager
 
         internal class ApplyResult
         {
-            public string Status;            // applied | partial | nothing_to_do | stale_plan | insufficient_disk | files_in_use | apply_locked (no tagfix-result.json written)
+            public string Status;            // applied | partial | nothing_to_do | stale_plan | insufficient_disk | files_in_use | bad_selection | apply_locked (no tagfix-result.json written)
             public string PlanFingerprint;   // fingerprint stored in the reviewed plan
             public string CurrentFingerprint;// fingerprint of NewMusic when the apply started
             public string NewFingerprint;    // fingerprint of NewMusic after the apply (null when nothing was applied)
@@ -45,6 +45,16 @@ namespace AudioManager
             public List<string> Notes = new List<string>();
         }
 
+        /// <summary>Reads a --only manifest: a JSON array of plan `file` paths. Throws on an unreadable or non-array file.</summary>
+        public static List<string> ReadSelectionManifest(string path)
+        {
+            string text = File.ReadAllText(path).Trim();
+            if (!text.StartsWith("[", StringComparison.Ordinal) || !text.EndsWith("]", StringComparison.Ordinal))
+                throw new InvalidDataException("selection manifest must be a JSON array of file paths: " + path);
+            return Regex.Matches(text, @"""((?:[^""\\]|\\.)*)""")
+                .Cast<Match>().Select(m => Regex.Unescape(m.Groups[1].Value.Replace(@"\/", "/"))).ToList();
+        }
+
         /// <summary>Reads the fingerprint value out of a tagfix-plan.json file; null when absent or unreadable.</summary>
         public static string ReadPlanFingerprint(string planPath)
         {
@@ -58,7 +68,7 @@ namespace AudioManager
         /// (returns free bytes for a path); null uses the real drive.
         /// </summary>
         public static ApplyResult Apply(string folder, string planFingerprint, string logsDir, string backupRoot,
-            string quarantineRoot, DateTime now, Func<string, long> freeSpace = null)
+            string quarantineRoot, DateTime now, Func<string, long> freeSpace = null, IEnumerable<string> only = null)
         {
             // One apply at a time: a second run would share the stamp, backups and journal. The lock is held for the whole call.
             string lockPath = Path.Combine(logsDir, LockFileName);
@@ -71,7 +81,7 @@ namespace AudioManager
             }
             try
             {
-                return ApplyUnderLock(folder, planFingerprint, logsDir, backupRoot, quarantineRoot, now, freeSpace);
+                return ApplyUnderLock(folder, planFingerprint, logsDir, backupRoot, quarantineRoot, now, freeSpace, only);
             }
             finally
             {
@@ -102,7 +112,7 @@ namespace AudioManager
         }
 
         private static ApplyResult ApplyUnderLock(string folder, string planFingerprint, string logsDir, string backupRoot,
-            string quarantineRoot, DateTime now, Func<string, long> freeSpace)
+            string quarantineRoot, DateTime now, Func<string, long> freeSpace, IEnumerable<string> only)
         {
             var result = new ApplyResult { PlanFingerprint = planFingerprint };
             var scan = TagFixer.ForFolder(folder, dryRun: true, quarantineRoot: quarantineRoot);
@@ -117,6 +127,21 @@ namespace AudioManager
 
             var planned = scan.Results.Where(l => l.Status == "would-fix" || l.WouldQuarantine).ToList();
             result.NeedsManual = scan.Results.Count(l => l.Status == "error" || l.NeedsManual);
+            if (only != null)
+            {
+                // Subset apply: every selected path must be a planned file, else refuse before touching anything.
+                var plannedRel = new HashSet<string>(planned.Select(l => Rel(folder, l.SourcePath)), StringComparer.OrdinalIgnoreCase);
+                var selected = new HashSet<string>(only, StringComparer.OrdinalIgnoreCase);
+                var unknown = selected.Where(x => !plannedRel.Contains(x)).ToList();
+                if (unknown.Count > 0)
+                {
+                    result.Status = "bad_selection";
+                    foreach (string u in unknown) result.Failures.Add(u + ": not a planned file in the reviewed plan; nothing was changed");
+                    WriteResult(logsDir, result, now);
+                    return result;
+                }
+                planned = planned.Where(l => selected.Contains(Rel(folder, l.SourcePath))).ToList();
+            }
             if (planned.Count == 0)
             {
                 // Files the scan could not read (open exclusively elsewhere, corrupt) were never planned, so they must

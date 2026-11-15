@@ -3,6 +3,7 @@
 Commands (both mutate NewMusic; the plan comes from `tagfix --dry-run --json-output`, see `TagFixJSONFormat.md`):
 
 - `AudioManager.exe tagfix --apply-plan` applies the reviewed plan. It refuses (exit 1, `stale_plan`) when the NewMusic fingerprint no longer matches `data/logs/tagfix-plan.json`, and refuses (`insufficient_disk`) when the backup drive cannot hold the planned files plus 10 percent, and refuses (`files_in_use`, failures name each file) when a planned file is open in another program. A refusal changes nothing.
+- `AudioManager.exe tagfix --apply-plan --only <manifest.json>` applies only the listed files: the manifest is a JSON array of plan `file` paths (e.g. `["a.mp3", "Album\b.mp3"]`). A path not in the plan refuses with status `bad_selection` (exit 1) and changes nothing. The stale-plan fingerprint still covers the whole folder; counts cover selected files only, `pendingAfter` counts the whole folder.
 - `AudioManager.exe tagfix --revert <journal path>` undoes an apply: tags and names come back and quarantined files move back to NewMusic. A file whose tags no longer equal the journal's `new` tags is left alone and counted as `SkippedModified`. A `failed` entry (the apply threw part-way) is never written to: if its file still equals the byte backup it is a quiet no-op, otherwise it is counted as failed with a note naming the backup, so the revert exits 1.
 
 Always written by `--apply-plan`: `data/logs/tagfix-result.json` (schemaVersion 1):

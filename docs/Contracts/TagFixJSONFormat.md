@@ -42,7 +42,8 @@ real apply and its revert journal are not part of this contract yet.
       "newTags": {"title": "Song", "album": "Album", "artists": "Artist", "genre": "Hip Hop", "compilation": true},
       "oldName": "01 - Song.mp3",
       "newName": "Artist - Song.mp3",          // equals oldName when no rename is planned or the rename is blocked
-      "wouldQuarantine": false
+      "wouldQuarantine": false,
+      "changes": ["tags", "compilation", "rename"]   // any of: tags, compilation, rename, quarantine
     }
   ],
 

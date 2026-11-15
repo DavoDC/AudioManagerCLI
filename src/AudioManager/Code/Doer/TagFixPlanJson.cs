@@ -86,7 +86,8 @@ namespace AudioManager
                 sb.AppendLine($"      \"newTags\": {TagsJson(f.NewTags)},");
                 sb.AppendLine($"      \"oldName\": {JsonText.Quote(f.OriginalFilename)},");
                 sb.AppendLine($"      \"newName\": {JsonText.Quote(NewName(f))},");
-                sb.AppendLine($"      \"wouldQuarantine\": {(f.WouldQuarantine ? "true" : "false")}");
+                sb.AppendLine($"      \"wouldQuarantine\": {(f.WouldQuarantine ? "true" : "false")},");
+                sb.AppendLine($"      \"changes\": [{string.Join(", ", ChangeKinds(f).Select(JsonText.Quote))}]");
                 sb.AppendLine(i < files.Count - 1 ? "    }," : "    }");
             }
             if (files.Count > 0) sb.AppendLine("  ],");
@@ -120,6 +121,21 @@ namespace AudioManager
                 byte[] hash = sha.ComputeHash(bytes);
                 return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
             }
+        }
+
+        /// <summary>Per-file change kinds for the GUI: tags (title/album/artists/genre), compilation, rename, quarantine.</summary>
+        internal static List<string> ChangeKinds(TagFixer.FixLog f)
+        {
+            var kinds = new List<string>();
+            if (f.WouldQuarantine) { kinds.Add("quarantine"); return kinds; }
+            var o = f.OldTags; var n = f.NewTags;
+            if (o != null && n != null)
+            {
+                if (o.Title != n.Title || o.Album != n.Album || o.Artists != n.Artists || o.Genre != n.Genre) kinds.Add("tags");
+                if (o.Compilation != n.Compilation) kinds.Add("compilation");
+            }
+            if (NewName(f) != f.OriginalFilename) kinds.Add("rename");
+            return kinds;
         }
 
         /// <summary>The planned file name: unchanged for a quarantine, the dry-run target name otherwise.</summary>

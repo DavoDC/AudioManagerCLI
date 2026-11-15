@@ -58,6 +58,27 @@ namespace AudioManager
             Assert.True(json.Contains("\"wouldQuarantine\": false"), "not a quarantine");
         }
 
+        public static void Build_ChangesArray_ListsTagsCompilationRename()
+        {
+            var logs = new List<TagFixer.FixLog> { Pending("C:\\NewMusic", "messy.mp3", "Primary Artist - Song Title.mp3") };
+            string json = TagFixPlanJson.Build("C:\\NewMusic", new List<TagFixer.ScannedFile>(), logs, FixedNow);
+            Assert.True(json.Contains("\"changes\": [\"tags\", \"compilation\", \"rename\"]"), "changes lists tags, compilation, rename");
+        }
+
+        public static void Build_QuarantineRow_ChangesIsQuarantineOnly()
+        {
+            var logs = new List<TagFixer.FixLog>
+            {
+                new TagFixer.FixLog
+                {
+                    OriginalFilename = "x.mp3", SourcePath = "C:\\NewMusic\\x.mp3", Status = "skipped", WouldQuarantine = true,
+                    OldTags = Tags("T", "A", "Akira The Don", "G", false), NewTags = Tags("T", "A", "Akira The Don", "G", false),
+                }
+            };
+            string json = TagFixPlanJson.Build("C:\\NewMusic", new List<TagFixer.ScannedFile>(), logs, FixedNow);
+            Assert.True(json.Contains("\"changes\": [\"quarantine\"]"), "a quarantine row lists only quarantine");
+        }
+
         public static void Build_QuarantineRow_CountsQuarantineAndNoRename()
         {
             var logs = new List<TagFixer.FixLog>

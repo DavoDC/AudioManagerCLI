@@ -302,6 +302,20 @@ namespace AudioManager
                 string genres = tag.JoinedGenres ?? "";
                 log.OldTags = new TagState { Title = title, Album = album, Artists = artists, Genre = genres, Compilation = id3.IsCompilation, ArtCount = tag.Pictures.Length };
 
+                // Empty title AND artists: derive both from an "Artist - Title.mp3" file name so the file is a normal fix.
+                string tagTitle = title, tagArtists = artists;
+                bool derivedFromName = false;
+                if (title.Length == 0 && artists.Length == 0)
+                {
+                    string stem = Path.GetFileNameWithoutExtension(sourcePath);
+                    int sep = stem.IndexOf(" - ", StringComparison.Ordinal);
+                    if (sep > 0)
+                    {
+                        string dArtist = stem.Substring(0, sep).Trim(), dTitle = stem.Substring(sep + 3).Trim();
+                        if (dArtist.Length > 0 && dTitle.Length > 0) { artists = dArtist; title = dTitle; derivedFromName = true; }
+                    }
+                }
+
                 // QUARANTINE: Akira The Don instrumentals (Rule from STAGE_3B). Never deleted; moved to quarantineRoot.
                 // Match if: artist = "Akira The Don" AND title contains/ends with "Instrumental"
                 if (artists.IndexOf("Akira The Don", StringComparison.OrdinalIgnoreCase) >= 0 &&
@@ -400,9 +414,9 @@ namespace AudioManager
                 log.NewTags = new TagState { Title = finalTitle, Album = finalAlbum, Artists = finalArtists, Genre = finalGenres, Compilation = true, ArtCount = log.OldTags.ArtCount };
 
                 // Check if any changes needed (built-in plus custom)
-                bool titleChanged = finalTitle != title;
+                bool titleChanged = finalTitle != tagTitle;
                 bool albumChanged = finalAlbum != album;
-                bool artistsChanged = finalArtists != artists && !string.IsNullOrEmpty(finalArtists);
+                bool artistsChanged = finalArtists != tagArtists && !string.IsNullOrEmpty(finalArtists);
                 bool genreChanged = finalGenres != genres;
 
                 if (!titleChanged && !albumChanged && !artistsChanged && !tcmpNeeded && !genreChanged)
@@ -417,6 +431,7 @@ namespace AudioManager
                 if (builtInTitleChanged) log.Changes.Add($"Title: \"{title}\"  -> \"{cleanTitle}\"");
                 if (builtInAlbumChanged) log.Changes.Add($"Album: \"{album}\"  -> \"{cleanAlbum}\"");
                 if (builtInArtistsChanged) log.Changes.Add($"Artists: \"{artists}\"  -> \"{cleanArtists}\"");
+                if (derivedFromName) log.Changes.Add($"Tags derived from file name: artists \"{finalArtists}\", title \"{finalTitle}\"");
                 // TCMP fix is silent - almost always needed, adds noise to output
                 if (genreNeeded) log.Changes.Add($"Genre: \"{genres}\"  -> \"{cleanGenres}\"");
                 foreach (var change in customChanges) log.Changes.Add(change.Describe());

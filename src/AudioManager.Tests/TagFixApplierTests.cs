@@ -558,5 +558,67 @@ namespace AudioManager
             }
             finally { Cleanup(e); }
         }
+
+        public static void Apply_OnlySubset_TouchesOnlySelectedFiles()
+        {
+            var e = NewEnv();
+            try
+            {
+                string a = Messy(e, "a.mp3");
+                string b = Messy(e, "b.mp3");
+                byte[] bBefore = File.ReadAllBytes(b);
+                var r = TagFixApplier.Apply(e.Folder, Plan(e), e.Logs, e.Backups, e.Quarantine, Now, only: new[] { "a.mp3" });
+                Assert.Equal("applied", r.Status, "subset apply succeeds");
+                Assert.Equal("1", r.Applied.ToString(), "only the selected file is applied");
+                Assert.True(File.Exists(b), "an unselected file keeps its name");
+                Assert.Equal(Convert.ToBase64String(bBefore), Convert.ToBase64String(File.ReadAllBytes(b)), "an unselected file is byte-identical");
+                Assert.True(!File.Exists(a), "the selected file was renamed");
+                Assert.Equal("1", r.PendingAfter.ToString(), "the unselected file is still pending");
+            }
+            finally { Cleanup(e); }
+        }
+
+        public static void Apply_OnlyUnknownPath_RefusesAndChangesNothing()
+        {
+            var e = NewEnv();
+            try
+            {
+                string a = Messy(e, "a.mp3");
+                byte[] before = File.ReadAllBytes(a);
+                var r = TagFixApplier.Apply(e.Folder, Plan(e), e.Logs, e.Backups, e.Quarantine, Now, only: new[] { "nope.mp3" });
+                Assert.Equal("bad_selection", r.Status, "a path not in the plan is refused");
+                Assert.True(File.Exists(a), "the file keeps its name");
+                Assert.Equal(Convert.ToBase64String(before), Convert.ToBase64String(File.ReadAllBytes(a)), "nothing changed");
+            }
+            finally { Cleanup(e); }
+        }
+
+        public static void ParseSelectionManifest_ReadsPathArray()
+        {
+            string p = Path.Combine(Path.GetTempPath(), "sel_" + Guid.NewGuid() + ".json");
+            try
+            {
+                File.WriteAllText(p, "[\"a.mp3\", \"sub\\\\b.mp3\"]");
+                var sel = TagFixApplier.ReadSelectionManifest(p);
+                Assert.Equal("2", sel.Count.ToString(), "two paths");
+                Assert.True(sel.Contains("sub\\b.mp3"), "JSON escapes are decoded");
+            }
+            finally { File.Delete(p); }
+        }
+
+        public static void ProcessFile_EmptyTags_DerivesArtistAndTitleFromFileName()
+        {
+            var e = NewEnv();
+            try
+            {
+                string path = TagFixerTests.CreateSilentMp3Fixture(e.Folder, "mike. - hail mary.mp3", "", "", "");
+                var log = TagFixer.ForTesting(dryRun: true, quarantineRoot: e.Quarantine).ProcessFile(path);
+                Assert.Equal("would-fix", log.Status, "empty tags are a normal fix, not manual");
+                Assert.True(!log.NeedsManual, "not flagged for manual review");
+                Assert.Equal("mike.", log.NewTags.Artists, "artist derived from the file name");
+                Assert.Equal("hail mary", log.NewTags.Title, "title derived from the file name");
+            }
+            finally { Cleanup(e); }
+        }
     }
 }
