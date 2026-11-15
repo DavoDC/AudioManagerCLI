@@ -30,6 +30,11 @@ namespace AudioManager
         // Rows carrying the optional sourceRel attribute apply to that exact path only; rows without it stay name-keyed.
         private readonly Dictionary<string, HashSet<string>> keepsByRel = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> notDuplicateRels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Accept rows: "rule|file" or "rule|sourceRel" keys. Accepting one rule never hides another rule on the same file.
+        private readonly HashSet<string> acceptKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> acceptRelKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        /// <summary>The rule ids an Accept row may name. Anything else is skipped with a warning.</summary>
+        internal static readonly string[] ValidAcceptRules = { "unwanted_text", "missing_tag" };
 
         /// <summary>
         /// Loads exceptions from the given path (or Constants.TagFixExceptionsPath by default).
@@ -50,6 +55,8 @@ namespace AudioManager
                     set.AddKeepRow(el);
                 foreach (XmlElement el in doc.SelectNodes("//NotDuplicate").OfType<XmlElement>())
                     set.AddNotDuplicateRow(el);
+                foreach (XmlElement el in doc.SelectNodes("//Accept").OfType<XmlElement>())
+                    set.AddAcceptRow(el);
             }
             catch (Exception ex)
             {
@@ -95,6 +102,27 @@ namespace AudioManager
             string rel = NormRel(originalSourceRel);
             if (!string.IsNullOrEmpty(rel) && notDuplicateRels.Contains(rel)) return true;
             return notDuplicateFiles.Contains(originalFilename.Trim());
+        }
+
+        /// <summary>True when the user accepted this rule for this file (by name, or by exact sourceRel when given).</summary>
+        internal bool Accepts(string originalFilename, string rule, string originalSourceRel = null)
+        {
+            if (string.IsNullOrWhiteSpace(originalFilename) || string.IsNullOrWhiteSpace(rule)) return false;
+            string r = rule.Trim().ToLowerInvariant();
+            string rel = NormRel(originalSourceRel);
+            if (!string.IsNullOrEmpty(rel) && acceptRelKeys.Contains(r + "|" + rel)) return true;
+            return acceptKeys.Contains(r + "|" + originalFilename.Trim());
+        }
+
+        private void AddAcceptRow(XmlElement el)
+        {
+            string file = el.GetAttribute("file").Trim();
+            string rule = el.GetAttribute("rule").Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(file)) { Console.WriteLine("  [WARN] Accept row skipped: missing file attribute"); return; }
+            if (!ValidAcceptRules.Contains(rule)) { Console.WriteLine($"  [WARN] Accept row for '{file}': unknown rule '{rule}' ignored"); return; }
+            string rel = NormRel(el.GetAttribute("sourceRel"));
+            if (string.IsNullOrEmpty(rel)) acceptKeys.Add(rule + "|" + file);
+            else acceptRelKeys.Add(rule + "|" + rel);
         }
 
         private static string NormRel(string rel) => string.IsNullOrWhiteSpace(rel) ? null : rel.Replace('/', '\\').Trim().Trim('\\');

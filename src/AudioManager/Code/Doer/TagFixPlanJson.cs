@@ -97,7 +97,7 @@ namespace AudioManager
             {
                 var m = manual[i];
                 string reason = m.Status == "error" ? (m.Detail ?? "error") : (m.ManualReason ?? "needs manual review");
-                sb.AppendLine($"    {{\"file\": {JsonText.Quote(RelativePath(folder, m.SourcePath, m.OriginalFilename))}, \"reason\": {JsonText.Quote(reason)}}}{(i < manual.Count - 1 ? "," : "")}");
+                sb.AppendLine($"    {{\"file\": {JsonText.Quote(RelativePath(folder, m.SourcePath, m.OriginalFilename))}, \"rule\": {JsonText.Quote(ManualRule(m))}, \"reason\": {JsonText.Quote(reason)}}}{(i < manual.Count - 1 ? "," : "")}");
             }
             if (manual.Count > 0) sb.AppendLine("  ]");
             sb.AppendLine("}");
@@ -136,6 +136,16 @@ namespace AudioManager
             }
             if (NewName(f) != f.OriginalFilename) kinds.Add("rename");
             return kinds;
+        }
+
+        /// <summary>Stable rule id for a needsManual entry: error, empty_artist_or_title, rename_target_exists, else needs_manual.</summary>
+        internal static string ManualRule(TagFixer.FixLog m)
+        {
+            if (m.Status == "error") return "error";
+            string r = m.ManualReason ?? "";
+            if (r.StartsWith("empty artist or title")) return "empty_artist_or_title";
+            if (r.StartsWith("rename target already exists")) return "rename_target_exists";
+            return "needs_manual";
         }
 
         /// <summary>The planned file name: unchanged for a quarantine, the dry-run target name otherwise.</summary>

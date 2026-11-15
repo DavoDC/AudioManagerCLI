@@ -54,6 +54,10 @@ Top-level array, present only on an execution record (`recordType` `execution`) 
 
 Held originals are never auto-pruned. To restore one, move the `held` file back to its `original` path. A replacement that fails and is rolled back restores the original in place and records nothing here.
 
+## projectedHits
+Dry-run routing records only; always present, empty when the projected library is clean. One entry per LibChecker hit on the post-integration library:
+`{"rule", "sourceFile", "mirrorPath", "message", "relatedFiles"}`. `rule` is the LibChecker kind (stable id, for example `duplicate`, `missing_tag`, `unwanted_text`, `genre_missing`). `sourceFile` is the NewMusic-relative file when the hit is on an incoming track, `null` for a library track or folder-level hit. `mirrorPath` is the AudioMirror `.xml` relative path. `relatedFiles` lists the other members of a duplicate group (a NewMusic file, or a library mirrorPath). Hits the user accepted (`<Accept>` rows) or kept (`keep=` rows for `unwanted_text`) in `config/tagfix-exceptions.xml` are omitted. Known gap: `album_cover` below 800px is not reported, because the projection does not know incoming cover dimensions.
+
 ## artistSpellingCandidates
 
 Top-level array, present on every routing and execution record and empty (`[]`) when no artist has two or more spellings. It is written by `MusicIntegrator.AppendArtistSpellingCandidatesBlock` from `ArtistSpellingCandidates.BuildSpellingCandidates`, over the batch tags and the Misc XML primaries that scan-ahead reads. It is a suggestion only: no tag is changed by it.

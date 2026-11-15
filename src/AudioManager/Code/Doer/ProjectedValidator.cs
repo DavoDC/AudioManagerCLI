@@ -56,7 +56,7 @@ namespace AudioManager
         /// and prints the result in a dry-run section.
         /// Silently skips if AudioMirror is unavailable.
         /// </summary>
-        internal void RunProjectedLibChecker(List<ScannedFile> scannedFiles, HashSet<string> newArtistFolders)
+        internal List<ProjectedHits.Item> RunProjectedLibChecker(List<ScannedFile> scannedFiles, HashSet<string> newArtistFolders)
         {
             Console.WriteLine("\n===========================================================================");
             Console.WriteLine("Projected LibChecker (Dry Run)");
@@ -71,7 +71,7 @@ namespace AudioManager
             catch (Exception ex)
             {
                 Console.WriteLine($" - SKIP: could not load current library tags: {ex.Message}");
-                return;
+                return new List<ProjectedHits.Item>();
             }
 
             // Removals: L-decided library copies + Misc migration sources
@@ -91,6 +91,7 @@ namespace AudioManager
 
             // Additions: all files routed to the library (not D-decided) + Misc migration destinations
             var additions = new List<TrackTag>();
+            var mirrorToSource = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var sf in scannedFiles)
             {
@@ -122,6 +123,7 @@ namespace AudioManager
                     "0", "0" // CoverWidth/Height: unknown (dimensions check disabled)
                 );
                 additions.Add(synthesized);
+                mirrorToSource[relPath] = SourceRel(sf.SourcePath);
             }
 
             // Misc migration destinations: synthesize tag at Artists/{artist}/Singles/ location
@@ -150,7 +152,15 @@ namespace AudioManager
 
             var projected = BuildProjection(currentTags, additions, removals);
             Console.WriteLine($" - Projected library: {currentTags.Count} current, -{removals.Count} removals, +{additions.Count} additions = {projected.Count} projected");
-            new LibChecker(projected);
+            var checker = new LibChecker(projected);
+            return ProjectedHits.Build(checker.Hits, mirrorToSource, TagFixExceptions.Load());
+        }
+
+        /// <summary>NewMusic-relative source path, or the bare file name when it lies outside the folder.</summary>
+        private string SourceRel(string sourcePath)
+        {
+            string root = _roots.NewMusic.TrimEnd('\\', '/') + Path.DirectorySeparatorChar;
+            return sourcePath.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? sourcePath.Substring(root.Length) : Path.GetFileName(sourcePath);
         }
     }
 }

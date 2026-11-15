@@ -76,6 +76,25 @@ namespace AudioManager
             finally { Directory.Delete(dir, true); }
         }
 
+        public static void Accept_MatchesByRuleAndFile_NotOtherRules()
+        {
+            string dir = NewTempDir();
+            try
+            {
+                string path = WriteExceptionsFile(dir,
+                    "<Accept file=\"a.mp3\" rule=\"unwanted_text\" />\n" +
+                    "<Accept file=\"b.mp3\" sourceRel=\"X\\b.mp3\" rule=\"missing_tag\" />\n" +
+                    "<Accept file=\"c.mp3\" rule=\"bogus\" />");
+                TagFixExceptions set = TagFixExceptions.Load(path);
+                Assert.True(set.Accepts("a.mp3", "unwanted_text"), "accepted rule matches");
+                Assert.True(!set.Accepts("a.mp3", "missing_tag"), "other rule on same file still fails");
+                Assert.True(set.Accepts("b.mp3", "missing_tag", "x/b.mp3"), "sourceRel row matches own path");
+                Assert.True(!set.Accepts("b.mp3", "missing_tag", "Y\\b.mp3"), "sourceRel row misses other folder");
+                Assert.True(!set.Accepts("c.mp3", "bogus"), "unknown rule ignored");
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
         // ---- Load: parsing and fail-safe behaviour ----
 
         public static void Load_ValidFile_ParsesKeepAndNotDuplicateRows()

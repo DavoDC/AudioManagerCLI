@@ -38,6 +38,8 @@ namespace AudioManager
         internal sealed class LibCheckerHit
         {
             public string Kind, Path, Detail;
+            /// <summary>Other RelPaths involved (the rest of a duplicate group). Empty for single-track rules.</summary>
+            public List<string> Related = new List<string>();
         }
 
         private readonly List<LibCheckerHit> hits = new List<LibCheckerHit>();
@@ -525,10 +527,11 @@ namespace AudioManager
             Console.WriteLine($" - Checking all tags for duplicates...");
 
             // Get duplicate tracks using LINQ
-            var duplicateTracks = audioTags
+            var dupGroups = audioTags
                 .GroupBy(t => new { t.Title, t.Artists }) // Group the tracks by Title and all Artists
                 .Where(g => g.Count() > 1) // Filter to counts above 1
-                .SelectMany(g => g); // Get instances
+                .ToList();
+            var duplicateTracks = dupGroups.SelectMany(g => g); // Get instances
 
             // Print out info of each duplicate
             int totalHits = 0;
@@ -536,6 +539,8 @@ namespace AudioManager
             {
                 Console.WriteLine($"  - '{curDupe.RelPath}' duplicates another track!");
                 Hit("duplicate", curDupe.RelPath, "duplicates another track");
+                hits[hits.Count - 1].Related = dupGroups
+                    .First(g => g.Any(x => ReferenceEquals(x, curDupe))).Where(x => !ReferenceEquals(x, curDupe)).Select(x => x.RelPath).ToList();
                 totalHits++;
             }
             PrintTotalHits(totalHits);

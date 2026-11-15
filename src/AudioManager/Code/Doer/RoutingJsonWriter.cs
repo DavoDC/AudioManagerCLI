@@ -102,7 +102,7 @@ namespace AudioManager
         internal static string BuildJson(List<MusicIntegrator.LogEntry> entries, MusicIntegrator.BatchSummary summary = null, bool dryRun = true, MusicIntegrator.ConfidenceRecord confidence = null,
             MusicIntegrator.MirrorPathBlock blocked = null, IList<(string original, string held)> replaced = null,
             string newMusicFingerprint = null, string previewFingerprint = null, IList<ArtistSpellingCandidate> artistSpellingCandidates = null,
-            MusicIntegrator.LeftoversSnapshot leftovers = null)
+            MusicIntegrator.LeftoversSnapshot leftovers = null, IList<ProjectedHits.Item> projectedHits = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine("{");
@@ -127,6 +127,7 @@ namespace AudioManager
             AppendBlockedBlock(sb, blocked);
             AppendReplacedOriginalsBlock(sb, replaced);
             AppendArtistSpellingCandidatesBlock(sb, artistSpellingCandidates);
+            if (dryRun) ProjectedHits.AppendBlock(sb, projectedHits);
             sb.AppendLine("  \"files\": [");
             for (int i = 0; i < entries.Count; i++)
             {

@@ -59,6 +59,7 @@ namespace AudioManager
         // mp3s the manifest declined in this run (0 without a manifest); reported as leftovers.declinedCount.
         private int _declinedCount;
         // Manifest-chosen artist spellings (object manifest form). Passed to TagFixer for batch files and used to name folders.
+        private List<ProjectedHits.Item> _projectedHits;
         private Dictionary<string, string> _artistSpellingChoices = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         // Raw tag data cached from RunScanAhead so PreScanFiles avoids a second TagLib read per file
         private Dictionary<string, (string artists, string title, string album, string genres, uint year)> _batchTagCache => _scan.BatchTagCache;
@@ -279,13 +280,14 @@ namespace AudioManager
                         Console.Write(block);
                 }
 
+                // Projected LibChecker: validate post-integration library state before any files move.
+                // Runs before the JSON is written so the routing record carries projectedHits.
+                if (dryRun)
+                    _projectedHits = RunProjectedLibChecker(scannedFiles, newArtistFolders);
+
                 // Write JSON output if requested (dry-run only)
                 if (dryRun && jsonOutput)
                     WriteJsonOutput(logEntries);
-
-                // Projected LibChecker: validate post-integration library state before any files move
-                if (dryRun)
-                    RunProjectedLibChecker(scannedFiles, newArtistFolders);
 
                 PrintRoutingResultsAndFinish(logEntries, movedCount, skippedCount, totalFiles, routingStopwatch);
             }
@@ -554,8 +556,8 @@ namespace AudioManager
         internal static string BuildJson(List<LogEntry> entries, BatchSummary summary = null, bool dryRun = true, ConfidenceRecord confidence = null,
             MirrorPathBlock blocked = null, IList<(string original, string held)> replaced = null,
             string newMusicFingerprint = null, string previewFingerprint = null, IList<ArtistSpellingCandidate> artistSpellingCandidates = null,
-            LeftoversSnapshot leftovers = null) =>
-            RoutingJsonWriter.BuildJson(entries, summary, dryRun, confidence, blocked, replaced, newMusicFingerprint, previewFingerprint, artistSpellingCandidates, leftovers);
+            LeftoversSnapshot leftovers = null, IList<ProjectedHits.Item> projectedHits = null) =>
+            RoutingJsonWriter.BuildJson(entries, summary, dryRun, confidence, blocked, replaced, newMusicFingerprint, previewFingerprint, artistSpellingCandidates, leftovers, projectedHits);
 
         /// <summary>Forwards to RoutingJsonWriter.NewMusicFingerprint.</summary>
         internal static string NewMusicFingerprint(string folder) =>
@@ -591,7 +593,7 @@ namespace AudioManager
                 string jsonPath = Path.Combine(_roots.Logs, $"routing-{timestamp}.json");
 
                 AtomicFile.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary(), dryRun: dryRun, blocked: blocked, newMusicFingerprint: _startFingerprint,
-                    artistSpellingCandidates: _artistSpellingCandidates), System.Text.Encoding.UTF8);
+                    artistSpellingCandidates: _artistSpellingCandidates, projectedHits: _projectedHits), System.Text.Encoding.UTF8);
                 Console.WriteLine($"\n  JSON: {jsonPath}");
             }
             catch (Exception ex)
@@ -692,7 +694,7 @@ namespace AudioManager
 
         internal static List<TrackTag> BuildProjection(IEnumerable<TrackTag> currentTags, IEnumerable<TrackTag> additions, ISet<string> removals) => ProjectedValidator.BuildProjection(currentTags, additions, removals);
 
-        private void RunProjectedLibChecker(List<ScannedFile> scannedFiles, HashSet<string> newArtistFolders) => Validator.RunProjectedLibChecker(scannedFiles, newArtistFolders);
+        private List<ProjectedHits.Item> RunProjectedLibChecker(List<ScannedFile> scannedFiles, HashSet<string> newArtistFolders) => Validator.RunProjectedLibChecker(scannedFiles, newArtistFolders);
 
         internal static string GetMirrorRelPath(string mirrorXmlPath) => MirrorIndex.GetMirrorRelPath(mirrorXmlPath);
 
