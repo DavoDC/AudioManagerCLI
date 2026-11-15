@@ -865,6 +865,44 @@ namespace AudioManager
             }
         }
 
+        // ENG-83: a tag still carrying unwanted text or a missing field after the fix is a needsManual row with a rule id, unless Accepted.
+        private static TagFixer.FixLog ResidualRun(string title, string album, string acceptXml, out string name)
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                name = "Band - Song.mp3";
+                string fixturePath = CreateSilentMp3Fixture(tempDir, name, title, album, "Band");
+                string exPath = System.IO.Path.Combine(tempDir, "ex.xml");
+                System.IO.File.WriteAllText(exPath, "<Exceptions>" + acceptXml + "</Exceptions>");
+                var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(tempDir, "q"), exceptionsPath: exPath);
+                return fixer.ProcessFile(fixturePath);
+            }
+            finally { System.IO.Directory.Delete(tempDir, true); }
+        }
+
+        public static void ProcessFile_ResidualUnwantedText_IsNeedsManualWithRule()
+        {
+            var log = ResidualRun("Song", "Greatest Original Hits", "", out _);
+            Assert.True(log.NeedsManual, "unwanted text left in album needs a person");
+            Assert.Equal("unwanted_text", log.ManualRule, "rule id");
+        }
+
+        public static void ProcessFile_ResidualMissingAlbum_IsNotNeedsManual()
+        {
+            var log = ResidualRun("Song", "", "", out _);
+            Assert.True(!log.NeedsManual, "missing album is reported by projectedHits, not tagfix");
+        }
+
+        public static void ProcessFile_AcceptedUnwantedText_IsNotNeedsManual()
+        {
+            var log = ResidualRun("Song", "Greatest Original Hits", "<Accept file=\"Band - Song.mp3\" rule=\"unwanted_text\" />", out _);
+            Assert.True(!log.NeedsManual, "accepted unwanted_text is skipped");
+            var log2 = ResidualRun("Song", "Greatest Original Hits", "<Accept file=\"Band - Song.mp3\" rule=\"missing_tag\" />", out _);
+            Assert.True(log2.NeedsManual, "accepting a different rule leaves unwanted_text");
+        }
+
         // BL-58: the public constructor (the real Tag Fix path) scans the real NewMusic inbox, so tests cannot run it.
         // Every constructor must still start from the same default quarantine root, so pin that default here.
         public static void Constructor_DefaultQuarantineRoot_IsConstantsQuarantinePath()

@@ -68,8 +68,8 @@ real apply and its revert journal are not part of this contract yet.
   whose rename is blocked gives one of: `empty artist or title after sanitisation` (the cleaned artist or title
   is empty, so the file keeps its name) or `rename target already exists` (a different file already holds the
   planned name). The tag fix for a blocked row is still in `files`, so a client can show both.
-  Every row also carries a stable `rule` id: `error`, `empty_artist_or_title`, `rename_target_exists` or `needs_manual`.
-  `unwanted_text` and `missing_tag` are not yet emitted here; they appear in the routing `projectedHits` (see RoutingJSONFormat.md).
+  Every row also carries a stable `rule` id: `error`, `empty_artist_or_title`, `rename_target_exists`, `unwanted_text` or `needs_manual`.
+  `unwanted_text` is raised on a dry run when a tag still holds unwanted text after the fix (reason `found 'x' in album`); it is skipped when the file has an `<Accept rule="unwanted_text">` row or a `keep=` row. `missing_tag` is not raised here (a missing title or artist is `empty_artist_or_title`; a missing album is reported only in the routing `projectedHits`, see RoutingJSONFormat.md).
   `config/tagfix-exceptions.xml` accepts `<Accept file="x.mp3" [sourceRel="Folder\x.mp3"] rule="unwanted_text|missing_tag" />`; an accepted rule is dropped from `projectedHits`.
 - **`counts` are derived from the rows** above, so they can never disagree with the lists.
 

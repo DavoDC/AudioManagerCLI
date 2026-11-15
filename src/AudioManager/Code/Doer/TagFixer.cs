@@ -64,6 +64,8 @@ namespace AudioManager
             /// <summary>Dry run only: the planned rename is blocked (empty artist or title, or the target name is taken).</summary>
             public bool NeedsManual;
             public string ManualReason;
+            /// <summary>Stable rule id for a residual-tag needsManual row (unwanted_text, missing_tag); null for the rename reasons.</summary>
+            public string ManualRule;
             /// <summary>Dry run only: the rename is blocked, so the file keeps OriginalFilename as its planned name.</summary>
             public bool RenameBlocked;
         }
@@ -430,6 +432,7 @@ namespace AudioManager
                 {
                     log.Status = "skipped";
                     log.Detail = "no fixes needed";
+                    MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, originalName, originalRel);
                     skippedCount++;
                     return log;
                 }
@@ -558,6 +561,7 @@ namespace AudioManager
                             log.RenameBlocked = true;
                         }
                     }
+                    if (!log.NeedsManual) MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, originalName, originalRel);
                     log.Status = "would-fix";
                     fixedCount++;
                 }
@@ -592,6 +596,28 @@ namespace AudioManager
                 // Release the TagLib file handle (TagLib keeps it open until disposed)
                 tagFile?.Dispose();
             }
+        }
+
+        /// <summary>
+        /// ENG-83: dry run only. A tag that still holds unwanted text after the fix is a needsManual row (rule unwanted_text)
+        /// unless the user accepted it for this file or kept the field. missing_tag is not raised here: a missing title or
+        /// artist already gives empty_artist_or_title, and a missing album is reported by projectedHits only.
+        /// </summary>
+        private void MarkResidualIssue(FixLog log, string title, string artists, string album, string name, string rel)
+        {
+            if (!dryRun) return;
+            string rule = null, reason = null;
+            var fields = new[] { ("title", title), ("artists", artists), ("album", album) };
+            foreach (var f in fields)
+            {
+                string hit = Constants.UnwantedInfo.FirstOrDefault(u => LibChecker.ContainsUnwanted(f.Item2, u));
+                if (hit != null) { rule = "unwanted_text"; reason = $"found '{hit}' in {f.Item1}"; break; }
+            }
+            if (rule == null || exceptions.Accepts(name, rule, rel)) return;
+            if (rule == "unwanted_text" && new[] { "title", "artist", "album", "casing" }.Any(k => exceptions.Keeps(name, k, rel))) return;
+            log.NeedsManual = true;
+            log.ManualRule = rule;
+            log.ManualReason = reason;
         }
 
         /// <summary>

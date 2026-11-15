@@ -338,6 +338,22 @@ namespace AudioManager
         /// <param name="propertyName">The name of the property being checked</param>
         /// <param name="unwanted">The unwanted part</param>
         /// <returns>One if unwanted part was found, zero otherwise</returns>
+        /// <summary>The unwanted-string match shared by LibChecker and tagfix's residual check.</summary>
+        internal static bool ContainsUnwanted(string value, string unwanted)
+        {
+            string propValue = (value ?? "").ToLowerInvariant();
+            string u = unwanted.ToLowerInvariant();
+            // For "feat." and "ft.", require whitespace/punctuation before the abbreviation
+            // to avoid false positives like "ft." in "LEFT" or "Theft"
+            if (u == "feat." || u == "ft.")
+                return Regex.IsMatch(propValue, @"(?:^|[\s\-\(\)\[\]\/,])" + Regex.Escape(u));
+            // Word-boundary match: "Radio Edit" flags but "Edition" does not
+            if (u == "edit")
+                return Regex.IsMatch(propValue, @"\bedit\b");
+            // For other unwanted strings, use simple Contains check
+            return propValue.Contains(u);
+        }
+
         private int CheckProperty(TrackTag tag, Func<TrackTag, string> propExt,
             string propertyName, string unwanted)
         {
@@ -346,26 +362,7 @@ namespace AudioManager
                 // If an exception to rules, skip
                 if (IsExceptionToRules(tag, unwanted)) { return 0; }
 
-                string propValue = propExt(tag).ToLowerInvariant();
-                bool foundUnwanted = false;
-
-                // For "feat." and "ft.", require whitespace/punctuation before the abbreviation
-                // to avoid false positives like "ft." in "LEFT" or "Theft"
-                if (unwanted.ToLowerInvariant() == "feat." || unwanted.ToLowerInvariant() == "ft.")
-                {
-                    string pattern = @"(?:^|[\s\-\(\)\[\]\/,])" + Regex.Escape(unwanted.ToLowerInvariant());
-                    foundUnwanted = Regex.IsMatch(propValue, pattern);
-                }
-                else if (unwanted.ToLowerInvariant() == "edit")
-                {
-                    // Word-boundary match: "Radio Edit" flags but "Edition" does not
-                    foundUnwanted = Regex.IsMatch(propValue, @"\bedit\b");
-                }
-                else
-                {
-                    // For other unwanted strings, use simple Contains check
-                    foundUnwanted = propValue.Contains(unwanted.ToLowerInvariant());
-                }
+                bool foundUnwanted = ContainsUnwanted(propExt(tag), unwanted);
 
                 if (foundUnwanted)
                 {

@@ -142,6 +142,7 @@ namespace AudioManager
         internal static string ManualRule(TagFixer.FixLog m)
         {
             if (m.Status == "error") return "error";
+            if (!string.IsNullOrEmpty(m.ManualRule)) return m.ManualRule;
             string r = m.ManualReason ?? "";
             if (r.StartsWith("empty artist or title")) return "empty_artist_or_title";
             if (r.StartsWith("rename target already exists")) return "rename_target_exists";
