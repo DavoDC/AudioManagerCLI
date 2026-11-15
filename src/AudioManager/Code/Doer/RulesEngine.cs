@@ -45,8 +45,8 @@ namespace AudioManager
 
         // Keywords that mark an album as a deluxe/expanded/remastered edition.
         private static readonly string[] DeluxeKeywords = new[] {
-            "DELUXE", "DELUXE EDITION", "DELUXE VERSION", "EXPANDED", "EXPANDED EDITION",
-            "SUPER DELUXE", "REMASTER", "REMASTERED", "ANNIVERSARY EDITION", "SPECIAL EDITION"
+            "DELUXE", "EXPANDED",
+            "SUPER DELUXE", "REMASTER", "ANNIVERSARY EDITION", "SPECIAL EDITION"
         };
 
         private static bool HasDeluxeKeyword(string album)
