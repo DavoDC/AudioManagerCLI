@@ -903,6 +903,48 @@ namespace AudioManager
             Assert.True(log2.NeedsManual, "accepting a different rule leaves unwanted_text");
         }
 
+        // ENG-83 follow-up: several fixtures in one folder through one dry-run fixer, so an Accept row on one file can be checked against its neighbours.
+        // Calls ProcessFile per file, the same call ScanAndProcess makes, because ScanFolderForTesting takes no exceptionsPath.
+        private static List<TagFixer.FixLog> ResidualRunFolder(string[] names, string[] titles, string[] albums, string acceptXml)
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                var paths = new List<string>();
+                for (int i = 0; i < names.Length; i++)
+                    paths.Add(CreateSilentMp3Fixture(tempDir, names[i], titles[i], albums[i], "Band"));
+                string exPath = System.IO.Path.Combine(tempDir, "ex.xml");
+                System.IO.File.WriteAllText(exPath, "<Exceptions>" + acceptXml + "</Exceptions>");
+                var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(tempDir, "q"), exceptionsPath: exPath);
+                var logs = new List<TagFixer.FixLog>();
+                foreach (string path in paths) logs.Add(fixer.ProcessFile(path));
+                return logs;
+            }
+            finally { System.IO.Directory.Delete(tempDir, true); }
+        }
+
+        // Every field the dry-run plan reports for one file, as one comparable string.
+        private static string ResidualSignature(TagFixer.FixLog log)
+        {
+            TagFixer.TagState t = log.NewTags;
+            string tags = t == null ? "null" : t.Title + "|" + t.Album + "|" + t.Artists + "|" + t.Genre + "|" + t.Compilation + "|" + t.ArtCount;
+            return log.Status + "|" + log.Filename + "|" + log.NeedsManual + "|" + log.ManualRule + "|" + log.ManualReason + "|" + tags;
+        }
+
+        public static void ProcessFile_AcceptedUnwantedText_LeavesNeighbourRowsUnchanged()
+        {
+            string[] names = { "Band - Song A.mp3", "Band - Song B.mp3", "Band - Song C.mp3" };
+            string[] titles = { "Song A", "Song B", "Song C" };
+            string[] albums = { "Greatest Original Hits", "Plain Album One", "Plain Album Two" };
+            var withoutAccept = ResidualRunFolder(names, titles, albums, "");
+            var withAccept = ResidualRunFolder(names, titles, albums, "<Accept file=\"Band - Song A.mp3\" rule=\"unwanted_text\" />");
+            Assert.True(withoutAccept[0].NeedsManual, "without an Accept row the unwanted-text file needs a person");
+            Assert.True(!withAccept[0].NeedsManual, "with an Accept row the accepted file no longer needs a person");
+            for (int i = 1; i < names.Length; i++)
+                Assert.Equal(ResidualSignature(withoutAccept[i]), ResidualSignature(withAccept[i]), "neighbour row " + names[i]);
+        }
+
         // BL-58: the public constructor (the real Tag Fix path) scans the real NewMusic inbox, so tests cannot run it.
         // Every constructor must still start from the same default quarantine root, so pin that default here.
         public static void Constructor_DefaultQuarantineRoot_IsConstantsQuarantinePath()
