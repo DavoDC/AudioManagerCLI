@@ -68,7 +68,7 @@ namespace AudioManager
             f.NewIsAlbum = false; // a single against a library copy, nothing else to compare
             MusicIntegrator.RecommendDuplicate(f, out char key, out string reason);
             Assert.True(key == '\0', "No rule applies: no recommendation key, got " + key);
-            Assert.True(!string.IsNullOrWhiteSpace(reason), "Every duplicate row must carry a reason (GUI-54), got empty");
+            Assert.True(!string.IsNullOrWhiteSpace(reason), "Every duplicate row must carry a reason, got empty");
         }
 
         private static MusicIntegrator.ScannedFile Scanned(string artist, string title, double len) =>

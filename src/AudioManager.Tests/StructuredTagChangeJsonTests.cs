@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace AudioManager
 {
     /// <summary>
-    /// GUI-54: every JSON the GUI reads carries structured before/after tag values per track.
+    /// Every JSON a client reads carries structured before/after tag values per track.
     /// Covers the artCount field in the tagfix plan (TagFixPlanJson) and the per-entry tagFix object in
     /// the routing JSON (MusicIntegrator.BuildJson). Pure string assertions, no filesystem.
     /// </summary>
@@ -76,7 +76,7 @@ namespace AudioManager
                 string path = TagFixerTests.CreateSilentMp3Fixture(tempDir, "messy filename.mp3", "Song Title", "Album Name", "Primary Artist");
                 var fixer = TagFixer.ForTesting(dryRun: true);
                 var log = fixer.ProcessFile(path);
-                Assert.True(fixer.LogsByFile.ContainsKey("messy filename.mp3"), "A filename-only rename must reach LogsByFile (GUI-54)");
+                Assert.True(fixer.LogsByFile.ContainsKey("messy filename.mp3"), "A filename-only rename must reach LogsByFile");
                 Assert.True(fixer.LogsByFile["messy filename.mp3"].OldTags != null && log.Filename == "Primary Artist - Song Title.mp3", "Rename planned: " + log.Filename);
             }
             finally { System.IO.Directory.Delete(tempDir, true); }

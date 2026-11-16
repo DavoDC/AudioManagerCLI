@@ -286,7 +286,7 @@ namespace AudioManager
 
         public static void RemoveParentheticals_KeepsRemixInTitle()
         {
-            // GUI-53: (Remix) names a different recording; stripping it merged Ne-Yo's remix into the original.
+            // (Remix) names a different recording; stripping it merged Ne-Yo's remix into the original.
             Assert.Equal("Because Of You (Remix)", TagFixer.RemoveParentheticals("Because Of You (Remix)"), "remix marker kept");
             Assert.Equal("Because Of You (Remix)", TagFixer.RemoveParentheticals("Because Of You (Remix) (feat. X)"), "feat still stripped, remix kept");
         }

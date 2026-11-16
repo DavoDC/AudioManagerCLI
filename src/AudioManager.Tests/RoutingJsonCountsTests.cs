@@ -4,7 +4,7 @@ namespace AudioManager
 {
     /// <summary>
     /// Coverage for the "counts" object inside the routing JSON "summary" block: per-stage integer
-    /// counts derived from the same rows written to files[], so a GUI can read them without
+    /// counts derived from the same rows written to files[], so a client can read them without
     /// scanning rows. Pure string assertions against BuildJson - no filesystem, no console.
     /// </summary>
     internal static class RoutingJsonCountsTests
