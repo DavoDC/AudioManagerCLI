@@ -196,7 +196,7 @@ namespace AudioManager
                 int total = batchCount + miscCount + sourcesCount;
 
                 string artistFolder = Path.Combine(_roots.Library, Constants.ArtistsDir, MusicIntegrator.SanitiseFolderName(artist));
-                string musivArtistFolder = Path.Combine(_roots.Library, Constants.MusivDir, MusicIntegrator.SanitiseFolderName(artist));
+                string musivArtistFolder = Path.Combine(_roots.Library, Constants.MusivationDir, MusicIntegrator.SanitiseFolderName(artist));
                 bool hasExistingFolder = Directory.Exists(artistFolder) || Directory.Exists(musivArtistFolder);
                 if (RulesEngine.EarnsArtistFolder(total) && !hasExistingFolder)
                 {

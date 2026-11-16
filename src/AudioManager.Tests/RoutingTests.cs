@@ -72,7 +72,7 @@ namespace AudioManager
             {
                 var integrator = new MusicIntegrator(lib);
                 string dest = GetDest(integrator, MakeTrack("Some Speaker", "Talk Title", genres: "Musivation"));
-                string expected = Path.Combine(lib, Constants.MusivDir);
+                string expected = Path.Combine(lib, Constants.MusivationDir);
                 Assert.Equal(expected, dest, "Musivation genre -> Musivation/");
             }
             finally { RoutingFixtures.Cleanup(lib); }
@@ -299,7 +299,7 @@ namespace AudioManager
             {
                 var integrator = new MusicIntegrator(lib);
                 string dest = GetDest(integrator, MakeTrack("Akira The Don", "Philosophy Talk", genres: "Musivation"));
-                string expected = Path.Combine(lib, Constants.MusivDir, "Akira The Don", "Singles");
+                string expected = Path.Combine(lib, Constants.MusivationDir, "Akira The Don", "Singles");
                 Assert.Equal(expected, dest, "ATD with no sampled person -> Musivation/Akira The Don/Singles/");
             }
             finally { RoutingFixtures.Cleanup(lib); }
@@ -315,7 +315,7 @@ namespace AudioManager
                 var integrator = new MusicIntegrator(lib);
                 var track = new AudioManager.Code.Modules.Track { Artists = "Akira The Don;Test Person", Title = "Philosophy", Album = "Missing", Genres = "Musivation" };
                 string dest = integrator.GetDestDir(track, new HashSet<string>(), new HashSet<string>(), out _, out _);
-                string expected = Path.Combine(lib, Constants.MusivDir, "Akira The Don", Constants.SinglesDir);
+                string expected = Path.Combine(lib, Constants.MusivationDir, "Akira The Don", Constants.SinglesDir);
                 Assert.Equal(expected, dest, "ATD sampled person below 3-song threshold -> Akira The Don/Singles/");
             }
             finally { RoutingFixtures.Cleanup(lib); }
@@ -331,7 +331,7 @@ namespace AudioManager
                 var integrator = new MusicIntegrator(lib);
                 var track = new AudioManager.Code.Modules.Track { Artists = "Akira The Don;Test Person", Title = "Philosophy", Album = "Missing", Genres = "Musivation" };
                 string dest = integrator.GetDestDir(track, new HashSet<string>(), new HashSet<string>(), out _, out _);
-                string expected = Path.Combine(lib, Constants.MusivDir, "Akira The Don", "People", "Test Person", Constants.SinglesDir);
+                string expected = Path.Combine(lib, Constants.MusivationDir, "Akira The Don", "People", "Test Person", Constants.SinglesDir);
                 Assert.Equal(expected, dest, "ATD sampled person 3+ songs, no album -> People/Test Person/Singles/");
             }
             finally { RoutingFixtures.Cleanup(lib); }
@@ -347,7 +347,7 @@ namespace AudioManager
                 var integrator = new MusicIntegrator(lib);
                 var track = new AudioManager.Code.Modules.Track { Artists = "Akira The Don;Test Person", Title = "Philosophy", Album = "Great Album", Genres = "Musivation" };
                 string dest = integrator.GetDestDir(track, new HashSet<string>(), new HashSet<string>(), out _, out _);
-                string expected = Path.Combine(lib, Constants.MusivDir, "Akira The Don", "People", "Test Person", "Great Album");
+                string expected = Path.Combine(lib, Constants.MusivationDir, "Akira The Don", "People", "Test Person", "Great Album");
                 Assert.Equal(expected, dest, "ATD sampled person 3+ songs, 2 from album -> People/Test Person/Great Album/");
             }
             finally { RoutingFixtures.Cleanup(lib); }

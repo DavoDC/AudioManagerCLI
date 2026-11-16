@@ -986,7 +986,7 @@ namespace AudioManager
 
             if (artists.IndexOf("Akira The Don", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 artists.IndexOf("Loot Bryon Smith", StringComparison.OrdinalIgnoreCase) >= 0)
-                return Constants.MusivDir; // "Musivation"
+                return Constants.MusivationDir; // "Musivation"
 
             return Constants.MotivDir; // "Motivation" - the only other case ShouldFixGenre triggers for
         }

@@ -85,7 +85,7 @@ namespace AudioManager
         public const string MiscDir          = "Miscellaneous Songs";
         public const string ArtistsDir      = "Artists";
         public const string CompilationsDir = "Compilations";
-        public const string MusivDir        = "Musivation";
+        public const string MusivationDir        = "Musivation";
         public const string AkiraDir        = "Akira The Don";
         public const string MotivDir        = "Motivation";
         public const string SourcesDir      = "Sources";

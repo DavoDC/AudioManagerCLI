@@ -57,7 +57,7 @@ namespace AudioManager
                 if (kvp.Value >= 3)
                 {
                     string artistFolder = Path.Combine(Constants.AudioFolderPath, Constants.ArtistsDir, kvp.Key);
-                    string musivFolder  = Path.Combine(Constants.AudioFolderPath, Constants.MusivDir,   kvp.Key);
+                    string musivFolder  = Path.Combine(Constants.AudioFolderPath, Constants.MusivationDir,   kvp.Key);
                     if (!Directory.Exists(artistFolder) && !Directory.Exists(musivFolder))
                         newArtistFolders.Add(kvp.Key);
                 }

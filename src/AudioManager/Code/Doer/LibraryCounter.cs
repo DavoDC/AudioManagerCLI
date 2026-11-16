@@ -159,14 +159,14 @@ namespace AudioManager
             int count = 0;
 
             // Count in library (scan Musivation/Akira The Don/People/{person}/)
-            string personFolder = Path.Combine(libPath, Constants.MusivDir, Constants.AkiraDir, "People", MusicIntegrator.SanitiseFolderName(sampledPerson));
+            string personFolder = Path.Combine(libPath, Constants.MusivationDir, Constants.AkiraDir, "People", MusicIntegrator.SanitiseFolderName(sampledPerson));
             if (Directory.Exists(personFolder))
             {
                 count += Directory.GetFiles(personFolder, "*.mp3", SearchOption.AllDirectories).Length;
             }
 
             // Count in library Singles folder
-            string singlesFolder = Path.Combine(libPath, Constants.MusivDir, Constants.AkiraDir, Constants.SinglesDir);
+            string singlesFolder = Path.Combine(libPath, Constants.MusivationDir, Constants.AkiraDir, Constants.SinglesDir);
             if (Directory.Exists(singlesFolder))
             {
                 var singlesFiles = Directory.GetFiles(singlesFolder, "*.mp3", SearchOption.AllDirectories);
@@ -243,7 +243,7 @@ namespace AudioManager
 
             // Count in library: Musivation/Akira The Don/People/{sampledPerson}/{album}/
             string albumFolder = Path.Combine(
-                libPath, Constants.MusivDir, Constants.AkiraDir, "People", MusicIntegrator.SanitiseFolderName(sampledPerson), MusicIntegrator.SanitiseFolderName(album));
+                libPath, Constants.MusivationDir, Constants.AkiraDir, "People", MusicIntegrator.SanitiseFolderName(sampledPerson), MusicIntegrator.SanitiseFolderName(album));
             if (Directory.Exists(albumFolder))
             {
                 count += Directory.GetFiles(albumFolder, "*.mp3", SearchOption.AllDirectories).Length;

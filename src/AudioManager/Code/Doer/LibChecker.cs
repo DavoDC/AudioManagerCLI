@@ -121,11 +121,11 @@ namespace AudioManager
             CheckCompilationsFolder(artistsWithAudioFolderSet);
 
             // Check Musivation and Motivation folders
-            CheckMainFolderForGenre(Constants.MusivDir, Constants.MusivDir);
+            CheckMainFolderForGenre(Constants.MusivationDir, Constants.MusivationDir);
             CheckMainFolderForGenre(Constants.MotivDir, Constants.MotivDir);
 
             // Check genre vs folder (inverse: tracks with genre outside expected folder)
-            CheckGenreVsFolder(Constants.MusivDir, Constants.MusivDir);
+            CheckGenreVsFolder(Constants.MusivationDir, Constants.MusivationDir);
             CheckGenreVsFolder(Constants.MotivDir, Constants.MotivDir);
 
             // Check Sources folder

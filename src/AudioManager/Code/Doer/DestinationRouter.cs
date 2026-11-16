@@ -118,7 +118,7 @@ namespace AudioManager
                     string sampledPerson = artists[1]; // Second artist is the sampled person
 
                     // Use existing library folder casing if one already exists (e.g. "Scott Adams" not "Scott adams")
-                    string peopleParent = Path.Combine(_libraryPath, Constants.MusivDir, Constants.AkiraDir, "People");
+                    string peopleParent = Path.Combine(_libraryPath, Constants.MusivationDir, Constants.AkiraDir, "People");
                     if (Directory.Exists(peopleParent))
                     {
                         foreach (var dir in Directory.GetDirectories(peopleParent))
@@ -168,7 +168,7 @@ namespace AudioManager
                     {
                         reason = $"{personSongCount} song(s) from {sampledPerson}, below People threshold";
                         isNewFolder = false;
-                        return Path.Combine(_libraryPath, Constants.MusivDir, Constants.AkiraDir, Constants.SinglesDir);
+                        return Path.Combine(_libraryPath, Constants.MusivationDir, Constants.AkiraDir, Constants.SinglesDir);
                     }
                 }
                 else
@@ -176,16 +176,16 @@ namespace AudioManager
                     // No sampled person listed, use Singles
                     reason = "No sampled person listed";
                     isNewFolder = false;
-                    return Path.Combine(_libraryPath, Constants.MusivDir, Constants.AkiraDir, Constants.SinglesDir);
+                    return Path.Combine(_libraryPath, Constants.MusivationDir, Constants.AkiraDir, Constants.SinglesDir);
                 }
             }
 
             // Genres-based rules (after artist checks)
-            if (!track.Genres.Equals(Constants.MissingTag) && track.Genres.IndexOf(Constants.MusivDir, StringComparison.OrdinalIgnoreCase) >= 0)
+            if (!track.Genres.Equals(Constants.MissingTag) && track.Genres.IndexOf(Constants.MusivationDir, StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 reason = "Genre is Musivation";
                 isNewFolder = false;
-                return Path.Combine(_libraryPath, Constants.MusivDir);
+                return Path.Combine(_libraryPath, Constants.MusivationDir);
             }
 
             if (!track.Genres.Equals(Constants.MissingTag) && track.Genres.IndexOf(Constants.MotivDir, StringComparison.OrdinalIgnoreCase) >= 0)

@@ -23,7 +23,7 @@ namespace AudioManager
             if (musivationFolders != null)
             {
                 foreach (var artist in musivationFolders)
-                    Directory.CreateDirectory(Path.Combine(tempRoot, Constants.MusivDir, artist));
+                    Directory.CreateDirectory(Path.Combine(tempRoot, Constants.MusivationDir, artist));
             }
 
             return tempRoot;
@@ -48,7 +48,7 @@ namespace AudioManager
         /// </summary>
         internal static void AddATDPeopleFiles(string libraryRoot, string personName, int personFileCount = 3, string albumName = null, int albumFileCount = 2)
         {
-            string peopleDir = Path.Combine(libraryRoot, Constants.MusivDir, "Akira The Don", "People", personName);
+            string peopleDir = Path.Combine(libraryRoot, Constants.MusivationDir, "Akira The Don", "People", personName);
             Directory.CreateDirectory(peopleDir);
             for (int i = 0; i < personFileCount; i++)
                 File.WriteAllBytes(Path.Combine(peopleDir, $"atd_person_{i + 1}.mp3"), new byte[0]);

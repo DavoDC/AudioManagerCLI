@@ -188,7 +188,7 @@ namespace AudioManager
                         AddAlbum(existingArtistAlbums, artist, album);
                     }
                 }
-                else if (topFolder.Equals(Constants.MusivDir, StringComparison.OrdinalIgnoreCase))
+                else if (topFolder.Equals(Constants.MusivationDir, StringComparison.OrdinalIgnoreCase))
                 {
                     string fileName = parts[parts.Length - 1];
                     if (fileName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
