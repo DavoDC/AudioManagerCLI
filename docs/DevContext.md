@@ -130,7 +130,7 @@ Moved to `Architecture/IntegrationAndParseCacheArchitecture.md` (same folder). R
 
 - **RoutingConfidence enum removed 2026-05-31.** `GetDestDir()` now returns `out bool isNewFolder` (true = scan-ahead is creating a new Artists/ folder for this track). Display: `[AUTO - new folder]` vs `[AUTO]`. Do not re-add the enum; the `Uncertain` path was dead since 2026-05-25.
 
-- **LibChecker.CheckArtistFolder() uses case-sensitive String.Equals** (line 373). Windows NTFS case-insensitivity protects file routing but NOT LibChecker validation. Any artist with non-standard casing that gets a new track integrated will cause a LibChecker flag even if the file lands in the right folder. Protection: artist-name-overrides.xml (comprehensive as of 2026-05-26, audited post-May integration run).
+- **LibChecker.CheckArtistFolder() uses case-sensitive `.Equals`** (LibChecker.cs:483). Windows NTFS case-insensitivity protects file routing but NOT LibChecker validation. Any artist with non-standard casing that gets a new track integrated will cause a LibChecker flag even if the file lands in the right folder. Protection: artist-name-overrides.xml (comprehensive as of 2026-05-26, audited post-May integration run).
 
 - **DetermineGenre(artists)** is only called when `ShouldFixGenre` returned true. The else-branch returning `Constants.MotivDir` is intentional - Motivation normalization is the only non-Musivation trigger path.
 
@@ -146,9 +146,9 @@ Moved to `Architecture/IntegrationAndParseCacheArchitecture.md` (same folder). R
 
 - **RunScanAhead counts batch + Misc + Sources/ for artist folder threshold.** Sources/ tracks are scanned via `Path.Combine(Constants.MirrorFolderPath, Constants.SourcesDir)` with `SearchOption.AllDirectories` - same XML parsing as Misc. Sources tracks count toward the 3-song threshold but are NOT added to `_miscMigrationCandidates` - they stay in Sources/ regardless of whether the artist gets promoted. (Fix 2026-05-26: without Sources/, Common with 1 Sources/Films song + 2 batch songs still routed to Misc.)
 
-- **Dry-run "Skipped" count is not the real-mode "Skipped" count.** In dry-run, L-decided duplicates have `SkipRouting = true` (MusicIntegrator.cs ~line 200) and count as Skipped - they cannot be routed because dry run stages nothing, so the library copy is still in place when the replacement would be routed. In real mode, `SkipRouting` stays false for L decisions, so those files ARE routed in step 3b. Never treat dry-run "Skipped: N" as a data loss signal without checking which decision type caused it.
+- **Dry-run "Skipped" count is not the real-mode "Skipped" count.** In dry-run, L-decided duplicates have `SkipRouting = true` (DuplicateExecutor.cs:162) and count as Skipped - they cannot be routed because dry run stages nothing, so the library copy is still in place when the replacement would be routed. In real mode, `SkipRouting` stays false for L decisions, so those files ARE routed in step 3b. Never treat dry-run "Skipped: N" as a data loss signal without checking which decision type caused it.
 
-- **`SanitiseFilename` uses Cyrillic encoding best-fit to map diacritics to ASCII** (Reflector.cs line 289: `Encoding.ASCII.GetString(Encoding.GetEncoding("Cyrillic").GetBytes(...))`). Example: `ÿ` (U+00FF) -> `y`. Any artist tag with diacritics that survives `ExtractAndFixArtists` unchanged will produce a tag/filename mismatch and trigger LibChecker `CheckFilenamesCasingsMatchArtistTags`. Solution: add the diacritic form as a `variant` in artist-name-overrides.xml so it normalizes to canonical before dedup.
+- **`SanitiseFilename` uses Cyrillic encoding best-fit to map diacritics to ASCII** (Reflector.cs:413: `Encoding.ASCII.GetString(Encoding.GetEncoding("Cyrillic").GetBytes(...))`). Example: `ÿ` (U+00FF) -> `y`. Any artist tag with diacritics that survives `ExtractAndFixArtists` unchanged will produce a tag/filename mismatch and trigger LibChecker `CheckFilenamesCasingsMatchArtistTags`. Solution: add the diacritic form as a `variant` in artist-name-overrides.xml so it normalizes to canonical before dedup.
 
 - **`artist-name-overrides.xml` supports a `variant` attribute** (added 2026-06-27) that maps Unicode-stylized names to their canonical form (e.g. `variant="JAŸ-Z"` on the Jay-Z entry). If a streaming provider encodes an artist name with diacritics or stylized Unicode, add a `variant` entry rather than changing code. Multiple variants per entry are not supported - add a new `<Artist>` element if needed.
 
@@ -172,7 +172,7 @@ Moved to `Architecture/IntegrationAndParseCacheArchitecture.md` (same folder). R
 
 - **verify.bat runs full suite:** build + unit tests + manifest tests. Always pass `--no-pause` when calling from Claude. All assertions must be green before any C# commit.
 
-- **`StripAlbumSuffixes` is the single canonical album normalizer.** Called by TagFixer (line 97), RunScanAhead (line 463), and PreScanFiles dry-run path (line 1286). When adding new version-suffix patterns (`(Mono)`, `(Stereo)`, `(YYYY Remastered Edition)`, etc.), edit `StripAlbumSuffixes` only - all three callers benefit automatically. Never inline suffix-stripping logic in scan-ahead or GetDestDir.
+- **`StripAlbumSuffixes` is the single canonical album normalizer.** Called directly by TagFixer (TagFixer.cs:279, :376) and through `RulesEngine.NormalizeAlbum` (RulesEngine.cs:31), which BatchScanner uses in RunScanAhead (BatchScanner.cs:106) and PreScanFiles (BatchScanner.cs:328, :336). When adding new version-suffix patterns (`(Mono)`, `(Stereo)`, `(YYYY Remastered Edition)`, etc.), edit `StripAlbumSuffixes` only - all three callers benefit automatically. Never inline suffix-stripping logic in scan-ahead or GetDestDir.
 
 - **`FindAlbumFolder(artistFolder, cleanAlbum)` is the safe album folder lookup.** Returns the exact-match folder if it exists, then falls back to a fuzzy match (strips version suffixes from each subfolder name and compares). Use it instead of `Path.Combine(artistFolder, SanitiseFolderName(album))` anywhere an album folder is looked up in the library (`CountAlbumSongs`, `GetDestDir`). Direct construction misses the case where the on-disk folder has a suffix the incoming tag doesn't (e.g. `"Life After Death (2014 Remastered Edition)/"` vs clean tag `"Life After Death"`).
 
@@ -190,7 +190,7 @@ Moved to `Architecture/IntegrationAndParseCacheArchitecture.md` (same folder). R
 
 - **TrackXML : Track is known design debt (TIER 2 in the backlog).** Do not model new serialization code on this inheritance. Any new XML field should wait for the XML refactor item. The target design is `internal static class TrackXML` with `Read(path, TrackTag)` and `Write(path, TrackTag)` using `XDocument` (System.Xml.Linq). `XDocument` is strictly cleaner: `r.Element("Title")?.Value ?? ""` vs XPath strings, and the write path is one `new XDocument(new XElement("Track", ...))` expression.
 
-- **ParseCache Extract() pattern (TIER 2 prerequisite, now in place).** ParseCache.cs:22 has a static `string[] Extract(TrackTag t)` returning all cache fields in order. `FieldCount` is `Extract(null).Length` (ParseCache.cs:18). Save uses `string.Join(Sep, Extract(t))` (ParseCache.cs:70). Deserialize validates `parts.Length != FieldCount` (ParseCache.cs:94). Adding a field means editing `Extract` and the `new string[12]` length in `Extract(null)` (ParseCache.cs:21) together.
+- **ParseCache Extract() pattern (TIER 2 prerequisite, now in place).** ParseCache.cs:25 has a static `string[] Extract(TrackTag t)` returning all cache fields in order. `FieldCount` is `Extract(null).Length` (ParseCache.cs:21). Save uses `string.Join(Sep, Extract(t))` (ParseCache.cs:71). Deserialize validates `parts.Length != FieldCount` (ParseCache.cs:95). Adding a field means editing `Extract` and the `new string[12]` length in `Extract(null)` (ParseCache.cs:26) together.
 
 - **artist-name-overrides.xml is loaded at runtime** (XmlDocument.Load at first call, cached per process). No rebuild needed when adding entries - changes take effect on next exe run.
 
@@ -262,7 +262,7 @@ This is exactly how the dry-run `[DRY RUN] Would route to:` line is computed for
 
 ## RunMiscMigration: L-Delete Ambiguity
 
-**`RunMiscMigration`'s `!File.Exists(libPath)` check has two distinct causes:** (1) genuinely stale mirror entry (MP3 deleted from library before this run) or (2) L-decision deleted the file earlier in this same run. The `_lDeletedLibraryPaths` HashSet (populated in Step 3a when `ReplaceGuard.Stage(dup.LibraryFilePath)` stages the library copy, MusicIntegrator.cs:450-453; removed again on rollback, MusicIntegrator.cs:502 and :511) disambiguates these. Check it before printing WARN: if path is in set, print `[INFO] Already deleted by duplicate resolution` instead. Reuse this pattern if other post-routing cleanup passes face the same ambiguity.
+**`RunMiscMigration`'s `!File.Exists(libPath)` check has two distinct causes:** (1) genuinely stale mirror entry (MP3 deleted from library before this run) or (2) L-decision deleted the file earlier in this same run. The `_lDeletedLibraryPaths` HashSet (populated in Step 3a when `ReplaceGuard.Stage(dup.LibraryFilePath)` stages the library copy, DuplicateExecutor.cs:183-187; removed again on rollback, ReplacementLedger.cs:51 and :60) disambiguates these. Check it before printing WARN: if path is in set, print `[INFO] Already deleted by duplicate resolution` instead. Reuse this pattern if other post-routing cleanup passes face the same ambiguity.
 
 <!-- md-block: phase-order-preflight -->
 ## MusicIntegrator: Phase Order And Pre-flight (David, 2026-11-11)
@@ -301,17 +301,17 @@ Review screens show FINAL values (after tag fixes and normalisation), see [Music
 Line references are to `src/AudioManager/Code/Program.cs`. The README CLI table is the user-facing version of this list.
 
 - **Standalone flags run first.** `--mirror-retry`, `--fingerprint`, `--libfix-plan|apply|revert` and `--misc-revert` are checked in `Main` before any mode parsing (Program.cs:33, 42, 50, 58). They return or exit before the verb is read.
-- **Everything else is validated by `FindUnknownFlag`.** It scans args from index 1 (the verb is args[0], checked later at Program.cs:118). A bare token or an unknown flag prints `unknown option '<token>'. Nothing was run.` and exits 1 (Program.cs:75-82, 723-743).
-- **Value-taking flags consume the next token.** `--manifest`, `--revert`, `--libfix-apply`, `--libfix-revert` and `--misc-revert` read `args[idx + 1]` and skip it in the scan (Program.cs:731-740). `--apply-plan` and `--libfix-plan` take no value.
+- **Everything else is validated by `FindUnknownFlag`.** It scans args from index 1 (the verb is args[0], checked later at Program.cs:118). A bare token or an unknown flag prints `unknown option '<token>'. Nothing was run.` and exits 1 (Program.cs:75-82, 735-752).
+- **Value-taking flags consume the next token.** `--manifest`, `--revert`, `--libfix-apply`, `--libfix-revert` and `--misc-revert` read `args[idx + 1]` and skip it in the scan (Program.cs:743-752). `--apply-plan` and `--libfix-plan` take no value.
 - **Verb-specific flags are not tied to a verb.** `--revert` and `--apply-plan` are read only in the tagfix branch (Program.cs:314-350). `--force-regen` is read only for analysis (Program.cs:84, 104). `--manifest` and `--no-input` reach only integrate (Program.cs:290). Other verbs accept and ignore them.
 - **Rejected combinations, exactly as coded:**
-  - `analysis --dry-run`: `--dry-run is not supported in analysis mode` and exit 1 (Program.cs:137-142; helper at 601).
-  - `tagfix --dry-run --apply-plan`: `--dry-run cannot be combined with --apply-plan` (Program.cs:709-712).
-  - `tagfix --dry-run --revert <path>`: `--dry-run cannot be combined with --revert` (Program.cs:713-715).
-  - `tagfix --revert` with no path, or with a path that starts `--`: `--revert requires a journal path argument` (Program.cs:706-708).
+  - `analysis --dry-run`: `--dry-run is not supported in analysis mode` and exit 1 (Program.cs:137-142; helper at 608).
+  - `tagfix --dry-run --apply-plan`: `--dry-run cannot be combined with --apply-plan` (Program.cs:723-724).
+  - `tagfix --dry-run --revert <path>`: `--dry-run cannot be combined with --revert` (Program.cs:726-727).
+  - `tagfix --revert` with no path, or with a path that starts `--`: `--revert requires a journal path argument` (Program.cs:714-715).
   - `ValidateTagfixArgs` runs only when the verb is tagfix (Program.cs:314).
-  - More than one of `--libfix-plan`, `--libfix-apply`, `--libfix-revert`: `use only one of ...` (Program.cs:615-621).
-  - Missing path for `--libfix-apply`, `--libfix-revert`, `--misc-revert` or `--manifest`: each prints a `requires a ... path argument` error and exits (Program.cs:638-643, 678-682, 92-96).
+  - More than one of `--libfix-plan`, `--libfix-apply`, `--libfix-revert`: `use only one of ...` (Program.cs:624-627).
+  - Missing path for `--libfix-apply`, `--libfix-revert`, `--misc-revert` or `--manifest`: each prints a `requires a ... path argument` error and exits (Program.cs:647-650, 685-688, 92-96).
 - **Known gap, not yet changed.** A standalone flag is matched anywhere in args, so it runs even when a verb and other flags are present. `Main` tests `args.Any(... "--mirror-retry" ...)` before any verb parsing (Program.cs:33). So `integrate --dry-run --mirror-retry` runs the mirror retry, not a dry run, and the integrate verb and `--dry-run` are never read. `--fingerprint` and the libfix and misc flags behave the same way (Program.cs:42, 50, 58). The unknown-token check at Program.cs:75 never runs in that case either. Rejecting these mixes is pending an owner decision.
 
 ## Audit Metadata in Version Control
