@@ -1,6 +1,6 @@
 """Capture golden JSON fixtures from REAL AudioManager.exe runs on a synthetic sandbox.
 
-Producer side of the contract rule: the engine publishes tests/golden/<name>.json from real runs; the consumer's
+Producer side of the contract rule: the engine publishes tests/golden/<name>.json from real runs; the
 GoldenContractTests read them; scripts/dev/golden/check_goldens.py regenerates them and diffs the key sets.
 
 Usage:  python scripts\\dev\\golden\\make_goldens.py [--exe PATH] [--out DIR]
