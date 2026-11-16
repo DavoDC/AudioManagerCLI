@@ -8,7 +8,7 @@ namespace AudioManager
     /// Characterisation tests for the AudioMirror path helpers: MirrorIndex.BuildMirrorIndex,
     /// MirrorIndex.DeriveLibraryPathFromMirrorPath (forwarded by MusicIntegrator) and
     /// MirrorIndex.GetMirrorRelPath (forwarded by MusicIntegrator). They pin what the code does today.
-    /// Tests named KnownGap pin a current behaviour that looks wrong; a fix should change them on purpose.
+    /// A test named KnownGap would pin a current behaviour that looks wrong; a fix should change it on purpose.
     /// Windows-only paths: the test host runs on Windows, so the separator is a backslash.
     /// </summary>
     internal static class MirrorHelperTests
@@ -191,19 +191,19 @@ namespace AudioManager
             Assert.Equal(input, result, "forward slashes do not match the backslash mirror root, so no mapping happens");
         }
 
-        // KnownGap: the root matches, but the remainder keeps its forward slash. TrimStart only strips '\',
-        // so the rooted "/Zeta Band/..." goes to Path.Combine, which discards the library folder.
-        public static void DeriveLibraryPath_KnownGap_MixedSlashes_ReturnsRootedPathOutsideLibrary()
+        // Mixed slashes: the root matches and the forward-slash remainder is normalised, so it joins under the library root.
+        public static void DeriveLibraryPath_MixedSlashes_MapsRemainderIntoLibrary()
         {
             string result = IndexWithFakeRoots().DeriveLibraryPathFromMirrorPath(@"C:\AudioMirror/Zeta Band/Album/Track.xml");
-            Assert.Equal("/Zeta Band/Album/Track.mp3", result, "KnownGap: the library root is lost when the remainder uses '/'");
+            Assert.Equal(@"C:\Lib\Audio\Zeta Band\Album\Track.mp3", result, "the remainder is normalised to backslashes and joined under the library root");
         }
 
-        // KnownGap: the root check is a plain prefix match, so a sibling folder named "AudioMirror2" is mapped as if inside.
-        public static void DeriveLibraryPath_KnownGap_SiblingFolderWithSharedPrefix_IsMappedAsInside()
+        // A sibling folder whose name only starts with the mirror root name is outside the mirror and comes back unchanged.
+        public static void DeriveLibraryPath_SiblingFolderWithSharedPrefix_ReturnsInputUnchanged()
         {
-            string result = IndexWithFakeRoots().DeriveLibraryPathFromMirrorPath(@"C:\AudioMirror2\Zeta Band\Track.xml");
-            Assert.Equal(@"C:\Lib\Audio\2\Zeta Band\Track.mp3", result, "KnownGap: a prefix match without a separator check maps a sibling folder");
+            string input = @"C:\AudioMirror2\Zeta Band\Track.xml";
+            string result = IndexWithFakeRoots().DeriveLibraryPathFromMirrorPath(input);
+            Assert.Equal(input, result, "the root match needs a separator boundary, so AudioMirror2 is not inside AudioMirror");
         }
 
         public static void DeriveLibraryPath_EmptyInput_ReturnsEmptyUnchanged()
@@ -234,11 +234,11 @@ namespace AudioManager
                 "the folder-name search is case-insensitive");
         }
 
-        // KnownGap: forward slashes are returned as-is, so the result has no leading backslash, which LibChecker's path index needs.
-        public static void GetMirrorRelPath_KnownGap_ForwardSlashPath_KeepsForwardSlashes()
+        // Forward slashes are normalised first, so the result is a backslash rel path with its leading backslash.
+        public static void GetMirrorRelPath_ForwardSlashPath_ReturnsBackslashRelPath()
         {
-            Assert.Equal("/Artists/X/Y.xml", MirrorIndex.GetMirrorRelPath("C:/Music/AUDIO_MIRROR/Artists/X/Y.xml"),
-                "KnownGap: no separator normalisation, so the result is not a backslash rel path");
+            Assert.Equal(@"\Artists\X\Y.xml", MirrorIndex.GetMirrorRelPath("C:/Music/AUDIO_MIRROR/Artists/X/Y.xml"),
+                "forward slashes are normalised to backslashes before the rel path is cut");
         }
 
         public static void GetMirrorRelPath_NoMarker_ReturnsBackslashAndFileName()

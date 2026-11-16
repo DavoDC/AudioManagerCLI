@@ -173,11 +173,16 @@ namespace AudioManager
         {
             try
             {
-                string mirrorBaseFolder = _roots.Mirror;
+                string mirrorBaseFolder = _roots.Mirror.TrimEnd('\\', '/');
                 if (!mirrorXmlPath.StartsWith(mirrorBaseFolder, StringComparison.OrdinalIgnoreCase))
                     return mirrorXmlPath;
+                // The root must end at a separator, so a sibling such as AudioMirror2 is outside AudioMirror.
+                if (mirrorXmlPath.Length > mirrorBaseFolder.Length
+                    && mirrorXmlPath[mirrorBaseFolder.Length] != '\\' && mirrorXmlPath[mirrorBaseFolder.Length] != '/')
+                    return mirrorXmlPath;
 
-                string relativePath = mirrorXmlPath.Substring(mirrorBaseFolder.Length).TrimStart(Path.DirectorySeparatorChar);
+                // Normalise '/' before trimming: a rooted remainder would make Path.Combine drop the library folder.
+                string relativePath = mirrorXmlPath.Substring(mirrorBaseFolder.Length).Replace('/', '\\').TrimStart('\\');
 
                 if (relativePath.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
                     relativePath = relativePath.Substring(0, relativePath.Length - 4) + ".mp3";
@@ -273,6 +278,7 @@ namespace AudioManager
         internal static string GetMirrorRelPath(string mirrorXmlPath)
         {
             if (string.IsNullOrEmpty(mirrorXmlPath)) return string.Empty;
+            mirrorXmlPath = mirrorXmlPath.Replace('/', '\\');
             int pos = mirrorXmlPath.LastIndexOf(Constants.MirrorFolderName, StringComparison.OrdinalIgnoreCase);
             if (pos < 0) return "\\" + Path.GetFileName(mirrorXmlPath);
             return mirrorXmlPath.Substring(pos + Constants.MirrorFolderName.Length);
