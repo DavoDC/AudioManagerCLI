@@ -90,7 +90,7 @@ namespace AudioManager
             }
             else
             {
-                // GUI-54: a row with no key still explains itself, so JSON and console agree.
+                // A row with no key still explains itself, so JSON and console agree.
                 reason = "No rule decides this duplicate - keep both or choose manually";
             }
         }
@@ -287,7 +287,7 @@ namespace AudioManager
             if (noInput)
             {
                 // Review-stage resolution wins over the exe's own recommendation on a real
-                // run, carried through the same --manifest mechanism as accept/decline. The GUI always
+                // run, carried through the same --manifest mechanism as accept/decline. The consumer program always
                 // sends dupResolution: an untouched duplicate carries K or no resolution; null or absent
                 // means unresolved and falls through to the exact same auto-accept-recommendation
                 // behavior as before - unresolved batches stay safe by construction, not by a second code path.

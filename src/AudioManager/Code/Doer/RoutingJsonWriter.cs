@@ -205,7 +205,7 @@ namespace AudioManager
             sb.AppendLine($"    \"miscAutoMigrations\": [{string.Join(", ", orderedMigrations.Select(kv => $"{{\"artist\": {JsonText.Quote(kv.Key)}, \"count\": {kv.Value}}}"))}],");
             sb.AppendLine($"    \"miscAutoMigrationTotal\": {migrationTotal},");
 
-            // Stage counts derived from the same rows written to files[], so a GUI reads them
+            // Stage counts derived from the same rows written to files[], so a client reads them
             // without scanning rows. "skipped" covers skip and would-skip statuses.
             int files = entries.Count;
             int routed = entries.Count(e => e.Status == "moved" || e.Status == "would-move");

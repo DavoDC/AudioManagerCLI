@@ -123,7 +123,7 @@ namespace AudioManager
             }
         }
 
-        /// <summary>Per-file change kinds for the GUI: tags (title/album/artists/genre), compilation, rename, quarantine.</summary>
+        /// <summary>Per-file change kinds for a client: tags (title/album/artists/genre), compilation, rename, quarantine.</summary>
         internal static List<string> ChangeKinds(TagFixer.FixLog f)
         {
             var kinds = new List<string>();

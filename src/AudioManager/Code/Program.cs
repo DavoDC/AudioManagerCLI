@@ -868,7 +868,7 @@ namespace AudioManager
             if (status == "error") return PreIntegrationGateResult.GitStatusFailed;
             if (IsMirrorStale(status)) return PreIntegrationGateResult.MirrorStale;
             if (!libCheckerClean()) return PreIntegrationGateResult.LibCheckerDirty;
-            // Backstop for the GUI gate: NewMusic must have no pending tag fixes or manual items before anything moves.
+            // Backstop for the consumer program gate: NewMusic must have no pending tag fixes or manual items before anything moves.
             if (tagfixPending != null && tagfixPending() > 0) return PreIntegrationGateResult.TagfixPending;
             return PreIntegrationGateResult.Passed;
         }

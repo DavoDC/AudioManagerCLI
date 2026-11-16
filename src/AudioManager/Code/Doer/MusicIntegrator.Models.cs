@@ -42,7 +42,7 @@ namespace AudioManager
             public string DupRecommendationKey; // "D", "L", or "K"
             public string DupRecommendation;    // "Delete library copy" / "Delete new file" / "Keep both"
             public string DupReason;
-            // Full before/after tag and filename change for this track (GUI-54), from TagFixer.LogsByFile.
+            // Full before/after tag and filename change for this track, from TagFixer.LogsByFile.
             public TagFixer.FixLog TagFix;
         }
 

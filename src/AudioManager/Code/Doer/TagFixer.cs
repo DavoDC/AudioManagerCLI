@@ -575,7 +575,7 @@ namespace AudioManager
                         FileChanges[log.Filename] = nonFilenameChanges;
                 }
 
-                // GUI-54: every file that reaches the apply stage (tag fix, TCMP-only, or a filename-only
+                // Every file that reaches the apply stage (tag fix, TCMP-only, or a filename-only
                 // rename that adds no change text in a dry run) gets its structured before/after registered.
                 LogsByFile[log.OriginalFilename] = log;
                 if (!string.IsNullOrEmpty(log.Filename) && !log.Filename.Equals(log.OriginalFilename, StringComparison.OrdinalIgnoreCase))
