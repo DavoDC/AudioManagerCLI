@@ -106,6 +106,14 @@ Auto-runs after step 2, or manually: `AudioManager.exe analysis`
 
 **No manual MP3tag editing needed.** Always use `--dry-run` first to preview changes.
 
+## Scope and boundary
+
+This repo is the C# engine only. It owns the library, tags, routing and analysis, and it has no UI code and no streaming-service code.
+
+- The interface to any external client is data: the JSON files the exe writes under `data/logs/` (`tracks.json`, `analysis-stats.json`, `routing-<timestamp>.json`, `tagfix-plan.json` and others), plus the exe command line.
+- The shapes of those files are documented in [docs/Contracts](docs/Contracts/), including [TagFixJSONFormat.md](docs/Contracts/TagFixJSONFormat.md) for `tagfix-plan.json` and [RoutingJSONFormat.md](docs/Contracts/RoutingJSONFormat.md) for routing records.
+- Changing the shape of any of these files means updating every consumer in the same working session.
+
 ## Project Structure
 
 The C# console app lives in `src/`, and launchers live in `scripts/`. The full annotated tree is in [DevContext.md, Project Structure](docs/DevContext.md#project-structure).
