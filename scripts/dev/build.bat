@@ -7,7 +7,7 @@
 for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe`) do set MSBUILD="%%i"
 if not defined MSBUILD (
     echo [ERROR] MSBuild not found. Install Visual Studio with the .NET workload.
-    pause
+    if not "%1"=="--no-pause" pause
     exit /b 1
 )
 

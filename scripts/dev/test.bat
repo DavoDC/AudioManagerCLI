@@ -15,6 +15,11 @@ if errorlevel 1 (
 )
 
 echo.
+if not exist "%TESTEXE%" (
+    echo [ERROR] Test exe not found: %TESTEXE%
+    if not "%1"=="--no-pause" cmd /k
+    exit /b 1
+)
 "%TESTEXE%" --test
 set TEST_EXIT=%ERRORLEVEL%
 
