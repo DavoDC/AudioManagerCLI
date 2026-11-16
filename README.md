@@ -106,6 +106,8 @@ Auto-runs after step 2, or manually: `AudioManager.exe analysis`
 
 **No manual MP3tag editing needed.** Always use `--dry-run` first to preview changes.
 
+**Interrupted replaces.** A library file replaced by a duplicate decision is moved aside to a `<name>.replaced.bak` sibling and, once the new file lands, retired to `NewMusic-Quarantine\Replaced\<timestamp>\`. If a run is interrupted, the next real run's startup sweep retires a backup whose landing is proven, restores a backup whose library file is missing, and keeps any other backup with a `[WARN]`. A dry run only lists leftovers and changes nothing. Details: [GoLiveRunbook.md](docs/GoLiveRunbook.md).
+
 ## Scope and boundary
 
 This repo is the C# engine only. It owns the library, tags, routing and analysis, and it has no UI code and no streaming-service code.
