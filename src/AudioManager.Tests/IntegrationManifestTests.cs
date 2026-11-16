@@ -167,6 +167,33 @@ namespace AudioManager
             Assert.True(error == null && m.Entries.Count == 1, "non-string values skipped without error");
         }
 
+        // A nested array/object value holds commas and braces inside strings; the skip must
+        // consume the whole value, not stop at the first comma or brace.
+        private const string NestedValueEntry =
+            @"{""filename"":""a.mp3"",""artist"":""X"",""title"":""Y"",""tagFix"":{""oldTags"":{""title"":""t, u""},""list"":[1,2,{""k"":""}""}]},""dupResolution"":""K""}";
+
+        public static void Parse_SkipsNestedArrayAndObjectValues()
+        {
+            var m = IntegrationManifest.Parse("[" + NestedValueEntry + "]", out string error);
+            Assert.True(error == null, $"no parse error, got: {error}");
+            Assert.True(m.Entries.Count == 1, "one entry parsed from array form");
+            Assert.Equal("a.mp3", m.Entries[0].Filename);
+            Assert.Equal("X", m.Entries[0].Artist);
+            Assert.Equal("Y", m.Entries[0].Title);
+            Assert.Equal("K", m.Entries[0].DupResolution);
+        }
+
+        public static void Parse_SkipsNestedValuesInTracksObjectForm()
+        {
+            var m = IntegrationManifest.Parse("{\"tracks\":[" + NestedValueEntry + "]}", out string error);
+            Assert.True(error == null, $"no parse error, got: {error}");
+            Assert.True(m.Entries.Count == 1, "one entry parsed from tracks object form");
+            Assert.Equal("a.mp3", m.Entries[0].Filename);
+            Assert.Equal("X", m.Entries[0].Artist);
+            Assert.Equal("Y", m.Entries[0].Title);
+            Assert.Equal("K", m.Entries[0].DupResolution);
+        }
+
         // ---------------------------------------------- dupResolution (review-stage override)
 
         private const string DupJson = @"[

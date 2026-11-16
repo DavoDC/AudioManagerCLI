@@ -287,10 +287,10 @@ namespace AudioManager
             if (noInput)
             {
                 // Review-stage resolution wins over the exe's own recommendation on a real
-                // run, carried through the same --manifest mechanism as accept/decline. A duplicate left
-                // untouched in Review has no manifest entry for it, so this falls through to
-                // the exact same auto-accept-recommendation behavior as before - unresolved
-                // batches stay safe by construction, not by a second code path.
+                // run, carried through the same --manifest mechanism as accept/decline. The GUI always
+                // sends dupResolution: an untouched duplicate carries K or no resolution; null or absent
+                // means unresolved and falls through to the exact same auto-accept-recommendation
+                // behavior as before - unresolved batches stay safe by construction, not by a second code path.
                 char manifestDecision = _manifest?.GetDupResolution(
                     Path.GetFileName(sf.SourcePath), track.Artists, track.Title, MusicIntegrator.RelToNewMusic(sf.SourcePath, _roots.NewMusic)) ?? '\0';
                 if (manifestDecision != '\0')

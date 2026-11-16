@@ -28,6 +28,25 @@ Stage counts so a client does not have to scan the rows. All integers, derived f
 
 Other `summary` fields (`routes`, `miscAutoMigrations`, `miscAutoMigrationTotal`, `compilationAlbums`) are unchanged.
 
+## files[].status values
+
+Each `files` row carries one `status`. The values below are the literals the code writes (`Status = "..."` in `src/AudioManager/Code/Doer`). The counts rule above (`routed`, `skipped`, `errors`) is unchanged; `deleted`, `would-delete`, `would-keep`, `would-replace` and `quit` are counted in none of those three fields.
+
+| Status | Meaning | Written at |
+|--------|---------|------------|
+| `moved` | Real run: the file was moved into the library. | `FileMover.cs:171` |
+| `would-move` | Dry run: the file would be moved to its destination. | `FileMover.cs:151` |
+| `skipped` | Real run: not routed, because a required tag is missing or the destination already holds a file. | `FileMover.cs:85` (missing tag), `FileMover.cs:133` (already exists) |
+| `would-skip` | Dry run of a skip: the destination already exists, or an L replacement's destination is taken. | `FileMover.cs:133`, `DuplicateExecutor.cs:160` |
+| `deleted` | Real run: a duplicate (D decision) was sent to the Recycle Bin from NewMusic. | `DuplicateExecutor.cs:115` |
+| `would-delete` | Dry run of a D decision: the NewMusic copy would go to the Recycle Bin. | `DuplicateExecutor.cs:95` |
+| `would-keep` | Dry run of a D decision where the library copy is missing, so the NewMusic file is kept. | `DuplicateExecutor.cs:78` |
+| `would-replace` | Dry run of an L decision: the library copy would be replaced and the new file routed. | `DuplicateExecutor.cs:169` |
+| `quit` | The user chose Q at the duplicate review and the run stopped. | `DuplicateAdvisor.cs:222`, `DuplicateExecutor.cs:63` |
+| `error` | The row failed: an unreadable source (`FileMover.cs:65`), a routing exception (`FileMover.cs:184`), or a duplicate decision that could not complete (`DuplicateExecutor.cs:84`, `:107`, `:127`, `:137`, `:197`, `:207`). | as listed |
+
+`path_too_long` is a separate block-record status (`MusicIntegrator.Models.cs:121`, see the blocked section below). It is not a `files[].status` value and no row carries it.
+
 ## blocked (MAX_PATH gate)
 
 Top-level object, present only when the pre-move mirror path gate stopped the batch. It is written by `MusicIntegrator.AppendBlockedBlock` and carries no rows for the blocked batch: nothing moved, so `files` holds only rows decided before the gate ran. The gate runs before any duplicate decision or file move, in both dry and real runs, and the record is written even without `--json-output`. Absent on every other run.

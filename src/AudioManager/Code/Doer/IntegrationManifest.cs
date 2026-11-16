@@ -394,8 +394,8 @@ namespace AudioManager
                 }
                 else
                 {
-                    // tolerate non-string values (null/true/numbers) by skipping the token
-                    while (i < s.Length && s[i] != ',' && s[i] != '}') i++;
+                    // tolerate non-string values (null/true/numbers/nested arrays and objects) by skipping the whole value
+                    SkipValue(s, ref i);
                 }
             }
         }
