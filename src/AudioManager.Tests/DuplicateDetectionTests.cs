@@ -141,6 +141,21 @@ namespace AudioManager
             Assert.True(MusicIntegrator.IsDeluxeVersionOf("BULLY - DELUXE", "BULLY"), "BULLY - DELUXE is deluxe of BULLY");
         }
 
+        public static void IsDeluxe_SiblingPrefixIsNotDeluxe()
+        {
+            Assert.True(!MusicIntegrator.IsDeluxeVersionOf("Abbey Roadshow Deluxe", "Abbey"), "Abbey Roadshow Deluxe is a sibling, not a deluxe of Abbey");
+        }
+
+        public static void IsDeluxe_ParenDeluxeAfterBase()
+        {
+            Assert.True(MusicIntegrator.IsDeluxeVersionOf("Abbey Road (Deluxe Edition)", "Abbey Road"), "parenthesised deluxe edition is deluxe of base");
+        }
+
+        public static void IsDeluxe_BaseOfOnlyTrimChars()
+        {
+            Assert.True(!MusicIntegrator.IsDeluxeVersionOf("Anything Deluxe", " - "), "a base of only trim characters must not match");
+        }
+
         public static void IsDeluxe_ExpandedEdition_IsDeluxeOfBase()
         {
             Assert.True(MusicIntegrator.IsDeluxeVersionOf("Some Album (Expanded Edition)", "Some Album"), "expanded edition is deluxe of base");
