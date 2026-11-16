@@ -85,10 +85,10 @@ current NewMusic content no longer matches the plan's fingerprint. `fingerprint.
 `schemaVersion` starts at 1. It is bumped only when a field is removed or its meaning changes (additive fields do
 not bump it). A consumer must read `schemaVersion` and refuse a mismatch it was not built against.
 
-The GUI-54 additions are additive and do not bump `schemaVersion`: `artCount` inside `oldTags` and `newTags` here,
+The tagFix additions are additive and do not bump `schemaVersion`: `artCount` inside `oldTags` and `newTags` here,
 and the routing JSON `tagFix` object below.
 
-## Routing JSON: per-track `tagFix` (GUI-54)
+## Routing JSON: per-track `tagFix`
 
 The routing JSON (`recordType` routing or execution) carries one `tagFix` key on every `files[]` entry, placed just
 before `tagChanges`. It is `null` when the track has no tag fix. Otherwise it is an object:

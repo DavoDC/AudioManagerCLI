@@ -11,4 +11,4 @@ Fields (schemaVersion 1):
 - `libCheckerIssues`: total LibChecker hits (0 when the gate stopped earlier or the library is clean).
 - `generatedAt`: local ISO time.
 
-The mirror check runs before LibChecker, so `mirror_stale` is reported up front. Bump `schemaVersion` on any breaking change; consumers are the AudioManagerGUI Integration tab.
+The mirror check runs before LibChecker, so `mirror_stale` is reported up front. Bump `schemaVersion` on any breaking change; consumers are the consumer program's integration screen.
