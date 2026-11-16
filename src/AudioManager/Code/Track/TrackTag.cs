@@ -1,4 +1,4 @@
-﻿using AudioManager;
+using AudioManager;
 using System;
 using TagLib;
 using File = System.IO.File;
