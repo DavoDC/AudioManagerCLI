@@ -4,7 +4,7 @@ namespace AudioManager
 {
     /// <summary>
     /// Entry point of AudioManager.Tests.exe, the C# test host (ARCH-2). The shipped AudioManager.exe
-    /// contains no test code. Usage: --test | --routing-manifest PATH | --verify PATH.
+    /// contains no test code. Usage: --test [substring] | --routing-manifest PATH | --verify PATH.
     /// Exit code 0 when everything passed, 1 otherwise, 2 for bad arguments.
     /// </summary>
     internal static class TestHost
@@ -15,7 +15,8 @@ namespace AudioManager
 
             if (mode == "--test")
             {
-                return TestRunner.Run(out _, out _) ? 0 : 1;
+                string filter = args.Length > 1 ? args[1] : null;
+                return TestRunner.Run(filter, out _, out _) ? 0 : 1;
             }
 
             if (mode == "--routing-manifest" && args.Length >= 2)

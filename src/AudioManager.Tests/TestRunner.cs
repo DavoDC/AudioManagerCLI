@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -38,7 +39,13 @@ namespace AudioManager
                 .ToList();
         }
 
-        internal static bool Run(out int passed, out int failed)
+        internal static bool Run(out int passed, out int failed) => Run(null, out passed, out failed);
+
+        /// <summary>
+        /// Runs every test, or only those whose "Class.Method" name contains <paramref name="filter"/>
+        /// (case-insensitive). A null or empty filter runs all tests. Prints the slowest 10 timings.
+        /// </summary>
+        internal static bool Run(string filter, out int passed, out int failed)
         {
             string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
             var sb = new StringBuilder();
@@ -54,22 +61,29 @@ namespace AudioManager
             var testTypes = DiscoverTestClasses();
             passed = 0; failed = 0;
 
+            var timings = new List<KeyValuePair<string, long>>();
             foreach (var type in testTypes)
             {
                 foreach (var method in type.GetMethods(BindingFlags.Static | BindingFlags.Public))
                 {
+                    string fullName = $"{type.Name}.{method.Name}";
+                    if (!string.IsNullOrEmpty(filter) && fullName.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0)
+                        continue;
                     var capture = new StringWriter();
                     var originalOut = Console.Out;
                     Console.SetOut(capture);
+                    var stopwatch = Stopwatch.StartNew();
                     try
                     {
                         method.Invoke(null, null);
+                        stopwatch.Stop();
                         Console.SetOut(originalOut);
-                        Out($"[PASS] {method.Name}");
+                        Out($"[PASS] {method.Name} ({stopwatch.ElapsedMilliseconds} ms)");
                         passed++;
                     }
                     catch (TargetInvocationException tie)
                     {
+                        stopwatch.Stop();
                         Console.SetOut(originalOut);
                         string innerOutput = capture.ToString().TrimEnd();
                         if (innerOutput.Length > 0)
@@ -79,6 +93,7 @@ namespace AudioManager
                     }
                     catch (Exception ex)
                     {
+                        stopwatch.Stop();
                         Console.SetOut(originalOut);
                         string innerOutput = capture.ToString().TrimEnd();
                         if (innerOutput.Length > 0)
@@ -86,8 +101,14 @@ namespace AudioManager
                         Out($"[FAIL] {method.Name}: {ex.Message}");
                         failed++;
                     }
+                    timings.Add(new KeyValuePair<string, long>(fullName, stopwatch.ElapsedMilliseconds));
                 }
             }
+
+            if (!string.IsNullOrEmpty(filter) && passed + failed == 0)
+                Out($"[FILTER] no test name contains \"{filter}\"");
+            foreach (var slow in timings.OrderByDescending(t => t.Value).Take(10))
+                Out($"[SLOW] {slow.Key} {slow.Value} ms");
 
             Out($"\n-------------------------------");
             Out($"Results: {passed} passed, {failed} failed");
