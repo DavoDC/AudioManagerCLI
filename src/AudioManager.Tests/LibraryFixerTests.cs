@@ -103,12 +103,14 @@ namespace AudioManager
             try
             {
                 Single(lib, "Artist Alpha", "Artist Alpha - One.mp3", "Test Album");
+                Single(lib, "Artist Alpha", "Artist Alpha - Two.mp3", "Test Album");
                 AlbumFolder(lib, "Artist Alpha", "Test Album", 1);
 
                 LibraryFixer.FixPlan plan = LibraryFixer.BuildAlbumInSinglesPlan(lib);
 
-                Assert.True(plan.Moves.Count == 1, "1 Singles song + album folder with 1 song -> 1 move, got " + plan.Moves.Count);
-                LibraryFixer.PlannedMove one = plan.Moves[0];
+                Assert.True(plan.Moves.Count == 2, "2 Singles songs + album folder with 1 song -> 2 moves, got " + plan.Moves.Count);
+                LibraryFixer.PlannedMove one = FindMove(plan, "Artist Alpha - One.mp3");
+                Assert.True(one != null, "move for One.mp3 present");
                 Assert.Equal(Path.Combine("Artists", "Artist Alpha", "Test Album", "Artist Alpha - One.mp3"), one.To, "moves into the existing album folder");
                 Assert.True(!one.CreatesFolder, "existing folder -> createsFolder false");
             }
@@ -126,6 +128,26 @@ namespace AudioManager
 
                 Assert.True(plan.Moves.Count == 0, "a lone single is not an album in Singles -> no move, got " + plan.Moves.Count);
                 Assert.True(plan.Skipped.Count == 0, "a lone single is not skipped either");
+            }
+            finally { Cleanup(lib); }
+        }
+
+        public static void Plan_LoneSingleJoiningExistingAlbumFolder_IsSkippedNotMoved()
+        {
+            string lib = TempLib();
+            try
+            {
+                // BL-184: one Singles song of an album whose folder already holds songs reaches the threshold,
+                // but moving it would make LibChecker flag it as a lone song in a subfolder, so it stays put.
+                Single(lib, "Artist Alpha", "Artist Alpha - Yeah.mp3", "Test Album");
+                AlbumFolder(lib, "Artist Alpha", "Test Album", 1);
+
+                LibraryFixer.FixPlan plan = LibraryFixer.BuildAlbumInSinglesPlan(lib);
+
+                Assert.True(plan.Moves.Count == 0, "one Singles song of an album is never moved, got " + plan.Moves.Count);
+                Assert.True(plan.Skipped.Count == 1, "the lone single is listed as skipped, got " + plan.Skipped.Count);
+                Assert.True(plan.Skipped[0].From.EndsWith("Artist Alpha - Yeah.mp3", StringComparison.OrdinalIgnoreCase), "skipped entry is the lone single");
+                Assert.Equal("only one song from this album, stays in Singles", plan.Skipped[0].Reason, "skip reason");
             }
             finally { Cleanup(lib); }
         }

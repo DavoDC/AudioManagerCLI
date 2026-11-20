@@ -88,7 +88,8 @@ namespace AudioManager
         /// <summary>
         /// Plans the album_in_singles moves for one library. For each artist, groups the Singles songs by normalised
         /// album tag, counts the songs already in the album folder plus the Singles songs of that album, and plans a
-        /// move for every Singles song of an album that reaches the subfolder threshold. Read-only.
+        /// move for every Singles song of an album that reaches the subfolder threshold, except a lone Singles song
+        /// (listed in Skipped instead, BL-184). Read-only.
         /// </summary>
         internal static FixPlan BuildAlbumInSinglesPlan(string libraryRoot)
         {
@@ -115,6 +116,20 @@ namespace AudioManager
                         ? Path.GetFileName(existingFolder)
                         : MusicIntegrator.SanitiseFolderName(album);
                     if (string.IsNullOrWhiteSpace(folderName) || IsSinglesName(folderName)) continue;
+
+                    // BL-184: a lone Singles song moved into a folder that already holds songs is flagged by LibChecker
+                    // as a single in a subfolder, so the move would loop. It stays in Singles and is listed as skipped.
+                    if (group.Value.Count == 1)
+                    {
+                        string soleFile = Path.GetFileName(group.Value[0]);
+                        plan.Skipped.Add(new SkippedMove
+                        {
+                            From = Path.Combine(ArtistsDirName, artist, SinglesDirName, soleFile),
+                            To = Path.Combine(ArtistsDirName, artist, folderName, soleFile),
+                            Reason = "only one song from this album, stays in Singles"
+                        });
+                        continue;
+                    }
 
                     foreach (string songPath in group.Value)
                     {
