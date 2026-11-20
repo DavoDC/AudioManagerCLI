@@ -97,7 +97,7 @@ namespace AudioManager
             {
                 var m = manual[i];
                 string reason = m.Status == "error" ? (m.Detail ?? "error") : (m.ManualReason ?? "needs manual review");
-                sb.AppendLine($"    {{\"file\": {JsonText.Quote(RelativePath(folder, m.SourcePath, m.OriginalFilename))}, \"rule\": {JsonText.Quote(ManualRule(m))}, \"reason\": {JsonText.Quote(reason)}}}{(i < manual.Count - 1 ? "," : "")}");
+                sb.AppendLine($"    {{\"file\": {JsonText.Quote(RelativePath(folder, m.SourcePath, m.OriginalFilename))}, \"rule\": {JsonText.Quote(ManualRule(m))}, \"reason\": {JsonText.Quote(reason)}, \"suggestedTitle\": {JsonText.Quote(m.SuggestedTitle ?? "")}}}{(i < manual.Count - 1 ? "," : "")}");
             }
             if (manual.Count > 0) sb.AppendLine("  ]");
             sb.AppendLine("}");

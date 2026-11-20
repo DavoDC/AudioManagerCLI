@@ -66,6 +66,8 @@ namespace AudioManager
             public string ManualReason;
             /// <summary>Stable rule id for a residual-tag needsManual row (unwanted_text, missing_tag); null for the rename reasons.</summary>
             public string ManualRule;
+            /// <summary>Suggested title for an unwanted_text row whose flagged word is in the title; empty when none. Suggestion only, nothing applies it.</summary>
+            public string SuggestedTitle = "";
             /// <summary>Dry run only: the rename is blocked, so the file keeps OriginalFilename as its planned name.</summary>
             public bool RenameBlocked;
         }
@@ -606,18 +608,38 @@ namespace AudioManager
         private void MarkResidualIssue(FixLog log, string title, string artists, string album, string name, string rel)
         {
             if (!dryRun) return;
-            string rule = null, reason = null;
+            string rule = null, reason = null, flagged = null, flaggedField = null;
             var fields = new[] { ("title", title), ("artists", artists), ("album", album) };
             foreach (var f in fields)
             {
                 string hit = Constants.UnwantedInfo.FirstOrDefault(u => LibChecker.ContainsUnwanted(f.Item2, u));
-                if (hit != null) { rule = "unwanted_text"; reason = $"found '{hit}' in {f.Item1}"; break; }
+                if (hit != null) { rule = "unwanted_text"; reason = $"found '{hit}' in {f.Item1}"; flagged = hit; flaggedField = f.Item1; break; }
             }
             if (rule == null || exceptions.Accepts(name, rule, rel)) return;
             if (rule == "unwanted_text" && new[] { "title", "artist", "album", "casing" }.Any(k => exceptions.Keeps(name, k, rel))) return;
             log.NeedsManual = true;
             log.ManualRule = rule;
             log.ManualReason = reason;
+            if (flaggedField == "title") log.SuggestedTitle = TitleSuffixStripper.Suggest(title, flagged);
+        }
+
+        /// <summary>
+        /// Suggestion only (never applied here): the title without its LAST trailing (...) or [...] group, when that
+        /// group contains the flagged unwanted word. Empty when the title has no such trailing group, or when removing
+        /// it would leave no title. Only the last group is considered, so "Song (Alternate Version) (Live)" gets none.
+        /// </summary>
+        internal static class TitleSuffixStripper
+        {
+            private static readonly Regex TrailingGroup = new Regex(@"\s*(\([^()\[\]]*\)|\[[^()\[\]]*\])\s*$");
+
+            /// <summary>Returns the title minus its trailing group when the group holds flaggedWord (case-insensitive), else "".</summary>
+            public static string Suggest(string title, string flaggedWord)
+            {
+                if (string.IsNullOrWhiteSpace(title) || string.IsNullOrEmpty(flaggedWord)) return "";
+                Match m = TrailingGroup.Match(title);
+                if (!m.Success || !LibChecker.ContainsUnwanted(m.Value, flaggedWord)) return "";
+                return title.Substring(0, m.Index).Trim();
+            }
         }
 
         /// <summary>

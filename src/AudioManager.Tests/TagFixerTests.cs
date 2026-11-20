@@ -887,6 +887,15 @@ namespace AudioManager
             var log = ResidualRun("Song", "Greatest Original Hits", "", out _);
             Assert.True(log.NeedsManual, "unwanted text left in album needs a person");
             Assert.Equal("unwanted_text", log.ManualRule, "rule id");
+            Assert.Equal("", log.SuggestedTitle, "flagged word is in the album, so no title suggestion");
+        }
+
+        public static void ProcessFile_ResidualUnwantedTextInTitle_SuggestsTitleWithoutSuffix()
+        {
+            var log = ResidualRun("Chammak Challo (Multilingual Version)", "Album", "", out _);
+            Assert.True(log.NeedsManual, "unwanted text left in the title needs a person");
+            Assert.Equal("unwanted_text", log.ManualRule, "rule id");
+            Assert.Equal("Chammak Challo", log.SuggestedTitle, "suggested title drops the trailing group");
         }
 
         public static void ProcessFile_ResidualMissingAlbum_IsNotNeedsManual()

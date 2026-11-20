@@ -132,6 +132,30 @@ namespace AudioManager
             Assert.True(json.Contains("\"reason\": \"rename target already exists\""), "reason carried");
         }
 
+        public static void Build_NeedsManualUnwantedTitle_CarriesSuggestedTitle()
+        {
+            var row = Pending("C:\\NewMusic", "messy.mp3", "messy.mp3");
+            row.NeedsManual = true;
+            row.ManualRule = "unwanted_text";
+            row.ManualReason = "found 'version' in title";
+            row.SuggestedTitle = "Chammak Challo";
+            string json = TagFixPlanJson.Build("C:\\NewMusic", new List<TagFixer.ScannedFile>(), new List<TagFixer.FixLog> { row }, FixedNow);
+            Assert.True(json.Contains("\"suggestedTitle\": \"Chammak Challo\""), "needsManual entry carries the suggested title");
+        }
+
+        public static void Build_NeedsManualWithoutSuggestion_CarriesEmptySuggestedTitle()
+        {
+            var errored = new TagFixer.FixLog
+            {
+                OriginalFilename = "broken.mp3",
+                SourcePath = "C:\\NewMusic\\broken.mp3",
+                Status = "error",
+                Detail = "File corrupt",
+            };
+            string json = TagFixPlanJson.Build("C:\\NewMusic", new List<TagFixer.ScannedFile>(), new List<TagFixer.FixLog> { errored }, FixedNow);
+            Assert.True(json.Contains("\"suggestedTitle\": \"\""), "needsManual entry always carries suggestedTitle, empty when none");
+        }
+
         public static void Build_CleanFile_IsNotListed()
         {
             var clean = new TagFixer.FixLog
