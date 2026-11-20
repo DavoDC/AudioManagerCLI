@@ -15,7 +15,7 @@ Always written by `--apply-plan`: `data/logs/tagfix-result.json` (schemaVersion 
 - `counts`: `applied`, `alreadyDone`, `failed`, `quarantined`, `needsManual`, `pendingAfter` (a fresh dry-run scan after the apply, so a second apply reports 0).
 - `failures`: one string per failed file.
 
-Journal `data/logs/tagfix-journal-<yyyyMMdd-HHmmss>.json`: written before the first change, rewritten atomically after every file. One entry per planned file with `file`, `oldName`, `newName`, the old and new tag fields, `backup`, `quarantinedTo`, `detail` and `status` (`pending`, `done`, `failed`, `quarantined`, `already_done`, `reverted`). After a crash, `pending` entries were never touched.
+Journal `data/logs/tagfix-journal-<yyyyMMdd-HHmmss>.json`: written before the first change, rewritten atomically after every file. One entry per planned file with `file`, `oldName`, `newName`, the old and new tag fields, `backup`, `quarantinedTo`, `detail` and `status` (`pending`, `done`, `failed`, `quarantined`, `already_done`, `refused`, `reverted`). `refused` is a planned file that an accepted `apply_title` would duplicate (TagFixJSONFormat.md, `needsManual`): it is untouched and counted in `failures` as `refused, would duplicate: <title>`. After a crash, `pending` entries were never touched.
 
 Byte backups: `data/backups/<stamp>/<relative path>` (gitignored). Backups older than 7 days are pruned at the start of the next apply, never on a clean run and never by a background job. A run whose journal still has `pending` or `failed` entries keeps its backups past 7 days.
 

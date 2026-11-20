@@ -34,7 +34,7 @@ namespace AudioManager
         private readonly HashSet<string> acceptKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> acceptRelKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         /// <summary>The rule ids an Accept row may name. Anything else is skipped with a warning.</summary>
-        internal static readonly string[] ValidAcceptRules = { "unwanted_text", "missing_tag" };
+        internal static readonly string[] ValidAcceptRules = { "unwanted_text", "missing_tag", "apply_title" };
 
         /// <summary>
         /// Loads exceptions from the given path (or Constants.TagFixExceptionsPath by default).

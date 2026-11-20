@@ -68,7 +68,7 @@ namespace AudioManager
         /// (returns free bytes for a path); null uses the real drive.
         /// </summary>
         public static ApplyResult Apply(string folder, string planFingerprint, string logsDir, string backupRoot,
-            string quarantineRoot, DateTime now, Func<string, long> freeSpace = null, IEnumerable<string> only = null)
+            string quarantineRoot, DateTime now, Func<string, long> freeSpace = null, IEnumerable<string> only = null, string exceptionsPath = null)
         {
             // One apply at a time: a second run would share the stamp, backups and journal. The lock is held for the whole call.
             string lockPath = Path.Combine(logsDir, LockFileName);
@@ -81,7 +81,7 @@ namespace AudioManager
             }
             try
             {
-                return ApplyUnderLock(folder, planFingerprint, logsDir, backupRoot, quarantineRoot, now, freeSpace, only);
+                return ApplyUnderLock(folder, planFingerprint, logsDir, backupRoot, quarantineRoot, now, freeSpace, only, exceptionsPath);
             }
             finally
             {
@@ -112,10 +112,10 @@ namespace AudioManager
         }
 
         private static ApplyResult ApplyUnderLock(string folder, string planFingerprint, string logsDir, string backupRoot,
-            string quarantineRoot, DateTime now, Func<string, long> freeSpace, IEnumerable<string> only)
+            string quarantineRoot, DateTime now, Func<string, long> freeSpace, IEnumerable<string> only, string exceptionsPath)
         {
             var result = new ApplyResult { PlanFingerprint = planFingerprint };
-            var scan = TagFixer.ForFolder(folder, dryRun: true, quarantineRoot: quarantineRoot);
+            var scan = TagFixer.ForFolder(folder, dryRun: true, quarantineRoot: quarantineRoot, exceptionsPath: exceptionsPath);
             result.CurrentFingerprint = TagFixPlanJson.Fingerprint(folder, scan.Scanned);
 
             if (planFingerprint == null || !string.Equals(planFingerprint, result.CurrentFingerprint, StringComparison.Ordinal))
@@ -197,7 +197,7 @@ namespace AudioManager
             }).ToList();
             WriteJournal(result.JournalPath, folder, quarantineRoot, entries, now);
 
-            var fixer = TagFixer.ForTesting(dryRun: false, quarantineRoot: quarantineRoot);
+            var fixer = TagFixer.ForTesting(dryRun: false, quarantineRoot: quarantineRoot, exceptionsPath: exceptionsPath);
             for (int i = 0; i < planned.Count; i++)
             {
                 var e = entries[i];
@@ -217,6 +217,12 @@ namespace AudioManager
                     {
                         e.Status = "done"; e.NewName = log.Filename ?? e.OldName; result.Applied++;
                         e.NewHash = HashFile(Path.Combine(Path.GetDirectoryName(src), e.NewName));
+                    }
+                    else if (log.NeedsManual)
+                    {
+                        // Refused before any write (an accepted title strip would duplicate): the file is untouched.
+                        e.Status = "refused"; e.Detail = log.ManualReason;
+                        result.Failed++; result.Failures.Add(e.File + ": refused, " + log.ManualReason);
                     }
                     else if (log.Detail != null && log.Detail.StartsWith("quarantined", StringComparison.Ordinal))
                     {
@@ -243,7 +249,7 @@ namespace AudioManager
                 result.Failed++; result.Failures.Add(Rel(folder, u.SourcePath) + ": unreadable, not changed: " + u.Detail);
             }
 
-            var after = TagFixer.ForFolder(folder, dryRun: true, quarantineRoot: quarantineRoot);
+            var after = TagFixer.ForFolder(folder, dryRun: true, quarantineRoot: quarantineRoot, exceptionsPath: exceptionsPath);
             result.PendingAfter = after.Results.Count(l => l.Status == "would-fix" || l.WouldQuarantine);
             result.NewFingerprint = TagFixPlanJson.Fingerprint(folder, after.Scanned);
             result.Status = result.Failed == 0 ? "applied" : "partial";

@@ -70,7 +70,9 @@ real apply and its revert journal are not part of this contract yet.
   planned name). The tag fix for a blocked row is still in `files`, so a client can show both.
   Every row also carries a stable `rule` id: `error`, `empty_artist_or_title`, `rename_target_exists`, `unwanted_text` or `needs_manual`.
   `unwanted_text` is raised on a dry run when a tag still holds unwanted text after the fix (reason `found 'x' in album`); it is skipped when the file has an `<Accept rule="unwanted_text">` row or a `keep=` row. `missing_tag` is not raised here (a missing title or artist is `empty_artist_or_title`; a missing album is reported only in the routing `projectedHits`, see RoutingJSONFormat.md).
-  `config/tagfix-exceptions.xml` accepts `<Accept file="x.mp3" [sourceRel="Folder\x.mp3"] rule="unwanted_text|missing_tag" />`; an accepted rule is dropped from `projectedHits`.
+  `config/tagfix-exceptions.xml` accepts `<Accept file="x.mp3" [sourceRel="Folder\x.mp3"] rule="unwanted_text|missing_tag|apply_title" />`; an accepted `unwanted_text` or `missing_tag` rule is dropped from `projectedHits`.
+  Every `needsManual` row also carries `suggestedTitle` (string, empty when there is none) and `oldTitle` (string, the current title tag before any fix). `suggestedTitle` is set only for an `unwanted_text` row on the title, and is the title with its last trailing `(...)` or `[...]` group removed. It is empty when the suggestion would duplicate another title: the dry-run reason then ends with ` (would duplicate)`, so a client can disable ACCEPT. Accepting it is the `apply_title` rule below.
+  `apply_title` (Accept rule): on a real apply, the title is set to the stripped suggestion and the file is renamed to match, with the usual backup and revert journal. A collision (another file this run, the library mirror, or a sibling file already named `Artist - Title.mp3`) refuses the file: `rule` `unwanted_text`, `reason` `would duplicate: <title>`, and the file is untouched.
 - **`counts` are derived from the rows** above, so they can never disagree with the lists.
 
 ## Fingerprint
@@ -106,7 +108,17 @@ A hand-edited config read by TagFixer and by the integrate library-duplicate che
 - `<Exception file="..." keep="title|artist|album|casing" />` keeps the named tag as read. `title` skips built-in cleanup and custom rules on the title. `artist` keeps the artists tag as read, with no feat. split. `album` skips built-in album cleanup and custom rules on the album. `casing` skips the artist name casing overrides. Several rows for one file combine. The filename rename follows the kept tags.
 - `<NotDuplicate file="..." />` makes the integrate library-duplicate check skip that file, so its routing entry has `libraryDuplicate` false.
 
-A missing file means no exceptions, silently. A malformed file prints one `[WARN]` line and means no exceptions. An unusable row is skipped with a `[WARN]` and the other rows still apply. Code: `src/AudioManager/Code/Doer/TagFixExceptions.cs` (`Load`, `Keeps`, `IsNotDuplicate`). Tests: `src/AudioManager.Tests/TagFixExceptionsTests.cs`.
+A missing file means no exceptions, silently. A malformed file prints one `[WARN]` line and means no exceptions. An unusable row is skipped with a `[WARN]` and the other rows still apply. Code: `src/AudioManager/Code/Doer/TagFixExceptions.cs` (`Load`, `Keeps`, `IsNotDuplicate`, `Accepts`). Tests: `src/AudioManager.Tests/TagFixExceptionsTests.cs`.
+
+### Entry shape for a GUI writer (`<Accept>`, rule `apply_title`)
+
+One row per file. The entry is additive: `<Accept>` rows with an unknown `rule` are skipped with a `[WARN]` by the engine, so the rule id must match exactly.
+
+```json
+{"element": "Accept", "file": "Band - Girl on LSD (Alternate Version).mp3", "rule": "apply_title"}
+```
+
+As XML: `<Accept file="Band - Girl on LSD (Alternate Version).mp3" rule="apply_title" />`. Add `sourceRel="Folder\x.mp3"` to scope it to one exact path, as the other rules do. The title written is never taken from the row: the engine recomputes the stripped title from the file's current tags. A GUI writer must keep `<Accept>` rows whose `rule` it does not know, since the engine reads them.
 
 ## Encoding and line endings
 

@@ -143,6 +143,18 @@ namespace AudioManager
             Assert.True(json.Contains("\"suggestedTitle\": \"Chammak Challo\""), "needsManual entry carries the suggested title");
         }
 
+        public static void Build_NeedsManualEntry_CarriesOldTitle()
+        {
+            var row = Pending("C:\\NewMusic", "messy.mp3", "messy.mp3");
+            row.NeedsManual = true;
+            row.ManualRule = "unwanted_text";
+            row.ManualReason = "found 'version' in title";
+            row.SuggestedTitle = "Chammak Challo";
+            row.OldTags = new TagFixer.TagState { Title = "Chammak Challo (Multilingual Version)" };
+            string json = TagFixPlanJson.Build("C:\\NewMusic", new List<TagFixer.ScannedFile>(), new List<TagFixer.FixLog> { row }, FixedNow);
+            Assert.True(json.Contains("\"oldTitle\": \"Chammak Challo (Multilingual Version)\""), "needsManual entry carries the current title tag");
+        }
+
         public static void Build_NeedsManualWithoutSuggestion_CarriesEmptySuggestedTitle()
         {
             var errored = new TagFixer.FixLog

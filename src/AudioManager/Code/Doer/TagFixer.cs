@@ -37,6 +37,26 @@ namespace AudioManager
         /// </summary>
         private readonly TagFixExceptions exceptions;
 
+        /// <summary>Accept rule id: the user accepted the title-suffix strip for this file (apply_title).</summary>
+        internal const string ApplyTitleRule = "apply_title";
+
+        /// <summary>
+        /// Library-mirror lookup for the apply_title collision guard: true when the mirror already holds artist + title.
+        /// A test seam; the default reads the AudioMirror XMLs once per process and only when an accepted strip is checked.
+        /// </summary>
+        internal static Func<string, string, bool> MirrorHasTitle = DefaultMirrorHasTitle;
+        private static Dictionary<string, string> mirrorKeys;
+
+        // Artist + normalised title keys this run has already claimed for an accepted strip, so two files in one run cannot collide.
+        private readonly HashSet<string> claimedStrippedTitles = new HashSet<string>(StringComparer.Ordinal);
+
+        private static bool DefaultMirrorHasTitle(string artist, string title)
+        {
+            // No catch: an unreadable mirror fails the file (ProcessFile's outer catch), never a write that might duplicate.
+            if (mirrorKeys == null) mirrorKeys = new MirrorIndex(IntegrationRoots.FromConstants()).BuildMirrorIndex();
+            return mirrorKeys.ContainsKey(artist.ToLowerInvariant() + "\0" + MirrorIndex.NormaliseTitleForDedup(title));
+        }
+
         /// <summary>
         /// Per-file tag changes for display in MusicIntegrator's combined routing block.
         /// Key: filename MusicIntegrator will see (original in dry-run; post-rename in real mode).
@@ -204,17 +224,17 @@ namespace AudioManager
         /// Test-only: runs the same scan and processing as the public constructor against folder instead of
         /// Constants.NewMusicPath, so the plan JSON can be exercised on a temp fixture folder.
         /// </summary>
-        internal static TagFixer ScanFolderForTesting(string folder, bool dryRun, string customRulesPath = null, string quarantineRoot = null, Func<string, bool> fileFilter = null, IDictionary<string, string> artistSpellingChoices = null)
+        internal static TagFixer ScanFolderForTesting(string folder, bool dryRun, string customRulesPath = null, string quarantineRoot = null, Func<string, bool> fileFilter = null, IDictionary<string, string> artistSpellingChoices = null, string exceptionsPath = null)
         {
-            var tagFixer = new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot, artistSpellingChoices: artistSpellingChoices);
+            var tagFixer = new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot, exceptionsPath: exceptionsPath, artistSpellingChoices: artistSpellingChoices);
             tagFixer.ScanAndProcess(folder, fileFilter);
             return tagFixer;
         }
 
         /// <summary>Scans and processes an arbitrary folder (used by TagFixApplier and tests); same logic as the public constructor.</summary>
-        internal static TagFixer ForFolder(string folder, bool dryRun, string quarantineRoot = null)
+        internal static TagFixer ForFolder(string folder, bool dryRun, string quarantineRoot = null, string exceptionsPath = null)
         {
-            return ScanFolderForTesting(folder, dryRun, quarantineRoot: quarantineRoot);
+            return ScanFolderForTesting(folder, dryRun, quarantineRoot: quarantineRoot, exceptionsPath: exceptionsPath);
         }
 
         private TagFixer(bool dryRun, bool skipScan, string customRulesPath = null, string quarantineRoot = null, string exceptionsPath = null, IDictionary<string, string> artistSpellingChoices = null)
@@ -421,8 +441,43 @@ namespace AudioManager
                     finalArtists = string.Join("; ", artistList);
                 }
 
+                // apply_title (Accept row): the user accepted the title-suffix strip. Recomputed here, never trusted from a caller.
+                if (exceptions.Accepts(originalName, ApplyTitleRule, originalRel))
+                {
+                    string flaggedHit = Constants.UnwantedInfo.FirstOrDefault(u => LibChecker.ContainsUnwanted(finalTitle, u));
+                    string stripped = flaggedHit == null ? "" : TitleSuffixStripper.Suggest(finalTitle, flaggedHit);
+                    if (stripped.Length > 0)
+                    {
+                        string primary = finalArtists.Split(';')[0].Trim();
+                        if (TitleWouldDuplicate(sourcePath, primary, stripped))
+                        {
+                            // Refused before any write: the file keeps its name and tags in both the dry run and the real run.
+                            log.NeedsManual = true;
+                            log.ManualRule = "unwanted_text";
+                            log.SuggestedTitle = "";
+                            log.Status = "skipped";
+                            skippedCount++;
+                            if (dryRun)
+                            {
+                                log.ManualReason = $"found '{flaggedHit}' in title (would duplicate)";
+                                log.Detail = "accepted title strip collides";
+                            }
+                            else
+                            {
+                                log.ManualReason = "would duplicate: " + stripped;
+                                log.Detail = "refused: accepted title strip collides";
+                            }
+                            log.NewTags = new TagState { Title = finalTitle, Album = finalAlbum, Artists = finalArtists, Genre = finalGenres, Compilation = true, ArtCount = log.OldTags.ArtCount };
+                            return log;
+                        }
+                        log.Changes.Add($"Title: \"{finalTitle}\"  -> \"{stripped}\" (accepted suggestion)");
+                        finalTitle = stripped;
+                        claimedStrippedTitles.Add(StrippedTitleKey(primary, stripped));
+                    }
+                }
+
                 // Tag values this fix would write (the plan JSON reads these; the real run writes the same values).
-                log.NewTags = new TagState { Title = finalTitle, Album = finalAlbum, Artists = finalArtists, Genre = finalGenres, Compilation = true, ArtCount = log.OldTags.ArtCount };
+                log.NewTags =new TagState { Title = finalTitle, Album = finalAlbum, Artists = finalArtists, Genre = finalGenres, Compilation = true, ArtCount = log.OldTags.ArtCount };
 
                 // Check if any changes needed (built-in plus custom)
                 bool titleChanged = finalTitle != tagTitle;
@@ -598,6 +653,22 @@ namespace AudioManager
                 // Release the TagLib file handle (TagLib keeps it open until disposed)
                 tagFile?.Dispose();
             }
+        }
+
+        private static string StrippedTitleKey(string artist, string title) =>
+            artist.ToLowerInvariant() + "\0" + MirrorIndex.NormaliseTitleForDedup(title);
+
+        /// <summary>
+        /// apply_title collision guard: true when an accepted strip would land on a title this run already claimed,
+        /// a title the library mirror already holds for the same artist, or a sibling file already named "Artist - Title.mp3".
+        /// </summary>
+        private bool TitleWouldDuplicate(string sourcePath, string artist, string title)
+        {
+            if (claimedStrippedTitles.Contains(StrippedTitleKey(artist, title))) return true;
+            if (MirrorHasTitle(artist, title)) return true;
+            string target = Path.Combine(Path.GetDirectoryName(sourcePath),
+                $"{Reflector.SanitiseFilename(artist)} - {Reflector.SanitiseFilename(title)}.mp3");
+            return File.Exists(target) && !target.Equals(sourcePath, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

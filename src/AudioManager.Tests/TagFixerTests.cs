@@ -954,6 +954,170 @@ namespace AudioManager
                 Assert.Equal(ResidualSignature(withoutAccept[i]), ResidualSignature(withAccept[i]), "neighbour row " + names[i]);
         }
 
+        // ---- apply_title: an accepted title-suffix strip (Accept row, rule apply_title) ----
+
+        private static readonly string[] ApplyTitleTitles =
+        {
+            "Chammak Challo (Multilingual Version)",
+            "Flower In A Hurricane [From GTAVI_ Original Score]",
+            "Girl on LSD (Alternate Version)",
+            "The Best Of Everything (Alternate Version _ Extra Verse)",
+        };
+
+        private static readonly string[] ApplyTitleStripped =
+        {
+            "Chammak Challo",
+            "Flower In A Hurricane",
+            "Girl on LSD",
+            "The Best Of Everything",
+        };
+
+        /// <summary>Runs fn with the AudioMirror title lookup replaced, so a test never reads the real mirror.</summary>
+        internal static T WithMirrorStub<T>(Func<string, string, bool> mirror, Func<T> fn)
+        {
+            var saved = TagFixer.MirrorHasTitle;
+            TagFixer.MirrorHasTitle = mirror;
+            try { return fn(); }
+            finally { TagFixer.MirrorHasTitle = saved; }
+        }
+
+        private static string NewApplyTitleDir()
+        {
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        private static string WriteApplyTitleExceptions(string dir, string acceptXml)
+        {
+            string exPath = System.IO.Path.Combine(dir, "ex.xml");
+            System.IO.File.WriteAllText(exPath, "<TagFixExceptions>" + acceptXml + "</TagFixExceptions>");
+            return exPath;
+        }
+
+        private static TagFixer.FixLog ApplyTitleDryRun(string dir, string title, string acceptXml)
+        {
+            CreateSilentMp3Fixture(dir, "old.mp3", title, "Album", "Band");
+            string exPath = WriteApplyTitleExceptions(dir, acceptXml);
+            var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(dir, "q"), exceptionsPath: exPath);
+            return WithMirrorStub((a, t) => false, () => fixer.ProcessFile(System.IO.Path.Combine(dir, "old.mp3")));
+        }
+
+        public static void ApplyTitle_DryRun_WithoutAccept_SuggestsStrippedTitleOnly()
+        {
+            string dir = NewApplyTitleDir();
+            try
+            {
+                for (int i = 0; i < ApplyTitleTitles.Length; i++)
+                {
+                    var log = ApplyTitleDryRun(dir, ApplyTitleTitles[i], "");
+                    Assert.True(log.NeedsManual, "premise: the title still carries unwanted text: " + ApplyTitleTitles[i]);
+                    Assert.Equal(ApplyTitleStripped[i], log.SuggestedTitle, "suggestion for " + ApplyTitleTitles[i]);
+                    System.IO.File.Delete(System.IO.Path.Combine(dir, "old.mp3"));
+                }
+            }
+            finally { System.IO.Directory.Delete(dir, true); }
+        }
+
+        public static void ApplyTitle_DryRun_WithAccept_PlansStrippedTitleAndRename()
+        {
+            for (int i = 0; i < ApplyTitleTitles.Length; i++)
+            {
+                string dir = NewApplyTitleDir();
+                try
+                {
+                    var log = ApplyTitleDryRun(dir, ApplyTitleTitles[i], "<Accept file=\"old.mp3\" rule=\"apply_title\" />");
+                    Assert.Equal("would-fix", log.Status, "accepted suggestion is a planned change: " + ApplyTitleTitles[i]);
+                    Assert.True(!log.NeedsManual, "accepted suggestion no longer needs a person");
+                    Assert.Equal(ApplyTitleStripped[i], log.NewTags.Title, "planned title is the stripped suggestion");
+                    Assert.Equal("Band - " + ApplyTitleStripped[i] + ".mp3", log.Filename, "planned file name matches the stripped title");
+                }
+                finally { System.IO.Directory.Delete(dir, true); }
+            }
+        }
+
+        public static void ApplyTitle_RealRun_SetsStrippedTitleAndRenamesFile()
+        {
+            for (int i = 0; i < ApplyTitleTitles.Length; i++)
+            {
+                string dir = NewApplyTitleDir();
+                try
+                {
+                    string path = CreateSilentMp3Fixture(dir, "old.mp3", ApplyTitleTitles[i], "Album", "Band");
+                    string exPath = WriteApplyTitleExceptions(dir, "<Accept file=\"old.mp3\" rule=\"apply_title\" />");
+                    var fixer = TagFixer.ForTesting(dryRun: false, quarantineRoot: System.IO.Path.Combine(dir, "q"), exceptionsPath: exPath);
+                    var log = WithMirrorStub((a, t) => false, () => fixer.ProcessFile(path));
+
+                    Assert.Equal("fixed", log.Status, "real run applies the accepted title: " + ApplyTitleTitles[i]);
+                    string renamed = System.IO.Path.Combine(dir, "Band - " + ApplyTitleStripped[i] + ".mp3");
+                    Assert.True(System.IO.File.Exists(renamed), "file renamed to the stripped title");
+                    Assert.True(!System.IO.File.Exists(path), "old file name is gone");
+                    using (var f = TagLib.File.Create(renamed)) Assert.Equal(ApplyTitleStripped[i], f.Tag.Title, "title tag holds the stripped title");
+                }
+                finally { System.IO.Directory.Delete(dir, true); }
+            }
+        }
+
+        public static void ApplyTitle_SiblingHasStrippedTitle_RefusesAndLeavesFileUntouched()
+        {
+            string dir = NewApplyTitleDir();
+            try
+            {
+                CreateSilentMp3Fixture(dir, "Band - Girl on LSD.mp3", "Girl on LSD", "Album", "Band");
+                string path = CreateSilentMp3Fixture(dir, "old.mp3", "Girl on LSD (Alternate Version)", "Album", "Band");
+                byte[] before = System.IO.File.ReadAllBytes(path);
+                string exPath = WriteApplyTitleExceptions(dir, "<Accept file=\"old.mp3\" rule=\"apply_title\" />");
+
+                var dry = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(dir, "q"), exceptionsPath: exPath);
+                var dryLog = WithMirrorStub((a, t) => false, () => dry.ProcessFile(path));
+                Assert.True(dryLog.NeedsManual, "dry run flags the collision");
+                Assert.True(dryLog.ManualReason.EndsWith(" (would duplicate)", StringComparison.Ordinal), "dry run reason carries the would-duplicate suffix");
+                Assert.Equal("", dryLog.SuggestedTitle, "a colliding suggestion is not offered");
+
+                var real = TagFixer.ForTesting(dryRun: false, quarantineRoot: System.IO.Path.Combine(dir, "q"), exceptionsPath: exPath);
+                var realLog = WithMirrorStub((a, t) => false, () => real.ProcessFile(path));
+                Assert.True(realLog.NeedsManual, "real run refuses the collision");
+                Assert.Equal("would duplicate: Girl on LSD", realLog.ManualReason, "real run reason");
+                Assert.True(System.IO.File.Exists(path), "refused file keeps its name");
+                Assert.Equal(Convert.ToBase64String(before), Convert.ToBase64String(System.IO.File.ReadAllBytes(path)), "refused file bytes unchanged");
+            }
+            finally { System.IO.Directory.Delete(dir, true); }
+        }
+
+        public static void ApplyTitle_MirrorHasStrippedTitle_Refuses()
+        {
+            string dir = NewApplyTitleDir();
+            try
+            {
+                string path = CreateSilentMp3Fixture(dir, "old.mp3", "Girl on LSD (Alternate Version)", "Album", "Band");
+                string exPath = WriteApplyTitleExceptions(dir, "<Accept file=\"old.mp3\" rule=\"apply_title\" />");
+                var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(dir, "q"), exceptionsPath: exPath);
+                var log = WithMirrorStub((a, t) => a == "Band" && t == "Girl on LSD", () => fixer.ProcessFile(path));
+                Assert.True(log.NeedsManual, "a stripped title already in the library mirror is a collision");
+                Assert.True(log.ManualReason.EndsWith(" (would duplicate)", StringComparison.Ordinal), "dry run reason carries the would-duplicate suffix");
+            }
+            finally { System.IO.Directory.Delete(dir, true); }
+        }
+
+        public static void ApplyTitle_TwoFilesStripToSameTitle_SecondIsRefused()
+        {
+            string dir = NewApplyTitleDir();
+            try
+            {
+                string a = CreateSilentMp3Fixture(dir, "a.mp3", "Girl on LSD (Alternate Version)", "Album", "Band");
+                string b = CreateSilentMp3Fixture(dir, "b.mp3", "Girl on LSD (Alternate Version)", "Album", "Band");
+                string exPath = WriteApplyTitleExceptions(dir,
+                    "<Accept file=\"a.mp3\" rule=\"apply_title\" /><Accept file=\"b.mp3\" rule=\"apply_title\" />");
+                var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(dir, "q"), exceptionsPath: exPath);
+                var first = WithMirrorStub((x, y) => false, () => fixer.ProcessFile(a));
+                var second = WithMirrorStub((x, y) => false, () => fixer.ProcessFile(b));
+                Assert.Equal("would-fix", first.Status, "first file takes the stripped title");
+                Assert.True(second.NeedsManual, "second file would land on the same name in this run");
+                Assert.True(second.ManualReason.EndsWith(" (would duplicate)", StringComparison.Ordinal), "second reason carries the would-duplicate suffix");
+            }
+            finally { System.IO.Directory.Delete(dir, true); }
+        }
+
         // BL-58: the public constructor (the real Tag Fix path) scans the real NewMusic inbox, so tests cannot run it.
         // Every constructor must still start from the same default quarantine root, so pin that default here.
         public static void Constructor_DefaultQuarantineRoot_IsConstantsQuarantinePath()

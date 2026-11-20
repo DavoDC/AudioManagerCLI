@@ -308,6 +308,30 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void Revert_AppliedTitleStrip_RestoresTagAndFilename()
+        {
+            var e = NewEnv();
+            try
+            {
+                string path = TagFixerTests.CreateSilentMp3Fixture(e.Folder, "old.mp3", "Girl on LSD (Alternate Version)", "Album", "Band");
+                string exPath = Path.Combine(e.Root, "ex.xml");
+                File.WriteAllText(exPath, "<TagFixExceptions><Accept file=\"old.mp3\" rule=\"apply_title\" /></TagFixExceptions>");
+                // The stub keeps the test off the real AudioMirror; the accepted strip is checked against it.
+                string fp = TagFixerTests.WithMirrorStub((a, t) => false, () => TagFixPlanJson.Fingerprint(e.Folder, TagFixer.ForFolder(e.Folder, true, e.Quarantine, exPath).Scanned));
+
+                var r = TagFixerTests.WithMirrorStub((a, t) => false, () => TagFixApplier.Apply(e.Folder, fp, e.Logs, e.Backups, e.Quarantine, Now, exceptionsPath: exPath));
+                Assert.Equal("applied", r.Status, "apply succeeded");
+                Assert.True(File.Exists(Path.Combine(e.Folder, "Band - Girl on LSD.mp3")), "apply renamed the file");
+
+                var rev = TagFixApplier.Revert(r.JournalPath, e.Folder, e.Quarantine);
+                Assert.True(rev.Reverted == 1 && rev.Failed == 0, "revert reports the title strip reverted");
+                Assert.True(File.Exists(path), "revert restores the original file name");
+                Assert.True(!File.Exists(Path.Combine(e.Folder, "Band - Girl on LSD.mp3")), "revert removes the stripped name");
+                using (var f = TagLib.File.Create(path)) Assert.Equal("Girl on LSD (Alternate Version)", f.Tag.Title, "revert restores the original title tag");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void Revert_PendingEntryAfterCrash_IsReportedNeverSilent()
         {
             var e = NewEnv();
