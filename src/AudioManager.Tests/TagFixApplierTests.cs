@@ -292,6 +292,30 @@ namespace AudioManager
             finally { Cleanup(e); }
         }
 
+        public static void Revert_AcceptedAlbumStrip_RestoresOriginalAlbum()
+        {
+            var e = NewEnv();
+            try
+            {
+                // Survives the built-in album cleanup, so the accepted apply_title strip is what changes it.
+                const string residual = "Flower In A Hurricane [From GTAVI_ Original Score]";
+                string path = TagFixerTests.CreateSilentMp3Fixture(e.Folder, "messy.mp3", "Clean Song", residual, "Main Artist");
+                string exPath = Path.Combine(e.Root, "ex.xml");
+                File.WriteAllText(exPath, "<TagFixExceptions><Accept file=\"messy.mp3\" rule=\"apply_title\" /></TagFixExceptions>");
+                string fingerprint = TagFixPlanJson.Fingerprint(e.Folder, TagFixer.ScanFolderForTesting(e.Folder, true, quarantineRoot: e.Quarantine, exceptionsPath: exPath).Scanned);
+                var r = TagFixApplier.Apply(e.Folder, fingerprint, e.Logs, e.Backups, e.Quarantine, Now, exceptionsPath: exPath);
+                // The apply renames the file to "Artist - Title.mp3"; the album tag is checked on that file.
+                string applied = Directory.GetFiles(e.Folder, "*.mp3")[0];
+                using (var f = TagLib.File.Create(applied)) Assert.Equal("Flower In A Hurricane", f.Tag.Album, "accepted album strip applied");
+
+                var rev = TagFixApplier.Revert(r.JournalPath, e.Folder, e.Quarantine);
+                Assert.True(rev.Reverted == 1 && rev.Failed == 0, "reverted");
+                Assert.True(File.Exists(path), "original name back");
+                using (var f = TagLib.File.Create(path)) Assert.Equal(residual, f.Tag.Album, "original album back");
+            }
+            finally { Cleanup(e); }
+        }
+
         public static void Revert_RestoresOriginalTagsAndName()
         {
             var e = NewEnv();

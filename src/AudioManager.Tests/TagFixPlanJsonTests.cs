@@ -155,6 +155,30 @@ namespace AudioManager
             Assert.True(json.Contains("\"oldTitle\": \"Chammak Challo (Multilingual Version)\""), "needsManual entry carries the current title tag");
         }
 
+        public static void Build_NeedsManualAlbumRow_CarriesSuggestedAlbumAndOldAlbum()
+        {
+            var row = Pending("C:\\NewMusic", "messy.mp3", "messy.mp3");
+            row.NeedsManual = true;
+            row.ManualRule = "unwanted_text";
+            row.ManualReason = "found 'version' in album";
+            row.SuggestedAlbum = "Girl on LSD";
+            row.OldAlbum = "Girl on LSD (Alternate Version)";
+            string json = TagFixPlanJson.Build("C:\\NewMusic", new List<TagFixer.ScannedFile>(), new List<TagFixer.FixLog> { row }, FixedNow);
+            Assert.True(json.Contains("\"suggestedAlbum\": \"Girl on LSD\""), "needsManual entry carries the suggested album");
+            Assert.True(json.Contains("\"oldAlbum\": \"Girl on LSD (Alternate Version)\""), "needsManual entry carries the current album tag");
+        }
+
+        public static void Build_NeedsManualWithoutSuggestion_CarriesEmptyAlbumFields()
+        {
+            var row = Pending("C:\\NewMusic", "messy.mp3", "messy.mp3");
+            row.NeedsManual = true;
+            row.ManualRule = "unwanted_text";
+            row.ManualReason = "found 'version' in title";
+            string json = TagFixPlanJson.Build("C:\\NewMusic", new List<TagFixer.ScannedFile>(), new List<TagFixer.FixLog> { row }, FixedNow);
+            Assert.True(json.Contains("\"suggestedAlbum\": \"\""), "suggestedAlbum is empty when none");
+            Assert.True(json.Contains("\"oldAlbum\": \"\""), "oldAlbum is empty when none");
+        }
+
         public static void Build_NeedsManualWithoutSuggestion_CarriesEmptySuggestedTitle()
         {
             var errored = new TagFixer.FixLog

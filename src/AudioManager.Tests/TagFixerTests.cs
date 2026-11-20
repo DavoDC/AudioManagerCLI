@@ -898,6 +898,25 @@ namespace AudioManager
             Assert.Equal("Chammak Challo", log.SuggestedTitle, "suggested title drops the trailing group");
         }
 
+        public static void ProcessFile_ResidualUnwantedTextInAlbum_SuggestsAlbumWithoutSuffix()
+        {
+            // "(... Version)" and "(Original)" are removed by the built-in album cleanup before the residual check,
+            // so only a group that survives it (square brackets here) can be a residual album.
+            var log = ResidualRun("Song", "Flower In A Hurricane [From GTAVI_ Original Score]", "", out _);
+            Assert.True(log.NeedsManual, "unwanted text left in the album needs a person");
+            Assert.Equal("unwanted_text", log.ManualRule, "rule id");
+            Assert.Equal("Flower In A Hurricane", log.SuggestedAlbum, "suggested album drops the trailing group");
+            Assert.Equal("Flower In A Hurricane [From GTAVI_ Original Score]", log.OldAlbum, "old album is the current album tag");
+            Assert.Equal("", log.SuggestedTitle, "a clean title gets no title suggestion");
+        }
+
+        public static void ProcessFile_ResidualUnwantedTextInAlbum_NoTrailingGroup_NoAlbumSuggestion()
+        {
+            var log = ResidualRun("Song", "Version Album", "", out _);
+            Assert.True(log.NeedsManual, "premise: the album still carries unwanted text");
+            Assert.Equal("", log.SuggestedAlbum, "no trailing group, so no album suggestion");
+        }
+
         public static void ProcessFile_ResidualMissingAlbum_IsNotNeedsManual()
         {
             var log = ResidualRun("Song", "", "", out _);
@@ -1056,6 +1075,63 @@ namespace AudioManager
                 }
                 finally { System.IO.Directory.Delete(dir, true); }
             }
+        }
+
+        // Survives the built-in album cleanup, so it reaches the residual check and the apply_title album strip.
+        private const string AlbumResidual = "Flower In A Hurricane [From GTAVI_ Original Score]";
+
+        private static TagFixer.FixLog ApplyAlbumDryRun(string dir, string album, string acceptXml)
+        {
+            CreateSilentMp3Fixture(dir, "old.mp3", "Girl Song", album, "Band");
+            string exPath = WriteApplyTitleExceptions(dir, acceptXml);
+            var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(dir, "q"), exceptionsPath: exPath);
+            return WithMirrorStub((a, t) => false, () => fixer.ProcessFile(System.IO.Path.Combine(dir, "old.mp3")));
+        }
+
+        public static void ApplyTitle_AlbumDryRun_WithAccept_PlansStrippedAlbum()
+        {
+            string dir = NewApplyTitleDir();
+            try
+            {
+                var log = ApplyAlbumDryRun(dir, AlbumResidual, "<Accept file=\"old.mp3\" rule=\"apply_title\" />");
+                Assert.Equal("would-fix", log.Status, "accepted album strip is a planned change");
+                Assert.True(!log.NeedsManual, "accepted album strip no longer needs a person");
+                Assert.Equal("Flower In A Hurricane", log.NewTags.Album, "planned album is the stripped suggestion");
+                Assert.Equal("Girl Song", log.NewTags.Title, "title is untouched when only the album is flagged");
+                Assert.True(log.Changes.Contains("Album: \"" + AlbumResidual + "\"  -> \"Flower In A Hurricane\" (accepted suggestion)"), "change line for the album");
+            }
+            finally { System.IO.Directory.Delete(dir, true); }
+        }
+
+        public static void ApplyTitle_AlbumDryRun_WithoutAccept_SuggestsAlbumOnly()
+        {
+            string dir = NewApplyTitleDir();
+            try
+            {
+                var log = ApplyAlbumDryRun(dir, AlbumResidual, "");
+                Assert.True(log.NeedsManual, "premise: the album still carries unwanted text");
+                Assert.Equal("Flower In A Hurricane", log.SuggestedAlbum, "album suggestion offered without accept");
+                Assert.Equal("", log.SuggestedTitle, "no title suggestion for a clean title");
+            }
+            finally { System.IO.Directory.Delete(dir, true); }
+        }
+
+        public static void ApplyTitle_AlbumRealRun_SetsStrippedAlbum()
+        {
+            string dir = NewApplyTitleDir();
+            try
+            {
+                string path = CreateSilentMp3Fixture(dir, "old.mp3", "Girl Song", AlbumResidual, "Band");
+                string exPath = WriteApplyTitleExceptions(dir, "<Accept file=\"old.mp3\" rule=\"apply_title\" />");
+                var fixer = TagFixer.ForTesting(dryRun: false, quarantineRoot: System.IO.Path.Combine(dir, "q"), exceptionsPath: exPath);
+                var log = WithMirrorStub((a, t) => false, () => fixer.ProcessFile(path));
+                Assert.Equal("fixed", log.Status, "real run applies the accepted album strip");
+                // The real run also renames the file to "Artist - Title.mp3", so find the one file left in the folder.
+                string[] mp3s = System.IO.Directory.GetFiles(dir, "*.mp3");
+                Assert.Equal("1", mp3s.Length.ToString(), "one file left in the folder");
+                using (var f = TagLib.File.Create(mp3s[0])) Assert.Equal("Flower In A Hurricane", f.Tag.Album, "album tag holds the stripped album");
+            }
+            finally { System.IO.Directory.Delete(dir, true); }
         }
 
         public static void ApplyTitle_SiblingHasStrippedTitle_RefusesAndLeavesFileUntouched()

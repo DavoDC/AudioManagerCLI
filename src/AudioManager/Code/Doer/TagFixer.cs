@@ -88,6 +88,10 @@ namespace AudioManager
             public string ManualRule;
             /// <summary>Suggested title for an unwanted_text row whose flagged word is in the title; empty when none. Suggestion only, nothing applies it.</summary>
             public string SuggestedTitle = "";
+            /// <summary>Suggested album for an unwanted_text row whose flagged word is in the album; empty when none. Suggestion only, nothing applies it.</summary>
+            public string SuggestedAlbum = "";
+            /// <summary>The album tag before any fix, set with SuggestedAlbum; empty when there is no album suggestion.</summary>
+            public string OldAlbum = "";
             /// <summary>Dry run only: the rename is blocked, so the file keeps OriginalFilename as its planned name.</summary>
             public bool RenameBlocked;
         }
@@ -448,6 +452,7 @@ namespace AudioManager
                     string stripped = flaggedHit == null ? "" : TitleSuffixStripper.Suggest(finalTitle, flaggedHit);
                     if (stripped.Length > 0)
                     {
+                        // Title collision is checked before the album strip, so a refused title leaves the album alone too.
                         string primary = finalArtists.Split(';')[0].Trim();
                         if (TitleWouldDuplicate(sourcePath, primary, stripped))
                         {
@@ -473,6 +478,14 @@ namespace AudioManager
                         log.Changes.Add($"Title: \"{finalTitle}\"  -> \"{stripped}\" (accepted suggestion)");
                         finalTitle = stripped;
                         claimedStrippedTitles.Add(StrippedTitleKey(primary, stripped));
+                    }
+                    // Album strip: same rule and same accept, no collision check (an album name is not a file name).
+                    string albumHit = Constants.UnwantedInfo.FirstOrDefault(u => LibChecker.ContainsUnwanted(finalAlbum, u));
+                    string strippedAlbum = albumHit == null ? "" : TitleSuffixStripper.Suggest(finalAlbum, albumHit);
+                    if (strippedAlbum.Length > 0)
+                    {
+                        log.Changes.Add($"Album: \"{finalAlbum}\"  -> \"{strippedAlbum}\" (accepted suggestion)");
+                        finalAlbum = strippedAlbum;
                     }
                 }
 
@@ -692,6 +705,12 @@ namespace AudioManager
             log.ManualRule = rule;
             log.ManualReason = reason;
             if (flaggedField == "title") log.SuggestedTitle = TitleSuffixStripper.Suggest(title, flagged);
+            if (flaggedField == "album")
+            {
+                // No collision check for the album: only the title can duplicate another file's name.
+                log.SuggestedAlbum = TitleSuffixStripper.Suggest(album, flagged);
+                log.OldAlbum = log.OldTags?.Album ?? "";
+            }
         }
 
         /// <summary>
