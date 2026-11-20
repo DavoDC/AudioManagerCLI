@@ -495,7 +495,7 @@ namespace AudioManager
         /// starting tags. No binary fixture is committed to the repo - the frame is synthesized
         /// so TagLib# recognizes the file and can read/write ID3v2 tags on it.
         /// </summary>
-        internal static string CreateSilentMp3Fixture(string directory, string filename, string title, string album, string artist)
+        internal static string CreateSilentMp3Fixture(string directory, string filename, string title, string album, string artist, uint year = 0)
         {
             string path = System.IO.Path.Combine(directory, filename);
             const int frameLength = 417; // floor(144 * 128000 / 44100), no padding
@@ -510,6 +510,7 @@ namespace AudioManager
             tagFile.Tag.Title = title;
             tagFile.Tag.Album = album;
             tagFile.Tag.Performers = new[] { artist };
+            if (year != 0) tagFile.Tag.Year = year; // 0 leaves the Year tag empty (LibChecker reports it as Missing)
             var id3 = (TagLib.Id3v2.Tag)tagFile.GetTag(TagLib.TagTypes.Id3v2, true);
             id3.IsCompilation = false;
             tagFile.Save();
@@ -866,14 +867,20 @@ namespace AudioManager
         }
 
         // ENG-83: a tag still carrying unwanted text or a missing field after the fix is a needsManual row with a rule id, unless Accepted.
+        // Year 2020 by default so the residual tests isolate their own rule; ResidualRunYear takes the Year explicitly.
         private static TagFixer.FixLog ResidualRun(string title, string album, string acceptXml, out string name)
+        {
+            return ResidualRunYear(title, album, acceptXml, 2020, out name);
+        }
+
+        private static TagFixer.FixLog ResidualRunYear(string title, string album, string acceptXml, uint year, out string name)
         {
             string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
             System.IO.Directory.CreateDirectory(tempDir);
             try
             {
                 name = "Band - Song.mp3";
-                string fixturePath = CreateSilentMp3Fixture(tempDir, name, title, album, "Band");
+                string fixturePath = CreateSilentMp3Fixture(tempDir, name, title, album, "Band", year);
                 string exPath = System.IO.Path.Combine(tempDir, "ex.xml");
                 System.IO.File.WriteAllText(exPath, "<Exceptions>" + acceptXml + "</Exceptions>");
                 var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(tempDir, "q"), exceptionsPath: exPath);
@@ -923,6 +930,27 @@ namespace AudioManager
             Assert.True(!log.NeedsManual, "missing album is reported by projectedHits, not tagfix");
         }
 
+        // missing_tag (Year only): a dry run raises a file whose Year is empty, the same field LibChecker reports as "has no Year set".
+        public static void ProcessFile_ResidualMissingYear_IsNeedsManualWithMissingTag()
+        {
+            var log = ResidualRunYear("Song", "Album", "", 0, out _);
+            Assert.True(log.NeedsManual, "a file with no Year needs a person");
+            Assert.Equal("missing_tag", log.ManualRule, "rule id");
+            Assert.Equal("Missing tag: Year", log.ManualReason, "reason text");
+        }
+
+        public static void ProcessFile_ResidualPresentYear_IsNotNeedsManual()
+        {
+            var log = ResidualRunYear("Song", "Album", "", 2020, out _);
+            Assert.True(!log.NeedsManual, "a file with a Year raises no missing_tag");
+        }
+
+        public static void ProcessFile_AcceptedMissingTag_IsNotNeedsManual()
+        {
+            var log = ResidualRunYear("Song", "Album", "<Accept file=\"Band - Song.mp3\" rule=\"missing_tag\" />", 0, out _);
+            Assert.True(!log.NeedsManual, "accepted missing_tag is skipped");
+        }
+
         public static void ProcessFile_AcceptedUnwantedText_IsNotNeedsManual()
         {
             var log = ResidualRun("Song", "Greatest Original Hits", "<Accept file=\"Band - Song.mp3\" rule=\"unwanted_text\" />", out _);
@@ -941,7 +969,7 @@ namespace AudioManager
             {
                 var paths = new List<string>();
                 for (int i = 0; i < names.Length; i++)
-                    paths.Add(CreateSilentMp3Fixture(tempDir, names[i], titles[i], albums[i], "Band"));
+                    paths.Add(CreateSilentMp3Fixture(tempDir, names[i], titles[i], albums[i], "Band", 2020));
                 string exPath = System.IO.Path.Combine(tempDir, "ex.xml");
                 System.IO.File.WriteAllText(exPath, "<Exceptions>" + acceptXml + "</Exceptions>");
                 var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(tempDir, "q"), exceptionsPath: exPath);
@@ -1016,7 +1044,7 @@ namespace AudioManager
 
         private static TagFixer.FixLog ApplyTitleDryRun(string dir, string title, string acceptXml)
         {
-            CreateSilentMp3Fixture(dir, "old.mp3", title, "Album", "Band");
+            CreateSilentMp3Fixture(dir, "old.mp3", title, "Album", "Band", 2020);
             string exPath = WriteApplyTitleExceptions(dir, acceptXml);
             var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(dir, "q"), exceptionsPath: exPath);
             return WithMirrorStub((a, t) => false, () => fixer.ProcessFile(System.IO.Path.Combine(dir, "old.mp3")));
@@ -1082,7 +1110,7 @@ namespace AudioManager
 
         private static TagFixer.FixLog ApplyAlbumDryRun(string dir, string album, string acceptXml)
         {
-            CreateSilentMp3Fixture(dir, "old.mp3", "Girl Song", album, "Band");
+            CreateSilentMp3Fixture(dir, "old.mp3", "Girl Song", album, "Band", 2020);
             string exPath = WriteApplyTitleExceptions(dir, acceptXml);
             var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(dir, "q"), exceptionsPath: exPath);
             return WithMirrorStub((a, t) => false, () => fixer.ProcessFile(System.IO.Path.Combine(dir, "old.mp3")));

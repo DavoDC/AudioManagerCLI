@@ -336,6 +336,8 @@ namespace AudioManager
                 string album = tag.Album ?? "";
                 string genres = tag.JoinedGenres ?? "";
                 log.OldTags = new TagState { Title = title, Album = album, Artists = artists, Genre = genres, Compilation = id3.IsCompilation, ArtCount = tag.Pictures.Length };
+                // Same convention as TrackTag (Year 0 is "Missing"), so the residual check agrees with LibChecker's "has no Year set".
+                string yearValue = tag.Year == 0 ? Constants.MissingTag : tag.Year.ToString();
 
                 // Empty title AND artists: derive both from an "Artist - Title.mp3" file name so the file is a normal fix.
                 string tagTitle = title, tagArtists = artists;
@@ -502,7 +504,7 @@ namespace AudioManager
                 {
                     log.Status = "skipped";
                     log.Detail = "no fixes needed";
-                    MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, originalName, originalRel);
+                    MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, yearValue, originalName, originalRel);
                     skippedCount++;
                     return log;
                 }
@@ -631,7 +633,7 @@ namespace AudioManager
                             log.RenameBlocked = true;
                         }
                     }
-                    if (!log.NeedsManual) MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, originalName, originalRel);
+                    if (!log.NeedsManual) MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, yearValue, originalName, originalRel);
                     log.Status = "would-fix";
                     fixedCount++;
                 }
@@ -686,10 +688,11 @@ namespace AudioManager
 
         /// <summary>
         /// ENG-83: dry run only. A tag that still holds unwanted text after the fix is a needsManual row (rule unwanted_text)
-        /// unless the user accepted it for this file or kept the field. missing_tag is not raised here: a missing title or
-        /// artist already gives empty_artist_or_title, and a missing album is reported by projectedHits only.
+        /// unless the user accepted it for this file or kept the field. A file with no unwanted text but an empty Year is a
+        /// needsManual row (rule missing_tag, reason "Missing tag: Year"). A missing title or artist already gives
+        /// empty_artist_or_title, and a missing album is reported by projectedHits only.
         /// </summary>
-        private void MarkResidualIssue(FixLog log, string title, string artists, string album, string name, string rel)
+        private void MarkResidualIssue(FixLog log, string title, string artists, string album, string year, string name, string rel)
         {
             if (!dryRun) return;
             string rule = null, reason = null, flagged = null, flaggedField = null;
@@ -699,6 +702,7 @@ namespace AudioManager
                 string hit = Constants.UnwantedInfo.FirstOrDefault(u => LibChecker.ContainsUnwanted(f.Item2, u));
                 if (hit != null) { rule = "unwanted_text"; reason = $"found '{hit}' in {f.Item1}"; flagged = hit; flaggedField = f.Item1; break; }
             }
+            if (rule == null && year.Equals(Constants.MissingTag)) { rule = "missing_tag"; reason = "Missing tag: Year"; }
             if (rule == null || exceptions.Accepts(name, rule, rel)) return;
             if (rule == "unwanted_text" && new[] { "title", "artist", "album", "casing" }.Any(k => exceptions.Keeps(name, k, rel))) return;
             log.NeedsManual = true;
