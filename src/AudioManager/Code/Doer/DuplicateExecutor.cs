@@ -97,12 +97,26 @@ namespace AudioManager
                     }
                     else
                     {
+                        long binSize = RecycleBin.SizeOf(sf.SourcePath);
                         try
                         {
                             RecycleBin.Send(sf.SourcePath);
+                            Console.WriteLine($"  [RECYCLE] {sf.SourcePath} ({binSize} bytes): recycled");
+                        }
+                        catch (RecycleBinTooLargeException ex)
+                        {
+                            Console.WriteLine($"  [RECYCLE] {sf.SourcePath} ({binSize} bytes): failed, too large for Recycle Bin, file kept");
+                            Console.WriteLine($"  [ERROR] Kept NewMusic file {dup.RelNewPath}: {ex.Message}");
+                            entry.Status = "error";
+                            entry.Detail = "duplicate (kept: too large for Recycle Bin, " + binSize + " bytes)";
+                            logEntries.Add(entry); skippedCount++;
+                            Console.WriteLine();
+                            dup.SkipRouting = true;
+                            continue;
                         }
                         catch (Exception ex)
                         {
+                            Console.WriteLine($"  [RECYCLE] {sf.SourcePath} ({binSize} bytes): failed, {ex.GetType().Name}");
                             Console.WriteLine($"  [ERROR] Could not send to Recycle Bin from NewMusic {dup.RelNewPath}: {ex.Message}");
                             entry.Status = "error";
                             entry.Detail = "duplicate (delete failed: " + ex.GetType().Name + ")";

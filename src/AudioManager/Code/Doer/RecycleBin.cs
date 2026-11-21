@@ -29,13 +29,49 @@ namespace AudioManager
             catch { return false; }
         };
 
+        /// <summary>Largest file the volume's bin can hold; a bigger file would be deleted permanently by the shell.
+        /// shortcut: 5% of the volume size (conservative, below the Windows default) instead of reading the per-volume
+        /// BitBucket MaxCapacity registry value; upgrade if a user-set larger cap makes this refuse good deletes.
+        /// Returns long.MaxValue when unknown. Tests swap it.</summary>
+        internal static Func<string, long> MaxBinBytes = path =>
+        {
+            try
+            {
+                string root = System.IO.Path.GetPathRoot(System.IO.Path.GetFullPath(path));
+                return new System.IO.DriveInfo(root).TotalSize / 20;
+            }
+            catch { return long.MaxValue; }
+        };
+
         /// <summary>Sends the file at path to the Recycle Bin via Sender. Throws if the volume has no bin
-        /// (the shell would delete permanently) or the send fails.</summary>
+        /// (the shell would delete permanently), the file is larger than the bin can hold
+        /// (RecycleBinTooLargeException), or the send fails.</summary>
         internal static void Send(string path)
         {
             if (!BinCheck(path))
                 throw new InvalidOperationException("No Recycle Bin on the volume of " + path + "; file kept, not deleted.");
+            long size = SizeOf(path);
+            long max = MaxBinBytes(path);
+            if (size > max)
+                throw new RecycleBinTooLargeException(path, size, max);
             Sender(path);
         }
+
+        /// <summary>File size in bytes, or 0 when the file cannot be read (the sender then reports the real error).</summary>
+        internal static long SizeOf(string path)
+        {
+            try { return new System.IO.FileInfo(path).Length; }
+            catch { return 0; }
+        }
+    }
+
+    /// <summary>The file is larger than the volume's Recycle Bin can hold, so Windows would delete it permanently.</summary>
+    internal sealed class RecycleBinTooLargeException : InvalidOperationException
+    {
+        public long Size { get; }
+        public long Max { get; }
+        public RecycleBinTooLargeException(string path, long size, long max)
+            : base("File " + path + " is " + size + " bytes, larger than the Recycle Bin can hold (" + max + " bytes); file kept, not deleted.")
+        { Size = size; Max = max; }
     }
 }

@@ -16,7 +16,7 @@ namespace AudioManager
     internal static class MusicIntegratorDeleteGuardTests
     {
         /// <summary>A D decision is only sent when its library duplicate exists, so every D fixture writes one.</summary>
-        private static string WriteLibraryCopy(string lib, string fileName)
+        internal static string WriteLibraryCopy(string lib, string fileName)
         {
             string dir = Path.Combine(lib, "Old Place");
             Directory.CreateDirectory(dir);
@@ -25,7 +25,7 @@ namespace AudioManager
             return libPath;
         }
 
-        private static MusicIntegrator.ScannedFile MakeDeleteDuplicate(string sourcePath, string artist, string title, string libPath = null)
+        internal static MusicIntegrator.ScannedFile MakeDeleteDuplicate(string sourcePath, string artist, string title, string libPath = null)
         {
             File.WriteAllBytes(sourcePath, new byte[] { 3 });
             var track = new Track { Artists = artist, Title = title, Album = "Missing", Genres = "Missing" };

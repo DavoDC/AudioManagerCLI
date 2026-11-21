@@ -26,8 +26,22 @@ namespace AudioManager
             string json = Build(result, mirrorStatusLines, libCheckerIssues, DateTime.Now);
             if (!Directory.Exists(Constants.LogsPath))
                 Directory.CreateDirectory(Constants.LogsPath);
-            string outPath = Path.Combine(Constants.LogsPath, OutputFileName);
+            return WriteTo(Constants.LogsPath, json, DateTime.Now);
+        }
+
+        /// <summary>Writes json to the fixed name in logsDir plus a timestamped copy (integrate-gate-yyyyMMdd-HHmmssfff.json)
+        /// so earlier runs survive; returns the fixed-name path.</summary>
+        public static string WriteTo(string logsDir, string json, DateTime now)
+        {
+            if (!Directory.Exists(logsDir)) Directory.CreateDirectory(logsDir);
+            string outPath = Path.Combine(logsDir, OutputFileName);
             AtomicFile.WriteAllText(outPath, json, new UTF8Encoding(false));
+            try
+            {
+                string stamped = Path.Combine(logsDir, "integrate-gate-" + now.ToString("yyyyMMdd-HHmmssfff", CultureInfo.InvariantCulture) + ".json");
+                AtomicFile.WriteAllText(stamped, json, new UTF8Encoding(false));
+            }
+            catch (Exception) { /* the copy is a history extra; the fixed file is what readers use */ }
             return outPath;
         }
 

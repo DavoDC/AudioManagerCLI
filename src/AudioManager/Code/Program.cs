@@ -511,7 +511,15 @@ namespace AudioManager
             if (!Directory.Exists(logsDir))
                 Directory.CreateDirectory(logsDir);
             string outPath = Path.Combine(logsDir, MirrorResultJsonFileName);
-            AtomicFile.WriteAllText(outPath, BuildMirrorResultJson(r, DateTime.Now), new UTF8Encoding(false));
+            DateTime now = DateTime.Now;
+            string json = BuildMirrorResultJson(r, now);
+            AtomicFile.WriteAllText(outPath, json, new UTF8Encoding(false));
+            try
+            {
+                string stamped = Path.Combine(logsDir, "mirror-result-" + now.ToString("yyyyMMdd-HHmmssfff", System.Globalization.CultureInfo.InvariantCulture) + ".json");
+                AtomicFile.WriteAllText(stamped, json, new UTF8Encoding(false));
+            }
+            catch (Exception) { /* history copy only; the fixed file is what readers use */ }
             return outPath;
         }
 
