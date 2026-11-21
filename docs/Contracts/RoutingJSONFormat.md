@@ -69,9 +69,9 @@ Top-level array, present only on an execution record (`recordType` `execution`) 
 | Field | Meaning |
 |-------|---------|
 | `original` | the library path that was replaced |
-| `held` | where the original now lives, under `NewMusic-Quarantine\Replaced\<yyyyMMdd-HHmmss>\` (the `Constants.ReplacedHoldingPath` folder) |
+| `held` | where the original now lives: the literal string `Recycle Bin` (the normal case, restore it from the Windows Recycle Bin), or a path under `NewMusic-Quarantine\Replaced\<yyyyMMdd-HHmmss>\` (the `Constants.ReplacedHoldingPath` folder) when the bin could not take the file (too large, no bin on the volume, send failed; the run log says which) |
 
-Held originals are never auto-pruned. To restore one, move the `held` file back to its `original` path. A replacement that fails and is rolled back restores the original in place and records nothing here.
+A file held in the Recycle Bin is managed by Windows. A file held in the fallback folder is never auto-pruned; to restore it, move the `held` file back to its `original` path. Empty program-made folders under `NewMusic-Quarantine` (and the root itself) are removed at the end of a real run. A replacement that fails and is rolled back restores the original in place and records nothing here.
 
 ## projectedHits
 Dry-run routing records only; always present, empty when the projected library is clean. One entry per LibChecker hit on the post-integration library:

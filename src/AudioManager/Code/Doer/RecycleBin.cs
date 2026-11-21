@@ -12,6 +12,9 @@ namespace AudioManager
     /// </summary>
     internal static class RecycleBin
     {
+        /// <summary>Value journals and execution records carry where a file went when the Recycle Bin took it.</summary>
+        internal const string HeldMarker = "Recycle Bin";
+
         /// <summary>The real sender moves the file to the Recycle Bin; tests swap in a fake.</summary>
         internal static Action<string> Sender = path =>
             FileSystem.DeleteFile(path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);

@@ -274,6 +274,8 @@ namespace AudioManager
                                 Environment.Exit(1);
                             }
                             ReplaceGuard.HoldingRoot = Constants.ReplacedHoldingPath;
+                            ReplaceGuard.UseRecycleBin = true;
+                            TagFixer.QuarantineToRecycleBin = true;
                             ReplaceGuard.ResetRetired();
                         }
 
@@ -348,6 +350,7 @@ namespace AudioManager
                                 try { onlySel = TagFixApplier.ReadSelectionManifest(args[onlyIdx + 1]); }
                                 catch (Exception ex) { Console.WriteLine($" - ERROR: cannot read --only manifest: {ex.Message}. Nothing was run."); teeWriter.CloseLogFile(); Environment.Exit(1); }
                             }
+                            TagFixer.QuarantineToRecycleBin = true;
                             var ar = TagFixApplier.Apply(Constants.NewMusicPath, planFp, Constants.LogsPath, Constants.BackupsPath, Constants.QuarantinePath, DateTime.Now, only: onlySel);
                             Console.WriteLine($" - Tag Fix apply: {ar.Status} (applied {ar.Applied}, already done {ar.AlreadyDone}, quarantined {ar.Quarantined}, failed {ar.Failed}, pending after {ar.PendingAfter})");
                             if (ar.Status != "apply_locked") Console.WriteLine($" - Result JSON written: {Path.Combine(Constants.LogsPath, TagFixApplier.ResultFileName)}");

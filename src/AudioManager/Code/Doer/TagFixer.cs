@@ -298,6 +298,10 @@ namespace AudioManager
         // BL-58: initialised here so the public constructor (which does not chain to the private one) also gets the default.
         private readonly string quarantineRoot = Constants.QuarantinePath;
 
+        /// <summary>True on real runs (set by Program): a quarantined instrumental goes to the Recycle Bin and the quarantine
+        /// folder is only the fallback for a file the bin cannot take. Default false keeps the folder move for tests.</summary>
+        internal static bool QuarantineToRecycleBin;
+
         /// <summary>
         /// The cleaned field values ProcessFile would write for a file with these tags: built-in cleanup, then keep= flags
         /// (config/tagfix-exceptions.xml) and custom rules. Pure, no file access; the dry-run routing preview uses it so
@@ -387,6 +391,26 @@ namespace AudioManager
                     tagFile = null;
                     try
                     {
+                        if (QuarantineToRecycleBin)
+                        {
+                            long binSize = RecycleBin.SizeOf(sourcePath);
+                            try
+                            {
+                                RecycleBin.Send(sourcePath);
+                                Console.WriteLine($"  [RECYCLE] {sourcePath} ({binSize} bytes): recycled");
+                                Console.WriteLine($"  [QUARANTINED] {fileName} -> Recycle Bin (Akira The Don instrumental)");
+                                log.Detail = "quarantined instrumental: " + RecycleBin.HeldMarker;
+                                return log;
+                            }
+                            catch (RecycleBinTooLargeException)
+                            {
+                                Console.WriteLine($"  [RECYCLE] {sourcePath} ({binSize} bytes): too large for Recycle Bin, moving to the quarantine folder instead");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"  [RECYCLE] {sourcePath} ({binSize} bytes): failed, {ex.GetType().Name}; moving to the quarantine folder instead");
+                            }
+                        }
                         Directory.CreateDirectory(quarantineRoot);
                         string dest = NextFreeQuarantinePath(fileName);
                         File.Move(sourcePath, dest);

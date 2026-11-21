@@ -521,6 +521,7 @@ namespace AudioManager
             {
                 RunMiscMigration();
                 CleanupNewMusicFolder();
+                CleanupQuarantineFolder(QuarantineRoot);
             }
             finally
             {
@@ -553,6 +554,12 @@ namespace AudioManager
 
         /// <summary>Path seam for CleanupNewMusicFolder: forwards to NewMusicCleanup.</summary>
         internal void CleanupNewMusicFolder(string newMusicPath) => Cleanup.CleanupNewMusicFolder(newMusicPath);
+
+        /// <summary>Quarantine root cleared of empty program-made folders at the end of a run; tests point it at a temp folder.</summary>
+        internal string QuarantineRoot = Constants.QuarantinePath;
+
+        /// <summary>Path seam: forwards to NewMusicCleanup.CleanupQuarantineFolder.</summary>
+        internal void CleanupQuarantineFolder(string quarantinePath) => Cleanup.CleanupQuarantineFolder(quarantinePath);
 
         /// <summary>
         /// Forwards to RoutingJsonWriter.BuildJson, which holds the routing and execution JSON contract.

@@ -276,6 +276,12 @@ namespace AudioManager
                 try
                 {
                     string original = Path.Combine(folder, e.File);
+                    if (e.Status == "quarantined" && e.QuarantinedTo == RecycleBin.HeldMarker)
+                    {
+                        // The Recycle Bin took it: no program path to move it back from, so report and never guess.
+                        res.Failed++; res.Notes.Add(e.File + ": sent to the Recycle Bin, restore it from the Recycle Bin by hand");
+                        continue;
+                    }
                     string escape = FirstEscapingPath(e, original, folder, quarantineRoot);
                     if (escape != null)
                     {

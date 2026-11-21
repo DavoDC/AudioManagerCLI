@@ -25,6 +25,15 @@ namespace AudioManager
         /// </summary>
         internal static string HoldingRoot;
 
+        /// <summary>
+        /// When true (real runs, set by Program), Retire sends a landed bak to the Windows Recycle Bin. HoldingRoot
+        /// then serves only as the fallback for a file the bin cannot take (too large, no bin, send failed).
+        /// Default false keeps the holding-folder behaviour for callers and tests that never set it.
+        /// </summary>
+        internal static bool UseRecycleBin;
+
+        private static bool CanRetire => UseRecycleBin || HoldingRoot != null;
+
         /// <summary>Each retired original: original = the library path, held = where the bak now lives.</summary>
         internal static readonly List<(string original, string held)> Retired = new List<(string original, string held)>();
 
@@ -83,6 +92,32 @@ namespace AudioManager
                     return null;
                 }
                 string full = Path.GetFullPath(bakPath);
+                if (UseRecycleBin)
+                {
+                    string binOriginal = full.Substring(0, full.Length - BakSuffix.Length);
+                    long binSize = RecycleBin.SizeOf(full);
+                    try
+                    {
+                        RecycleBin.Send(full);
+                        Retired.Add((binOriginal, RecycleBin.HeldMarker));
+                        Console.WriteLine($"  [RECYCLE] {full} ({binSize} bytes): recycled, original library file {binOriginal}");
+                        Console.WriteLine($"  [RETIRE] Original sent to Recycle Bin: {binOriginal}");
+                        return RecycleBin.HeldMarker;
+                    }
+                    catch (RecycleBinTooLargeException)
+                    {
+                        Console.WriteLine($"  [RECYCLE] {full} ({binSize} bytes): too large for Recycle Bin, using the holding folder instead");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"  [RECYCLE] {full} ({binSize} bytes): failed, {ex.GetType().Name}: {ex.Message}; using the holding folder instead");
+                    }
+                    if (HoldingRoot == null)
+                    {
+                        Console.WriteLine($"  [WARN] No holding folder to fall back to; staged backup kept at: {bakPath}");
+                        return null;
+                    }
+                }
                 string root = Path.GetFullPath(HoldingRoot);
                 if (!SameVolume(full, root))
                 {
@@ -125,7 +160,7 @@ namespace AudioManager
                 DeleteLandingMarker(bakPath);
                 return;
             }
-            if (HoldingRoot == null)
+            if (!CanRetire)
             {
                 // Never permanently delete a library original: with no holding folder keep bak and marker.
                 Console.WriteLine($"  [WARN] No holding folder set; staged library original kept at: {bakPath}");
@@ -221,7 +256,7 @@ namespace AudioManager
                     string destPath = File.ReadAllText(markerPath).Trim();
                     if (destPath.Length > 0 && File.Exists(destPath) && !string.Equals(destPath, bakPath, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (HoldingRoot == null)
+                        if (!CanRetire)
                         {
                             Console.WriteLine($"  [WARN] No holding folder set; staged library original kept at: {bakPath}");
                             return 0;

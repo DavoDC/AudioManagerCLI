@@ -106,7 +106,7 @@ Auto-runs after step 2, or manually: `AudioManager.exe analysis`
 
 **No manual MP3tag editing needed.** Always use `--dry-run` first to preview changes.
 
-**Interrupted replaces.** A library file replaced by a duplicate decision is moved aside to a `<name>.replaced.bak` sibling and, once the new file lands, retired to `NewMusic-Quarantine\Replaced\<timestamp>\`. If a run is interrupted, the next real run's startup sweep retires a backup whose landing is proven, restores a backup whose library file is missing, and keeps any other backup with a `[WARN]`. A dry run only lists leftovers and changes nothing. Details: [GoLiveRunbook.md](docs/GoLiveRunbook.md).
+**Interrupted replaces.** A library file replaced by a duplicate decision is moved aside to a `<name>.replaced.bak` sibling and, once the new file lands, retired to the Windows Recycle Bin (a file the bin cannot take goes to `NewMusic-Quarantine\Replaced\<timestamp>\` instead, and empty program-made folders are removed at the end of a run). If a run is interrupted, the next real run's startup sweep retires a backup whose landing is proven, restores a backup whose library file is missing, and keeps any other backup with a `[WARN]`. A dry run only lists leftovers and changes nothing. Details: [GoLiveRunbook.md](docs/GoLiveRunbook.md).
 
 ## Scope and boundary
 

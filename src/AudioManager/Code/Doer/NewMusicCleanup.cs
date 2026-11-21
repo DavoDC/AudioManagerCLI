@@ -18,6 +18,43 @@ namespace AudioManager
         private bool dryRun => _dryRunSource();
 
         /// <summary>
+        /// Removes the program-made quarantine tree when it holds no file: every folder with no file at any depth,
+        /// deepest first, then the root itself when nothing is left in it. A folder holding any file, and its
+        /// parents, are kept. Each removal is logged. No-op if the folder does not exist.
+        /// </summary>
+        internal void CleanupQuarantineFolder(string quarantinePath)
+        {
+            if (string.IsNullOrEmpty(quarantinePath) || !Directory.Exists(quarantinePath)) return;
+            var nonEmpty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string file in Directory.GetFiles(quarantinePath, "*", SearchOption.AllDirectories))
+            {
+                string dir = Path.GetDirectoryName(file);
+                while (dir != null && dir.Length >= quarantinePath.TrimEnd('\\', '/').Length && nonEmpty.Add(dir))
+                    dir = Path.GetDirectoryName(dir);
+            }
+            var empty = Directory.GetDirectories(quarantinePath, "*", SearchOption.AllDirectories)
+                .Where(d => !nonEmpty.Contains(d)).OrderByDescending(d => d.Length).ToList();
+            empty.Add(quarantinePath.TrimEnd('\\', '/'));
+            foreach (string dir in empty)
+            {
+                if (nonEmpty.Contains(dir)) continue;
+                if (dryRun) { Console.WriteLine($"[DRY RUN] Would remove empty folder: {dir}"); continue; }
+                try
+                {
+                    if (Directory.Exists(dir) && Directory.GetFileSystemEntries(dir).Length == 0)
+                    {
+                        Directory.Delete(dir);
+                        Console.WriteLine($"  Removed empty folder: {dir}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"  [WARN] Could not remove '{dir}': {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
         /// Cleans up empty subdirectories in the NewMusic staging folder after integration.
         /// Removes every subfolder with no file at any depth, deepest first. A folder holding any file, and its
         /// parents, are kept; the root is never removed. Remaining files are reported, never blocking the cleanup.
