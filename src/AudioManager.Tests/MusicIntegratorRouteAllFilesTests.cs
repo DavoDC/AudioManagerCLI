@@ -237,6 +237,36 @@ namespace AudioManager
             }
         }
 
+        public static void RouteAllFiles_RealMove_PrintsSourcePathNextToPath()
+        {
+            string lib = RoutingFixtures.CreateLibraryFixture();
+            string newMusic = Path.Combine(Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            Directory.CreateDirectory(newMusic);
+            var oldOut = Console.Out;
+            var sw = new StringWriter();
+            try
+            {
+                var integrator = new MusicIntegrator(lib);
+                string goodPath = Path.Combine(newMusic, "Good Artist - Good Song.mp3");
+                var scannedFiles = new List<MusicIntegrator.ScannedFile> { MakeGoodFile(goodPath, "Good Artist", "Good Song") };
+                int moved = 0, skipped = 0;
+                Console.SetOut(sw);
+                integrator.RouteAllFiles(scannedFiles, new HashSet<string>(), new List<MusicIntegrator.LogEntry>(), ref moved, ref skipped);
+                Console.SetOut(oldOut);
+                string output = sw.ToString();
+                Assert.Equal("1", moved.ToString(), "file moved");
+                Assert.True(output.Contains(" Source: " + goodPath), "per-move block must print the old path, got: " + output);
+                Assert.True(output.IndexOf(" Source: ", StringComparison.Ordinal) < output.IndexOf(" Path: ", StringComparison.Ordinal),
+                    "Source line sits next to the Path line");
+            }
+            finally
+            {
+                Console.SetOut(oldOut);
+                RoutingFixtures.Cleanup(lib);
+                if (Directory.Exists(newMusic)) Directory.Delete(newMusic, recursive: true);
+            }
+        }
+
         /// <summary>
         /// Real run, batch order K (keep) file B before L (replace) file A, both for the same library copy.
         /// 3a stages the library copy (frees its path). B routes first and must not take the staged slot:

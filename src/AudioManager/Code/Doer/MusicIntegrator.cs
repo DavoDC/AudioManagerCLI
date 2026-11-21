@@ -244,7 +244,11 @@ namespace AudioManager
                 // 3a: Execute all duplicate decisions together so their outputs are grouped
                 //     before routing output begins. D/L outputs appear consecutively here;
                 //     K files produce no output and are routed normally in 3b.
-                if (!ExecuteDuplicateDecisions(scannedFiles, newArtistFolders, logEntries, ref skippedCount)) return;
+                if (!ExecuteDuplicateDecisions(scannedFiles, newArtistFolders, logEntries, ref skippedCount))
+                {
+                    WriteRecordOnDuplicateQuit(logEntries);
+                    return;
+                }
 
                 // 3b: Route all files. D-decided and dry-run L-decided duplicates already handled
                 //     above; real-mode L files and K files fall through to routing here.
@@ -619,6 +623,12 @@ namespace AudioManager
         /// failure rather than a soft degrade - this line is for a human reading
         /// the run logs folder, not parsed by a client.
         /// </summary>
+        /// <summary>A real run that quits at duplicate execution may already have moved or staged files, so it still writes its execution record. A dry run writes none.</summary>
+        internal void WriteRecordOnDuplicateQuit(List<LogEntry> entries)
+        {
+            if (!dryRun) WriteExecutionRecord(entries, null);
+        }
+
         private void WriteExecutionRecord(List<LogEntry> entries, ConfidenceRecord confidence)
         {
             string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);

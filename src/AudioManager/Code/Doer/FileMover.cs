@@ -166,6 +166,7 @@ namespace AudioManager
                             Console.WriteLine($" > {change}");
                         Console.WriteLine($" Route: {routeSummary}{routeNewNote}");
                         Console.WriteLine($" Reason: {reason}");
+                        Console.WriteLine($" Source: {sf.SourcePath}");
                         Console.WriteLine($" Path: {relativeDest.Replace('\\', '/')}");
                         Console.WriteLine();
                         entry.Status = "moved";

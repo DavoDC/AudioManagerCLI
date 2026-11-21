@@ -27,7 +27,7 @@ namespace AudioManager
         }
 
         /// <summary>Tee to console + file + optional StringWriter.
-        /// When addFileTimestamps is true, each line written to the file is prefixed with [HH:mm:ss].
+        /// When addFileTimestamps is true, each line written to the file is prefixed with [yyyy-MM-dd HH:mm:ss].
         /// Console output is never timestamped.</summary>
         public TeeWriter(TextWriter consoleWriter, string logFilePath, StringWriter captureWriter = null, bool addFileTimestamps = false)
         {
@@ -38,12 +38,31 @@ namespace AudioManager
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(logFilePath));
-                this.fileWriter = new StreamWriter(logFilePath, append: false, encoding: Encoding.UTF8) { AutoFlush = true };
+                string target = UniqueLogPath(logFilePath);
+                // FileMode.CreateNew: an existing log is never truncated, even if one appears after the check
+                var stream = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+                this.fileWriter = new StreamWriter(stream, new UTF8Encoding(true)) { AutoFlush = true };
+                FilePath = target;
             }
-            catch
+            catch (Exception ex)
             {
-                // If file creation fails, continue without file logging
+                // If file creation fails, continue without file logging, but say so on the console
                 this.fileWriter = null;
+                consoleWriter.WriteLine($" - [WARN] Could not open the run log file, this run will NOT be logged to a file: {logFilePath} ({ex.Message})");
+            }
+        }
+
+        /// <summary>The requested path when free, else the same name with a -2, -3 ... suffix. Never an existing file.</summary>
+        private static string UniqueLogPath(string path)
+        {
+            if (!File.Exists(path)) return path;
+            string dir = Path.GetDirectoryName(path);
+            string stem = Path.GetFileNameWithoutExtension(path);
+            string ext = Path.GetExtension(path);
+            for (int n = 2; ; n++)
+            {
+                string candidate = Path.Combine(dir, $"{stem}-{n}{ext}");
+                if (!File.Exists(candidate)) return candidate;
             }
         }
 
@@ -64,7 +83,7 @@ namespace AudioManager
         private void WriteCharToFile(char value)
         {
             if (addFileTimestamps && atLineStart && value != '\r' && value != '\n')
-                fileWriter.Write($"[{DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}] ");
+                fileWriter.Write($"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}] ");
             fileWriter.Write(value);
             if (value == '\n') atLineStart = true;
             else if (value != '\r') atLineStart = false;
@@ -86,7 +105,7 @@ namespace AudioManager
                 }
                 else if (addFileTimestamps && atLineStart)
                 {
-                    fileWriter.WriteLine($"[{DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}] {fileValue}");
+                    fileWriter.WriteLine($"[{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}] {fileValue}");
                     atLineStart = true;
                 }
                 else

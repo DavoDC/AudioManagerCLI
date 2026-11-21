@@ -64,6 +64,63 @@ namespace AudioManager
             }
         }
 
+        public static void RealMiscMigration_JournalsTheMoveBeforeFileMove()
+        {
+            string lib = RoutingFixtures.CreateLibraryFixture();
+            string journalDir = Path.Combine(Path.GetTempPath(), "am_miscjournal_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            string seen = null;
+            try
+            {
+                string from = Path.Combine(lib, Constants.MiscDir, "Good Artist - Good Song.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(from));
+                File.WriteAllBytes(from, new byte[] { 1 });
+                var integrator = new MusicIntegrator(lib, dryRun: false);
+                integrator.MigrationJournalDir = journalDir;
+                integrator._miscMigrationCandidates["Good Artist"] = new List<string> { from };
+                MiscMigration.BeforeMoveForTest = () =>
+                {
+                    string[] files = Directory.Exists(journalDir) ? Directory.GetFiles(journalDir, "misc-migration-*.json") : new string[0];
+                    seen = files.Length == 1 ? File.ReadAllText(files[0]) : "";
+                };
+                integrator.RunMiscMigration();
+                Assert.True(seen != null && seen.Contains(JsonText.Quote(from)), "journal already names the move when File.Move starts, got: " + seen);
+            }
+            finally
+            {
+                MiscMigration.BeforeMoveForTest = null;
+                RoutingFixtures.Cleanup(lib);
+                if (Directory.Exists(journalDir)) Directory.Delete(journalDir, true);
+            }
+        }
+
+        public static void RealMiscMigration_FailedMove_LeavesNoJournalEntry()
+        {
+            string lib = RoutingFixtures.CreateLibraryFixture();
+            string journalDir = Path.Combine(Path.GetTempPath(), "am_miscjournal_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            try
+            {
+                string from = Path.Combine(lib, Constants.MiscDir, "Good Artist - Good Song.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(from));
+                File.WriteAllBytes(from, new byte[] { 1 });
+                string to = Path.Combine(lib, Constants.ArtistsDir, "Good Artist", Constants.SinglesDir, "Good Artist - Good Song.mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(to));
+                File.WriteAllBytes(to, new byte[] { 9 });   // destination exists: File.Move throws
+                var integrator = new MusicIntegrator(lib, dryRun: false);
+                integrator.MigrationJournalDir = journalDir;
+                integrator._miscMigrationCandidates["Good Artist"] = new List<string> { from };
+                integrator.RunMiscMigration();
+                string[] files = Directory.Exists(journalDir) ? Directory.GetFiles(journalDir, "misc-migration-*.json") : new string[0];
+                foreach (string f in files)
+                    Assert.True(!File.ReadAllText(f).Contains(JsonText.Quote(from)), "a move that did not happen must not stay journaled");
+                Assert.True(File.Exists(from), "source stays put");
+            }
+            finally
+            {
+                RoutingFixtures.Cleanup(lib);
+                if (Directory.Exists(journalDir)) Directory.Delete(journalDir, true);
+            }
+        }
+
         public static void DryRunMiscMigration_WritesNoJournal()
         {
             string[] files = Run(true, out _, out _);

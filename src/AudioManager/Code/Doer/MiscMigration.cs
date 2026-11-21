@@ -42,6 +42,9 @@ namespace AudioManager
         private HashSet<string> _lDeletedLibraryPaths => _ledger._lDeletedLibraryPaths;
         private MirrorIndex _mirror => new MirrorIndex(_roots);
 
+        /// <summary>Test seam: runs after the journal is written and before File.Move. Null in production.</summary>
+        internal static Action BeforeMoveForTest;
+
         /// <summary>
         /// Rewrites the migration journal atomically (schemaVersion 1). Each move is {"from", "to"} plus an optional
         /// "retag": {"field": "artist", "from": old tag entry, "to": folder spelling}, present only when the tag was retagged.
@@ -141,10 +144,22 @@ namespace AudioManager
                         {
                             createdDirs = FileMover.CreateDirectoryTracked(destFolder);
                             string destPath = Path.Combine(destFolder, fileName);
-                            File.Move(libPath, destPath);
+                            // Journal the intent BEFORE the move: a crash between the two leaves an entry whose "to" does not exist,
+                            // which revert skips, never an unjournaled move. A move that throws is un-journaled again.
                             var move = new MiscMigrationMove { From = libPath, To = destPath };
                             journaledMoves.Add(move);
                             WriteMiscMigrationJournal(journalDir, journalPath, journaledMoves);
+                            BeforeMoveForTest?.Invoke();
+                            try
+                            {
+                                File.Move(libPath, destPath);
+                            }
+                            catch
+                            {
+                                journaledMoves.Remove(move);
+                                WriteMiscMigrationJournal(journalDir, journalPath, journaledMoves);
+                                throw;
+                            }
                             Console.WriteLine($"  Moved: {fileName}");
                             totalCount++;
 

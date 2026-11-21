@@ -36,6 +36,38 @@ namespace AudioManager
             return c;
         }
 
+        // ---------------------------------------------------------------- quit at duplicate execution
+
+        private static string[] QuitRecords(bool dryRun)
+        {
+            string logs = Path.Combine(Path.GetTempPath(), "am_quitrec_" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            string newMusic = Path.Combine(logs, "nm");
+            Directory.CreateDirectory(newMusic);
+            try
+            {
+                var roots = new IntegrationRoots(newMusic, Path.Combine(logs, "lib"), Path.Combine(logs, "mirror"), logs);
+                var integrator = new MusicIntegrator(Path.Combine(logs, "lib"), roots);
+                var typeField = typeof(MusicIntegrator).GetField("dryRun", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                typeField.SetValue(integrator, dryRun);
+                var entries = new List<MusicIntegrator.LogEntry> { Entry("A.mp3", "quit") };
+                integrator.WriteRecordOnDuplicateQuit(entries);
+                return Directory.GetFiles(logs, "*.json", SearchOption.TopDirectoryOnly);
+            }
+            finally { Directory.Delete(logs, true); }
+        }
+
+        public static void QuitAtDuplicateExecution_RealRun_WritesExecutionRecord()
+        {
+            string[] files = QuitRecords(dryRun: false);
+            Assert.Equal("1", files.Length.ToString(), "a real run that quits at duplicate execution still writes its record");
+        }
+
+        public static void QuitAtDuplicateExecution_DryRun_WritesNoRecord()
+        {
+            string[] files = QuitRecords(dryRun: true);
+            Assert.Equal("0", files.Length.ToString(), "a dry run writes no execution record");
+        }
+
         // ---------------------------------------------------------------- 1. dry run shape
 
         public static void BuildJson_DryRun_EmitsRoutingRecordTypeAndNullConfidence()
