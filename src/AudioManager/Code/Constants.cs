@@ -58,6 +58,9 @@ namespace AudioManager
         // Path to the artist name casing overrides config file
         public static readonly string ArtistOverridesPath = Path.Combine(RepoRoot, "config", "artist-name-overrides.xml");
 
+        // Personal list of artists who must be the first (folder) artist when credited; gitignored, see the .example.xml
+        public static readonly string ArtistPrimaryFirstPath = Path.Combine(RepoRoot, "config", "artist-primary-first.xml");
+
         // Path to the user-defined TagFixer custom rules config file (additive pass after built-in fixes)
         public static readonly string TagFixCustomRulesPath = Path.Combine(RepoRoot, "config", "tagfix-custom-rules.xml");
 

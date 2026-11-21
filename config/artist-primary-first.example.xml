@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copy to artist-primary-first.xml (gitignored). When a listed artist is credited on a track, TagFixer
+     moves them to the first artist position, so the track routes to Artists/<that artist>.
+     Example: "YS; Kanye West; Ty Dolla Sign" becomes "Kanye West; YS; Ty Dolla Sign". -->
+<PrimaryFirst>
+  <Artist name="Kanye West" />
+</PrimaryFirst>

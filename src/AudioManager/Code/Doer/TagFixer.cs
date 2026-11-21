@@ -1055,6 +1055,8 @@ namespace AudioManager
                 .Distinct(ArtistNameComparer.Instance)
                 .ToList();
 
+            cased = MovePrimaryFirst(cased, GetPrimaryFirst());
+
             // A comma-joined entry whose every part is already its own entry is a combined duplicate (BL-60).
             return cased
                 .Where(a =>
@@ -1064,6 +1066,54 @@ namespace AudioManager
                     return parts.Count < 2 || !parts.All(p => cased.Any(o => !ReferenceEquals(o, a) && ArtistNameComparer.Instance.Equals(o, p)));
                 })
                 .ToList();
+        }
+
+        private static List<string> _primaryFirst;
+
+        /// <summary>Artists from config/artist-primary-first.xml (cached; a missing file means none).</summary>
+        internal static List<string> GetPrimaryFirst()
+        {
+            if (_primaryFirst == null)
+            {
+                var list = new List<string>();
+                try
+                {
+                    if (File.Exists(Constants.ArtistPrimaryFirstPath))
+                    {
+                        var doc = new XmlDocument();
+                        doc.Load(Constants.ArtistPrimaryFirstPath);
+                        foreach (XmlElement el in doc.SelectNodes("//Artist").OfType<XmlElement>())
+                        {
+                            string n = el.GetAttribute("name");
+                            if (!string.IsNullOrEmpty(n)) list.Add(n);
+                        }
+                    }
+                }
+                catch (Exception ex) { Console.WriteLine("[WARN] artist-primary-first.xml unreadable: " + ex.Message); }
+                _primaryFirst = list;
+            }
+            return _primaryFirst;
+        }
+
+        internal static void ResetPrimaryFirstCache() { _primaryFirst = null; }
+
+        /// <summary>The first listed artist who is credited becomes the first (folder) artist; others keep their order.</summary>
+        internal static List<string> MovePrimaryFirst(List<string> artists, List<string> primaries)
+        {
+            foreach (string p in primaries)
+            {
+                int i = artists.FindIndex(a => ArtistNameComparer.Instance.Equals(a, p));
+                if (i > 0)
+                {
+                    var r = new List<string>(artists);
+                    string hit = r[i];
+                    r.RemoveAt(i);
+                    r.Insert(0, hit);
+                    return r;
+                }
+                if (i == 0) return artists;
+            }
+            return artists;
         }
 
         /// <summary>
