@@ -26,6 +26,11 @@ namespace AudioManager
         internal static Action<TagLib.File> Saver = f => f.Save();
         internal static Action<string, string> Restorer = (bak, src) => File.Copy(bak, src, true);
 
+        // Integrate path only: journal plus 7-day byte backup under data/backups. Null for TagFixApplier's own runs (it keeps its journal) and dry runs.
+        private TagFixApplier.RunJournal runJournal;
+
+        internal void EnableRunJournal(TagFixApplier.RunJournal journal) { runJournal = journal; }
+
         /// <summary>
         /// User-defined rules from config/tagfix-custom-rules.xml, applied as an additive pass
         /// AFTER the built-in hardcoded fixes. Empty when the file is missing or malformed.
@@ -137,6 +142,8 @@ namespace AudioManager
             string modeLabel = dryRun ? " [DRY RUN - no files will be modified]" : "";
             Console.WriteLine($"\nFixing music tags...{modeLabel}");
 
+            // The real integrate write is journaled and backed up like an apply (docs: tagfix journal, retention 7 days).
+            if (!dryRun) runJournal = TagFixApplier.RunJournal.Begin(newMusicRoot, Constants.LogsPath, Constants.BackupsPath, quarantineRoot, DateTime.Now);
             ScanAndProcess(newMusicRoot, fileFilter);
         }
 
@@ -193,6 +200,9 @@ namespace AudioManager
                     return;
                 }
 
+                // Every file is journaled pending before the first write, so a crash shows which files never finished.
+                if (runJournal != null && !dryRun) runJournal.RegisterPending(files);
+
                 foreach (var sourcePath in files)
                 {
                     Results.Add(ProcessFile(sourcePath));
@@ -228,9 +238,10 @@ namespace AudioManager
         /// Test-only: runs the same scan and processing as the public constructor against folder instead of
         /// Constants.NewMusicPath, so the plan JSON can be exercised on a temp fixture folder.
         /// </summary>
-        internal static TagFixer ScanFolderForTesting(string folder, bool dryRun, string customRulesPath = null, string quarantineRoot = null, Func<string, bool> fileFilter = null, IDictionary<string, string> artistSpellingChoices = null, string exceptionsPath = null)
+        internal static TagFixer ScanFolderForTesting(string folder, bool dryRun, string customRulesPath = null, string quarantineRoot = null, Func<string, bool> fileFilter = null, IDictionary<string, string> artistSpellingChoices = null, string exceptionsPath = null, TagFixApplier.RunJournal runJournal = null)
         {
             var tagFixer = new TagFixer(dryRun, skipScan: true, customRulesPath: customRulesPath, quarantineRoot: quarantineRoot, exceptionsPath: exceptionsPath, artistSpellingChoices: artistSpellingChoices);
+            tagFixer.runJournal = runJournal;
             tagFixer.ScanAndProcess(folder, fileFilter);
             return tagFixer;
         }
@@ -530,7 +541,10 @@ namespace AudioManager
                     if (genreChanged) tag.Genres = new[] { finalGenres };
 
                     // Keep a copy of the original bytes so a failed or interrupted write can be undone.
-                    string backupPath = BackupBeforeWrite(sourcePath);
+                    // With a run journal the entry is written first, then the bytes go to data/backups and stay there.
+                    string backupPath = runJournal != null
+                        ? runJournal.BeforeWrite(sourcePath, PlannedFilename(finalArtists, finalTitle, log.OriginalFilename), log.OldTags, log.NewTags)
+                        : BackupBeforeWrite(sourcePath);
                     try
                     {
                         Saver(tagFile);
@@ -543,10 +557,11 @@ namespace AudioManager
                         try
                         {
                             RestoreFromBackup(backupPath, sourcePath);
-                            DeleteBackup(backupPath);
+                            if (runJournal == null) DeleteBackup(backupPath);
                             Console.WriteLine($"  [WARN] Tag write failed for '{name}', original restored: {saveEx.Message}");
                             log.Status = "error";
                             log.Detail = saveEx.Message;
+                            runJournal?.Fail(sourcePath, saveEx.Message);
                         }
                         catch (Exception restoreEx)
                         {
@@ -554,6 +569,7 @@ namespace AudioManager
                             Console.WriteLine($"  [WARN] Tag write failed for '{name}' and restore failed; original kept at '{backupPath}': {restoreEx.Message}");
                             log.Status = "error";
                             log.Detail = "restore failed: " + restoreEx.Message;
+                            runJournal?.Fail(sourcePath, log.Detail);
                         }
                         return log;
                     }
@@ -562,7 +578,8 @@ namespace AudioManager
                     // Nulled so the finally does not dispose it twice.
                     tagFile.Dispose();
                     tagFile = null;
-                    DeleteBackup(backupPath);
+                    // The journal run keeps its byte backup for the retention window; only the legacy sibling backup is deleted.
+                    if (runJournal == null) DeleteBackup(backupPath);
 
                     // Rename file: {artists} - {title}.mp3
                     string sanitisedArtists = Reflector.SanitiseFilename(finalArtists);
@@ -607,6 +624,7 @@ namespace AudioManager
                         }
                     }
                     log.Status = "fixed";
+                    runJournal?.Done(sourcePath, log.Filename);
                     fixedCount++;
                 }
                 else
@@ -660,6 +678,7 @@ namespace AudioManager
             catch (Exception ex)
             {
                 Console.WriteLine($" - Skipped '{Path.GetFileName(sourcePath)}': error reading file ({ex.Message})");
+                runJournal?.Fail(sourcePath, ex.Message);
                 log.Status = "error";
                 log.Detail = ex.Message;
                 skippedCount++;
@@ -670,6 +689,13 @@ namespace AudioManager
                 // Release the TagLib file handle (TagLib keeps it open until disposed)
                 tagFile?.Dispose();
             }
+        }
+
+        // The name the real run will rename to, for the journal; the original name when the rename is skipped for an empty part.
+        private static string PlannedFilename(string artists, string title, string originalName)
+        {
+            string a = Reflector.SanitiseFilename(artists), t = Reflector.SanitiseFilename(title);
+            return string.IsNullOrEmpty(a) || string.IsNullOrEmpty(t) ? originalName : $"{a} - {t}.mp3";
         }
 
         private static string StrippedTitleKey(string artist, string title) =>

@@ -426,6 +426,113 @@ namespace AudioManager
             };
         }
 
+        /// <summary>
+        /// Journal and byte backup for the integrate-path tag write (TagFixer's scanning constructor), same file format and
+        /// retention as Apply: tagfix-journal-&lt;stamp&gt;.json in logsDir, backups in backupRoot/&lt;stamp&gt;/ (pruned after
+        /// BackupRetentionDays by the next run, never while the journal has pending or failed entries). Every file is
+        /// registered pending up front; BeforeWrite journals old and new tags BEFORE the backup copy and the save.
+        /// </summary>
+        internal sealed class RunJournal
+        {
+            private readonly string path, folder, quarantineRoot, backupDir;
+            private readonly DateTime now;
+            private readonly List<JournalEntry> entries = new List<JournalEntry>();
+            private readonly Dictionary<string, JournalEntry> byPath = new Dictionary<string, JournalEntry>(StringComparer.OrdinalIgnoreCase);
+
+            internal string JournalPath => path;
+
+            /// <summary>Plain constructor (no pruning); stamp has millisecond precision so it never collides with an Apply journal.</summary>
+            internal RunJournal(string folder, string logsDir, string backupRoot, string quarantineRoot, DateTime now)
+            {
+                string stamp = now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
+                this.folder = folder; this.quarantineRoot = quarantineRoot; this.now = now;
+                path = System.IO.Path.Combine(logsDir, "tagfix-journal-" + stamp + ".json");
+                backupDir = System.IO.Path.Combine(backupRoot, stamp);
+            }
+
+            /// <summary>Real-run entry point: prunes expired backup runs first (same rule as Apply), then returns the journal.</summary>
+            internal static RunJournal Begin(string folder, string logsDir, string backupRoot, string quarantineRoot, DateTime now)
+            {
+                PruneOldBackups(backupRoot, now, logsDir);
+                return new RunJournal(folder, logsDir, backupRoot, quarantineRoot, now);
+            }
+
+            /// <summary>Registers every scanned file as pending and writes the journal once (nothing is written for an empty list).</summary>
+            internal void RegisterPending(IEnumerable<string> sourcePaths)
+            {
+                foreach (string p in sourcePaths)
+                {
+                    if (byPath.ContainsKey(p)) continue;
+                    var e = new JournalEntry { File = Rel(folder, p), OldName = System.IO.Path.GetFileName(p), NewName = System.IO.Path.GetFileName(p), Status = "pending" };
+                    entries.Add(e); byPath[p] = e;
+                }
+                if (entries.Count > 0) Flush();
+            }
+
+            /// <summary>Journals old and new tags and the backup path (status pending), THEN copies the original bytes. Returns the backup path.</summary>
+            internal string BeforeWrite(string sourcePath, string newName, TagFixer.TagState oldTags, TagFixer.TagState newTags)
+            {
+                JournalEntry e;
+                if (!byPath.TryGetValue(sourcePath, out e))
+                {
+                    e = new JournalEntry { File = Rel(folder, sourcePath), OldName = System.IO.Path.GetFileName(sourcePath), Status = "pending" };
+                    entries.Add(e); byPath[sourcePath] = e;
+                }
+                e.NewName = newName; e.Old = oldTags; e.New = newTags;
+                e.Backup = System.IO.Path.Combine(backupDir, Rel(folder, sourcePath));
+                Flush();
+                try
+                {
+                    Directory.CreateDirectory(System.IO.Path.GetDirectoryName(e.Backup));
+                    // Never overwrite an existing backup: it holds the earlier original bytes.
+                    if (!File.Exists(e.Backup)) File.Copy(sourcePath, e.Backup, false);
+                }
+                catch (Exception ex)
+                {
+                    e.Status = "failed"; e.Detail = "backup failed: " + ex.Message; Flush();
+                    throw;
+                }
+                return e.Backup;
+            }
+
+            internal void Done(string sourcePath, string newName)
+            {
+                JournalEntry e;
+                if (!byPath.TryGetValue(sourcePath, out e)) return;
+                e.Status = "done"; e.NewName = newName ?? e.NewName;
+                e.NewHash = HashFile(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(sourcePath), e.NewName));
+                Flush();
+            }
+
+            internal void Fail(string sourcePath, string detail)
+            {
+                JournalEntry e;
+                if (!byPath.TryGetValue(sourcePath, out e) || e.Backup == null || e.Status != "pending") return;
+                e.Status = "failed"; e.Detail = detail; Flush();
+            }
+
+            // Files never reached stay pending on purpose: that is the crash evidence Revert and the prune rule read.
+            private void Flush()
+            {
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                WriteJournal(path, folder, quarantineRoot, entries, now);
+            }
+        }
+
+        /// <summary>Writes text to fixedPath (readers keep using that name) and a timestamped copy beside it: name-yyyyMMdd-HHmmss-fff.ext.</summary>
+        internal static void WriteWithTimestampedCopy(string fixedPath, string text, DateTime now)
+        {
+            var enc = new UTF8Encoding(false);
+            AtomicFile.WriteAllText(fixedPath, text, enc);
+            string dir = System.IO.Path.GetDirectoryName(fixedPath);
+            string stem = System.IO.Path.GetFileNameWithoutExtension(fixedPath), ext = System.IO.Path.GetExtension(fixedPath);
+            string stamp = now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
+            string copy = System.IO.Path.Combine(dir, stem + "-" + stamp + ext);
+            // Two results in one millisecond keep both: a counter, never an overwrite.
+            for (int n = 2; File.Exists(copy); n++) copy = System.IO.Path.Combine(dir, stem + "-" + stamp + "-" + n + ext);
+            AtomicFile.WriteAllText(copy, text, enc);
+        }
+
         private static string HashFile(string path)
         {
             try
@@ -500,7 +607,7 @@ namespace AudioManager
                 sb.AppendLine($"    {J(r.Failures[i])}{(i < r.Failures.Count - 1 ? "," : "")}");
             if (r.Failures.Count > 0) sb.AppendLine("  ]");
             sb.AppendLine("}");
-            AtomicFile.WriteAllText(Path.Combine(logsDir, ResultFileName), sb.ToString(), new UTF8Encoding(false));
+            WriteWithTimestampedCopy(Path.Combine(logsDir, ResultFileName), sb.ToString(), now);
         }
 
         /// <summary>Deletes backup run folders older than BackupRetentionDays. Called only at the start of an apply.</summary>

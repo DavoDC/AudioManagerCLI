@@ -380,7 +380,7 @@ namespace AudioManager
                 sb.AppendLine($"    {JsonText.Quote(r.Notes[i])}{(i < r.Notes.Count - 1 ? "," : "")}");
             if (r.Notes.Count > 0) sb.AppendLine("  ]");
             sb.AppendLine("}");
-            AtomicFile.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
+            TagFixApplier.WriteWithTimestampedCopy(path, sb.ToString(), generated);
         }
 
         /// <summary>Journal file name for one apply run: libfix-journal-yyyyMMdd-HHmmss.json.</summary>
