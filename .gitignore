@@ -366,3 +366,7 @@ data/logs/*
 data/backups/
 
 __pycache__/
+
+# Personal exception lists: commit only the .example.xml copies
+config/tagfix-exceptions.xml
+config/libchecker-exceptions.xml

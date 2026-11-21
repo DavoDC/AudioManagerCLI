@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copy to tagfix-exceptions.xml (gitignored) and add your own rows. rule = unwanted_text | missing_tag | apply_title -->
+<TagFixExceptions>
+  <Accept file="Artist - Song (Alternate Version).mp3" sourceRel="Artist - Song (Alternate Version).mp3" rule="apply_title" />
+</TagFixExceptions>
