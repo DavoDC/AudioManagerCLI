@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TagFixExceptions>
+  <Accept file="Akon; Hamsika Iyer; Vishal Dadlani; Arma; Vishal-Shekhar; Niranjan Iyengar - Chammak Challo (Multilingual Version).mp3" sourceRel="Akon; Hamsika Iyer; Vishal Dadlani; Arma; Vishal-Shekhar; Niranjan Iyengar - Chammak Challo (Multilingual Version).mp3" rule="apply_title" />
+  <Accept file="Justice; Tame Impala; SZA; Grand Theft Auto VI; King Gizzard &amp; The Lizard Wizard - Flower In A Hurricane [From GTAVI_ Original Score].mp3" sourceRel="Justice; Tame Impala; SZA; Grand Theft Auto VI; King Gizzard &amp; The Lizard Wizard - Flower In A Hurricane [From GTAVI_ Original Score].mp3" rule="apply_title" />
+  <Accept file="Tom Petty - Girl on LSD (Alternate Version).mp3" sourceRel="Tom Petty - Girl on LSD (Alternate Version).mp3" rule="apply_title" />
+  <Accept file="Tom Petty And The Heartbreakers - The Best Of Everything (Alternate Version _ Extra Verse).mp3" sourceRel="Tom Petty And The Heartbreakers - The Best Of Everything (Alternate Version _ Extra Verse).mp3" rule="apply_title" />
+  <Accept file="Justice; Tame Impala; SZA; Grand Theft Auto VI; King Gizzard &amp; The Lizard Wizard - Flower In A Hurricane.mp3" sourceRel="Justice; Tame Impala; SZA; Grand Theft Auto VI; King Gizzard &amp; The Lizard Wizard - Flower In A Hurricane.mp3" rule="apply_title" />
+  <Accept file="Tom Petty - Girl on LSD.mp3" sourceRel="Tom Petty - Girl on LSD.mp3" rule="apply_title" />
+</TagFixExceptions>
