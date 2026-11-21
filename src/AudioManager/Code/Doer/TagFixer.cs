@@ -499,8 +499,10 @@ namespace AudioManager
                 bool albumChanged = finalAlbum != album;
                 bool artistsChanged = finalArtists != tagArtists && !string.IsNullOrEmpty(finalArtists);
                 bool genreChanged = finalGenres != genres;
+                // A file whose name no longer matches its tags (artists added in Mp3tag) needs the rename even when no tag changes.
+                bool filenameChanged = FilenameNeedsRename(originalName, finalArtists, finalTitle);
 
-                if (!titleChanged && !albumChanged && !artistsChanged && !tcmpNeeded && !genreChanged)
+                if (!titleChanged && !albumChanged && !artistsChanged && !tcmpNeeded && !genreChanged && !filenameChanged)
                 {
                     log.Status = "skipped";
                     log.Detail = "no fixes needed";
@@ -1066,6 +1068,15 @@ namespace AudioManager
                     return parts.Count < 2 || !parts.All(p => cased.Any(o => !ReferenceEquals(o, a) && ArtistNameComparer.Instance.Equals(o, p)));
                 })
                 .ToList();
+        }
+
+        /// <summary>True when "{artists} - {title}.mp3" differs from the current file name (exact case). Empty parts never need a rename.</summary>
+        internal static bool FilenameNeedsRename(string currentName, string artists, string title)
+        {
+            string a = Reflector.SanitiseFilename(artists ?? "");
+            string t = Reflector.SanitiseFilename(title ?? "");
+            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(t)) return false;
+            return !string.Equals($"{a} - {t}.mp3", currentName, StringComparison.Ordinal);
         }
 
         private static List<string> _primaryFirst;
