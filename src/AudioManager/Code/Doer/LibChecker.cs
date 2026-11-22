@@ -47,6 +47,19 @@ namespace AudioManager
         /// <summary>Every counted hit, in check order. Count equals TotalHits except for the empty-library hit, which is included too.</summary>
         internal IReadOnlyList<LibCheckerHit> Hits => hits;
 
+        /// <summary>
+        /// Hit kinds that are fix-later: they stay in the report and count toward TotalHits, but do not stop the
+        /// pre-integration gate. Low-res album art never produces a hit at all (report-only).
+        /// </summary>
+        internal static readonly HashSet<string> FixLaterKinds = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "duplicate",
+            "artist_folder_mismatch",
+        };
+
+        /// <summary>True when any hit is of a kind outside FixLaterKinds. This, not IsClean, decides the gate refusal.</summary>
+        public bool HasBlockingHits => hits.Any(h => !FixLaterKinds.Contains(h.Kind)) || grandTotalHits > hits.Count;
+
         private void Hit(string kind, string path, string detail)
         {
             hits.Add(new LibCheckerHit { Kind = kind, Path = path ?? "", Detail = detail ?? "" });

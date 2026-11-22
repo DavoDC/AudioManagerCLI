@@ -117,5 +117,25 @@ namespace AudioManager
             foreach (var h in checker.Hits) if (h.Kind == "artist_folder_mismatch") mismatches++;
             Assert.Equal("1", mismatches.ToString(), "only the case mismatch is a hit; the stripped symbol is not");
         }
+        public static void LibChecker_OnlyFixLaterHits_HasNoBlockingHits_ButIsNotClean()
+        {
+            var bad = new TrackTag("\\Artists\\Charli xcx\\Singles\\Charli XCX - B.xml", "B", "Charli XCX", "Real Album", "2020", "1", "Pop", "00:03:00.0000000", "1", "True", "1200", "1200");
+            var checker = new LibChecker(new List<TrackTag> { bad });
+            Assert.True(checker.Hits.Count > 0, "the folder spelling mismatch is reported");
+            foreach (var h in checker.Hits) Assert.Equal("artist_folder_mismatch", h.Kind, "only the fix-later kind is present");
+            Assert.True(!checker.IsClean, "hits stay in the report, so the library is not clean");
+            Assert.True(!checker.HasBlockingHits, "a fix-later hit alone must not stop the gate");
+        }
+
+        public static void Gate_OnlyFixLaterHits_Passes_ButBlockingHitRefuses()
+        {
+            var bad = new TrackTag("\\Artists\\Charli xcx\\Singles\\Charli XCX - B.xml", "B", "Charli XCX", "Real Album", "2020", "1", "Pop", "00:03:00.0000000", "1", "True", "1200", "1200");
+            var fixLater = new LibChecker(new List<TrackTag> { bad });
+            var r1 = Program.DecidePreIntegrationGate(true, () => "", () => !fixLater.HasBlockingHits);
+            Assert.True(r1 == Program.PreIntegrationGateResult.Passed, "fix-later hits only -> gate passes");
+            var empty = new LibChecker(new List<TrackTag>());
+            var r2 = Program.DecidePreIntegrationGate(true, () => "", () => !empty.HasBlockingHits);
+            Assert.True(r2 == Program.PreIntegrationGateResult.LibCheckerDirty, "empty library is blocking -> gate refuses");
+        }
     }
 }

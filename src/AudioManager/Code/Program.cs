@@ -808,7 +808,10 @@ namespace AudioManager
                         Console.WriteLine(" - Running library validation...");
                         LibChecker lc = new LibChecker(p.audioTags);
                         libIssues = lc.TotalHits;
-                        return lc.IsClean;
+                        // Only blocking kinds refuse; fix-later hits (duplicate, artist folder spelling) stay in the report.
+                        if (!lc.IsClean && !lc.HasBlockingHits)
+                            Console.WriteLine($" - {lc.TotalHits} fix-later LibChecker hit(s) reported; not blocking.");
+                        return !lc.HasBlockingHits;
                     },
                     () => TagFixer.CountPending(Constants.NewMusicPath, Constants.QuarantinePath));
 
