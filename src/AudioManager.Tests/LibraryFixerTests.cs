@@ -132,24 +132,85 @@ namespace AudioManager
             finally { Cleanup(lib); }
         }
 
-        public static void Plan_LoneSingleJoiningExistingAlbumFolder_IsSkippedNotMoved()
+        public static void Plan_LoneSingleJoiningExistingAlbumFolder_IsMoved()
         {
             string lib = TempLib();
             try
             {
-                // BL-184: one Singles song of an album whose folder already holds songs reaches the threshold,
-                // but moving it would make LibChecker flag it as a lone song in a subfolder, so it stays put.
+                // One Singles song whose album folder already holds a song of that album: LibChecker counts 2 songs
+                // from the album and flags album_in_singles, so the planner must move it into the existing folder.
                 Single(lib, "Artist Alpha", "Artist Alpha - Yeah.mp3", "Test Album");
                 AlbumFolder(lib, "Artist Alpha", "Test Album", 1);
 
                 LibraryFixer.FixPlan plan = LibraryFixer.BuildAlbumInSinglesPlan(lib);
 
-                Assert.True(plan.Moves.Count == 0, "one Singles song of an album is never moved, got " + plan.Moves.Count);
-                Assert.True(plan.Skipped.Count == 1, "the lone single is listed as skipped, got " + plan.Skipped.Count);
-                Assert.True(plan.Skipped[0].From.EndsWith("Artist Alpha - Yeah.mp3", StringComparison.OrdinalIgnoreCase), "skipped entry is the lone single");
-                Assert.Equal("only one song from this album, stays in Singles", plan.Skipped[0].Reason, "skip reason");
+                Assert.True(plan.Moves.Count == 1, "one Singles song + existing folder with 1 song of the album -> 1 move, got " + plan.Moves.Count);
+                Assert.True(plan.Skipped.Count == 0, "nothing skipped, got " + plan.Skipped.Count);
+                LibraryFixer.PlannedMove m = FindMove(plan, "Artist Alpha - Yeah.mp3");
+                Assert.True(m != null, "move for Yeah.mp3 present");
+                Assert.Equal(Path.Combine("Artists", "Artist Alpha", "Test Album", "Artist Alpha - Yeah.mp3"), m.To, "into the existing folder");
+                Assert.True(!m.CreatesFolder, "existing folder -> createsFolder false");
             }
             finally { Cleanup(lib); }
+        }
+
+        public static void Plan_LoneSingleAlbumFolderHoldsOtherAlbum_Stays()
+        {
+            string lib = TempLib();
+            try
+            {
+                // The folder name matches but its songs carry a different album tag, so only 1 song has this album
+                // tag library-wide: LibChecker would not flag it and a move would be flagged as a lone song in a subfolder.
+                Single(lib, "Artist Alpha", "Artist Alpha - Yeah.mp3", "Test Album");
+                string dir = Path.Combine(ArtistDir(lib, "Artist Alpha"), "Test Album");
+                Directory.CreateDirectory(dir);
+                TagFixerTests.CreateSilentMp3Fixture(dir, "Other.mp3", "Other", "Different Album", "Artist Alpha");
+
+                LibraryFixer.FixPlan plan = LibraryFixer.BuildAlbumInSinglesPlan(lib);
+
+                Assert.True(plan.Moves.Count == 0, "tag-wise lone song is not moved, got " + plan.Moves.Count);
+            }
+            finally { Cleanup(lib); }
+        }
+
+        public static void Plan_CollabSingleJoiningExistingAlbumFolder_IsMoved()
+        {
+            string lib = TempLib();
+            try
+            {
+                Single(lib, "Artist Alpha", "Artist Alpha;Guest Beta - Duet.mp3", "Test Album");
+                AlbumFolder(lib, "Artist Alpha", "Test Album", 1);
+
+                LibraryFixer.FixPlan plan = LibraryFixer.BuildAlbumInSinglesPlan(lib);
+
+                Assert.True(plan.Moves.Count == 1, "collab Singles song with existing album folder -> 1 move, got " + plan.Moves.Count);
+                Assert.True(FindMove(plan, "Artist Alpha;Guest Beta - Duet.mp3") != null, "collab song planned");
+            }
+            finally { Cleanup(lib); }
+        }
+
+        public static void ApplyRevert_LoneSingleIntoExistingFolder_RestoresLayout()
+        {
+            string lib = TempLib();
+            string scratch = Scratch();
+            try
+            {
+                Single(lib, "Artist Alpha", "Artist Alpha - Yeah.mp3", "Test Album");
+                AlbumFolder(lib, "Artist Alpha", "Test Album", 1);
+                string before = Snapshot(lib);
+                string planPath = Path.Combine(scratch, "libfix-plan.json");
+                string journalPath = Path.Combine(scratch, "libfix-journal-test.json");
+                LibraryFixer.WritePlan(LibraryFixer.BuildAlbumInSinglesPlan(lib), planPath);
+
+                LibraryFixer.FixResult applied = LibraryFixer.Apply(planPath, journalPath, lib);
+                Assert.Equal("applied", applied.Status, "apply status");
+                Assert.True(File.Exists(Path.Combine(lib, "Artists", "Artist Alpha", "Test Album", "Artist Alpha - Yeah.mp3")), "moved into existing folder");
+
+                LibraryFixer.FixResult reverted = LibraryFixer.Revert(journalPath, lib);
+                Assert.Equal("reverted", reverted.Status, "revert status");
+                Assert.Equal(before, Snapshot(lib), "layout restored; the pre-existing folder is kept");
+            }
+            finally { Cleanup(lib); Cleanup(scratch); }
         }
 
         public static void Plan_DestinationExists_IsSkippedWithReason()

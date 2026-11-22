@@ -87,9 +87,9 @@ namespace AudioManager
 
         /// <summary>
         /// Plans the album_in_singles moves for one library. For each artist, groups the Singles songs by normalised
-        /// album tag, counts the songs already in the album folder plus the Singles songs of that album, and plans a
-        /// move for every Singles song of an album that reaches the subfolder threshold, except a lone Singles song
-        /// (listed in Skipped instead, BL-184). Read-only.
+        /// album tag, counts the songs already in the album folder (by album tag) plus the Singles songs of that album,
+        /// and plans a move for every Singles song of an album that reaches the subfolder threshold, including one
+        /// Singles song joining an existing album folder. Read-only.
         /// </summary>
         internal static FixPlan BuildAlbumInSinglesPlan(string libraryRoot)
         {
@@ -107,29 +107,14 @@ namespace AudioManager
                 {
                     string album = group.Key;
                     string existingFolder = FindAlbumFolder(artistDir, album);
-                    int existingSongs = existingFolder != null
-                        ? Directory.GetFiles(existingFolder, "*.mp3", SearchOption.AllDirectories).Length
-                        : 0;
-                    if (!RulesEngine.UsesAlbumSubfolder(existingSongs + group.Value.Count)) continue;
+                    // Count by album tag, as LibChecker does: songs in the folder with another album tag do not count.
+                    int existingSongs = existingFolder != null ? CountTaggedAlbumSongs(existingFolder, album) : 0;
+                    if (!RulesEngine.SinglesSongNeedsAlbumFolder(existingSongs + group.Value.Count)) continue;
 
                     string folderName = existingFolder != null
                         ? Path.GetFileName(existingFolder)
                         : MusicIntegrator.SanitiseFolderName(album);
                     if (string.IsNullOrWhiteSpace(folderName) || IsSinglesName(folderName)) continue;
-
-                    // BL-184: a lone Singles song moved into a folder that already holds songs is flagged by LibChecker
-                    // as a single in a subfolder, so the move would loop. It stays in Singles and is listed as skipped.
-                    if (group.Value.Count == 1)
-                    {
-                        string soleFile = Path.GetFileName(group.Value[0]);
-                        plan.Skipped.Add(new SkippedMove
-                        {
-                            From = Path.Combine(ArtistsDirName, artist, SinglesDirName, soleFile),
-                            To = Path.Combine(ArtistsDirName, artist, folderName, soleFile),
-                            Reason = "only one song from this album, stays in Singles"
-                        });
-                        continue;
-                    }
 
                     foreach (string songPath in group.Value)
                     {
@@ -451,6 +436,26 @@ namespace AudioManager
                 if (string.Equals(RulesEngine.NormalizeAlbum(name), album, StringComparison.OrdinalIgnoreCase)) return dir;
             }
             return null;
+        }
+
+        /// <summary>Songs under an album folder whose normalised album tag equals album. Unreadable files do not count.</summary>
+        private static int CountTaggedAlbumSongs(string folder, string album)
+        {
+            int count = 0;
+            foreach (string file in Directory.GetFiles(folder, "*.mp3", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    using (TagLib.File tf = TagLib.File.Create(file))
+                    {
+                        string a = tf.Tag.Album;
+                        if (!string.IsNullOrEmpty(a)
+                            && string.Equals(RulesEngine.NormalizeAlbum(a), album, StringComparison.OrdinalIgnoreCase)) count++;
+                    }
+                }
+                catch { }
+            }
+            return count;
         }
 
         private static bool IsSinglesName(string name)

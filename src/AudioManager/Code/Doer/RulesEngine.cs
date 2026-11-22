@@ -34,6 +34,13 @@ namespace AudioManager
         /// <summary>True when the album has enough songs to live in its own subfolder.</summary>
         internal static bool UsesAlbumSubfolder(int albumSongCount) => albumSongCount >= AlbumSubfolderMinTracks;
 
+        /// <summary>
+        /// Shared by LibChecker (album_in_singles) and LibraryFixer (the planner): a Singles song belongs in an album
+        /// folder when the album has 2+ songs in the artist's library, counted by album tag across Singles and the
+        /// album folders, not by folder contents.
+        /// </summary>
+        internal static bool SinglesSongNeedsAlbumFolder(int albumSongsInLibrary) => UsesAlbumSubfolder(albumSongsInLibrary);
+
         /// <summary>True when an artist has enough songs to earn an Artists/ folder.</summary>
         internal static bool EarnsArtistFolder(int artistSongCount) => artistSongCount >= ArtistFolderMinTracks;
 

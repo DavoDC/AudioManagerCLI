@@ -680,7 +680,7 @@ namespace AudioManager
             {
                 int count = group.Count();
 
-                if (RulesEngine.UsesAlbumSubfolder(count))
+                if (RulesEngine.SinglesSongNeedsAlbumFolder(count))
                 {
                     // 2+ songs from same album: should be in an album subfolder, not Singles/
                     foreach (TrackTag tag in group)
