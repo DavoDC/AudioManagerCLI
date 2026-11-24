@@ -351,6 +351,7 @@ namespace AudioManager
                 string album = tag.Album ?? "";
                 string genres = tag.JoinedGenres ?? "";
                 log.OldTags = new TagState { Title = title, Album = album, Artists = artists, Genre = genres, Compilation = id3.IsCompilation, ArtCount = tag.Pictures.Length };
+                string coverIssue = CoverCheck.Evaluate(tag.Pictures);
                 // Same convention as TrackTag (Year 0 is "Missing"), so the residual check agrees with LibChecker's "has no Year set".
                 string yearValue = tag.Year == 0 ? Constants.MissingTag : tag.Year.ToString();
 
@@ -541,7 +542,7 @@ namespace AudioManager
                 {
                     log.Status = "skipped";
                     log.Detail = "no fixes needed";
-                    MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, yearValue, originalName, originalRel);
+                    MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, yearValue, originalName, originalRel, coverIssue);
                     skippedCount++;
                     return log;
                 }
@@ -677,7 +678,7 @@ namespace AudioManager
                             log.RenameBlocked = true;
                         }
                     }
-                    if (!log.NeedsManual) MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, yearValue, originalName, originalRel);
+                    if (!log.NeedsManual) MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, yearValue, originalName, originalRel, coverIssue);
                     log.Status = "would-fix";
                     fixedCount++;
                 }
@@ -744,7 +745,7 @@ namespace AudioManager
         /// needsManual row (rule missing_tag, reason "Missing tag: Year"). A missing title or artist already gives
         /// empty_artist_or_title, and a missing album is reported by projectedHits only.
         /// </summary>
-        private void MarkResidualIssue(FixLog log, string title, string artists, string album, string year, string name, string rel)
+        private void MarkResidualIssue(FixLog log, string title, string artists, string album, string year, string name, string rel, string coverIssue = null)
         {
             if (!dryRun) return;
             string rule = null, reason = null, flagged = null, flaggedField = null;
@@ -755,6 +756,7 @@ namespace AudioManager
                 if (hit != null) { rule = "unwanted_text"; reason = $"found '{hit}' in {f.Item1}"; flagged = hit; flaggedField = f.Item1; break; }
             }
             if (rule == null && year.Equals(Constants.MissingTag)) { rule = "missing_tag"; reason = "Missing tag: Year"; }
+            if (rule == null && coverIssue != null) { rule = "bad_cover"; reason = coverIssue; }
             if (rule == null || exceptions.Accepts(name, rule, rel)) return;
             if (rule == "unwanted_text" && new[] { "title", "artist", "album", "casing" }.Any(k => exceptions.Keeps(name, k, rel))) return;
             log.NeedsManual = true;
@@ -766,6 +768,49 @@ namespace AudioManager
                 // No collision check for the album: only the title can duplicate another file's name.
                 log.SuggestedAlbum = TitleSuffixStripper.Suggest(album, flagged);
                 log.OldAlbum = log.OldTags?.Album ?? "";
+            }
+        }
+
+        /// <summary>
+        /// Embedded-cover health check (rule bad_cover). Detection only: TagFixer never changes art. A cover that is not
+        /// JPEG or PNG (webp is the real case) does not show in Windows or Apple Music, and a solid-black cover is a placeholder.
+        /// An absent cover is not flagged here (LibChecker and the analysis report it).
+        /// </summary>
+        internal static class CoverCheck
+        {
+            /// <summary>Highest luminance (0-255) a sampled pixel may have for the cover to count as solid black.</summary>
+            internal const int BlackMaxLuma = 48;
+
+            /// <summary>Null when the first picture is fine or there is none; otherwise the reason text.</summary>
+            internal static string Evaluate(IPicture[] pictures)
+            {
+                if (pictures == null || pictures.Length == 0) return null;
+                var pic = pictures.FirstOrDefault(p => p.Type == PictureType.FrontCover) ?? pictures[0];
+                string mime = (pic.MimeType ?? "").Trim().ToLowerInvariant();
+                if (mime == "image/jpg") mime = "image/jpeg";
+                if (mime != "image/jpeg" && mime != "image/png")
+                    return $"Cover is {(mime.Length == 0 ? "of unknown type" : mime)} (needs JPEG or PNG for Windows and Apple Music)";
+                if (pic.Data == null || pic.Data.Count == 0) return "Cover is empty";
+                try
+                {
+                    using (var ms = new System.IO.MemoryStream(pic.Data.Data))
+                    using (var img = new System.Drawing.Bitmap(ms))
+                    {
+                        int n = 16;
+                        using (var small = new System.Drawing.Bitmap(img, new System.Drawing.Size(n, n)))
+                        {
+                            for (int y = 0; y < n; y++)
+                                for (int x = 0; x < n; x++)
+                                {
+                                    var c = small.GetPixel(x, y);
+                                    int luma = (299 * c.R + 587 * c.G + 114 * c.B) / 1000;
+                                    if (luma > BlackMaxLuma) return null;
+                                }
+                        }
+                    }
+                    return "Cover is solid black";
+                }
+                catch (Exception) { return "Cover cannot be decoded"; }
             }
         }
 

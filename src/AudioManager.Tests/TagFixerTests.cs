@@ -930,6 +930,73 @@ namespace AudioManager
             Assert.True(!log.NeedsManual, "missing album is reported by projectedHits, not tagfix");
         }
 
+        // bad_cover: a non-JPEG/PNG or solid-black front cover is a needsManual row (detection only, art is never changed).
+        private static byte[] SolidImage(System.Drawing.Color color, System.Drawing.Imaging.ImageFormat fmt)
+        {
+            using (var bmp = new System.Drawing.Bitmap(64, 64))
+            {
+                using (var g = System.Drawing.Graphics.FromImage(bmp)) g.Clear(color);
+                using (var ms = new System.IO.MemoryStream()) { bmp.Save(ms, fmt); return ms.ToArray(); }
+            }
+        }
+
+        private static TagFixer.FixLog CoverRun(string mime, byte[] data, string acceptXml)
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "Band - Song.mp3", "Song", "Album", "Band", 2020);
+                if (data != null)
+                {
+                    using (var f = TagLib.File.Create(fixturePath))
+                    {
+                        f.Tag.Pictures = new TagLib.IPicture[] { new TagLib.Picture(new TagLib.ByteVector(data)) { MimeType = mime, Type = TagLib.PictureType.FrontCover } };
+                        f.Save();
+                    }
+                }
+                string exPath = System.IO.Path.Combine(tempDir, "ex.xml");
+                System.IO.File.WriteAllText(exPath, "<Exceptions>" + acceptXml + "</Exceptions>");
+                var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(tempDir, "q"), exceptionsPath: exPath);
+                return fixer.ProcessFile(fixturePath);
+            }
+            finally { System.IO.Directory.Delete(tempDir, true); }
+        }
+
+        public static void ProcessFile_WebpCover_IsNeedsManualBadCover()
+        {
+            var log = CoverRun("image/webp", new byte[] { 1, 2, 3, 4 }, "");
+            Assert.True(log.NeedsManual, "a webp cover needs a person");
+            Assert.Equal("bad_cover", log.ManualRule, "rule id");
+            Assert.True(log.ManualReason.Contains("image/webp"), "reason names the type");
+        }
+
+        public static void ProcessFile_BlackJpegCover_IsNeedsManualBadCover()
+        {
+            var log = CoverRun("image/jpeg", SolidImage(System.Drawing.Color.Black, System.Drawing.Imaging.ImageFormat.Jpeg), "");
+            Assert.True(log.NeedsManual, "a solid-black cover needs a person");
+            Assert.Equal("bad_cover", log.ManualRule, "rule id");
+            Assert.Equal("Cover is solid black", log.ManualReason, "reason text");
+        }
+
+        public static void ProcessFile_GoodJpegCover_IsNotNeedsManual()
+        {
+            var log = CoverRun("image/jpeg", SolidImage(System.Drawing.Color.OrangeRed, System.Drawing.Imaging.ImageFormat.Jpeg), "");
+            Assert.True(!log.NeedsManual, "a normal JPEG cover raises nothing");
+        }
+
+        public static void ProcessFile_NoCover_IsNotNeedsManual()
+        {
+            var log = CoverRun(null, null, "");
+            Assert.True(!log.NeedsManual, "a missing cover is not a bad_cover row");
+        }
+
+        public static void ProcessFile_BadCoverAccepted_IsSkipped()
+        {
+            var log = CoverRun("image/webp", new byte[] { 1, 2, 3, 4 }, "<Accept file=\"Band - Song.mp3\" rule=\"bad_cover\" />");
+            Assert.True(!log.NeedsManual, "an accepted bad_cover is skipped");
+        }
+
         // missing_tag (Year only): a dry run raises a file whose Year is empty, the same field LibChecker reports as "has no Year set".
         public static void ProcessFile_ResidualMissingYear_IsNeedsManualWithMissingTag()
         {
