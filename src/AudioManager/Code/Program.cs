@@ -53,6 +53,14 @@ namespace AudioManager
                     return;
                 }
 
+                // --apply-lyrics-plan <plan.json> [--apply] / --lyrics-revert <journal>: USLT lyrics from a verified plan. Dry-run
+                // unless --apply is present. Returns before mode parsing and never touches NewMusic.
+                if (TryRunLyricsPlan(args, Constants.AudioFolderPath, Constants.LogsPath, Constants.BackupsPath + "-lyrics", DateTime.Now, out int lyricsCode))
+                {
+                    if (lyricsCode != 0) Environment.Exit(lyricsCode);
+                    return;
+                }
+
                 // --misc-revert <journalPath>: undoes a Misc migration from its misc-migration-*.json journal. Like libfix it
                 // returns before mode parsing and never touches NewMusic.
                 if (TryRunMiscRevert(args, out int miscRevertCode))
@@ -617,6 +625,55 @@ namespace AudioManager
         /// <param name="mode">Parsed mode: 1 = analysis, 2 = integrate, 3 = tagfix.</param>
         /// <param name="dryRun">Whether --dry-run was passed.</param>
         internal static bool AnalysisRejectsDryRun(int mode, bool dryRun) => mode == 1 && dryRun;
+
+        /// <summary>
+        /// --apply-lyrics-plan &lt;plan.json&gt; writes USLT lyrics from a verified plan into the library; it is a dry run
+        /// unless --apply is also given. --lyrics-revert &lt;journal&gt; undoes an apply. Returns false when neither flag is present.
+        /// Exit code 0 only for a clean dry run, a clean apply (or nothing to do) and a clean revert.
+        /// </summary>
+        internal static bool TryRunLyricsPlan(string[] args, string libraryRoot, string logsDir, string backupRoot, DateTime now, out int exitCode)
+        {
+            exitCode = 1;
+            int planIdx = Array.FindIndex(args, a => a.Equals("--apply-lyrics-plan", StringComparison.OrdinalIgnoreCase));
+            int revertIdx = Array.FindIndex(args, a => a.Equals("--lyrics-revert", StringComparison.OrdinalIgnoreCase));
+            if (planIdx < 0 && revertIdx < 0) return false;
+            if (planIdx >= 0 && revertIdx >= 0)
+            {
+                Console.WriteLine(" - ERROR: use only one of --apply-lyrics-plan, --lyrics-revert. Nothing was run.");
+                return true;
+            }
+            int pathIdx = planIdx >= 0 ? planIdx : revertIdx;
+            if (pathIdx + 1 >= args.Length || args[pathIdx + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                Console.WriteLine(planIdx >= 0
+                    ? " - ERROR: --apply-lyrics-plan requires a plan path argument. Nothing was run."
+                    : " - ERROR: --lyrics-revert requires a journal path argument. Nothing was run.");
+                return true;
+            }
+            try
+            {
+                if (revertIdx >= 0)
+                {
+                    var rev = LyricsPlanApplier.Revert(args[pathIdx + 1], libraryRoot);
+                    Console.WriteLine($" - Lyrics revert: {rev.Reverted} reverted, {rev.SkippedModified} left alone (edited since), {rev.Failed} failed");
+                    foreach (string n in rev.Notes) Console.WriteLine("   " + n);
+                    exitCode = rev.Failed > 0 || rev.SkippedModified > 0 ? 1 : 0;
+                    return true;
+                }
+                bool apply = args.Any(a => a.Equals("--apply", StringComparison.OrdinalIgnoreCase));
+                var r = LyricsPlanApplier.Apply(args[pathIdx + 1], libraryRoot, logsDir, backupRoot, now, apply);
+                Console.WriteLine($" - Lyrics plan {(apply ? "apply" : "dry run (nothing written; add --apply to write)")}: status {r.Status}");
+                Console.WriteLine($" - written {r.Written}, would_write {r.WouldWrite}, skipped_stale {r.SkippedStale}, has_lyrics {r.HasLyrics}, skipped_other {r.SkippedOther}, failed {r.Failed}");
+                foreach (string f in r.Failures) Console.WriteLine("   " + f);
+                if (r.JournalPath != null) Console.WriteLine($" - Journal: {r.JournalPath}");
+                exitCode = r.Status == "applied" || r.Status == "nothing_to_do" || r.Status == "dry_run" ? 0 : 1;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($" - ERROR: lyrics plan run failed: {ex.Message}");
+            }
+            return true;
+        }
 
         /// <summary>
         /// Library fix commands (LibChecker album_in_singles). Returns false when no libfix flag is present.

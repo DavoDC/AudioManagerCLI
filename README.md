@@ -48,6 +48,8 @@ Run `AudioManager.exe <verb> [flags]`. With no arguments it opens the interactiv
 | `--libfix-plan` | no | standalone | Writes the library fix plan for album_in_singles hits. Moves nothing. |
 | `--libfix-apply <plan>` | yes, a plan file | standalone | Applies a library fix plan, journaling each move. |
 | `--libfix-revert <journal>` | yes, a journal file | standalone | Reverts a library fix from its journal. |
+| `--apply-lyrics-plan <plan>` | yes, a plan file | standalone | Dry run of a verified lyrics plan; with `--apply` writes USLT lyrics into empty files, journaled ([format](docs/Contracts/LyricsPlanApplyFormat.md)). |
+| `--lyrics-revert <journal>` | yes, a journal file | standalone | Reverts a lyrics apply from its journal. |
 | `--misc-revert <journal>` | yes, a Misc migration journal | standalone | Undoes a Misc migration from its journal. |
 
 Standalone flags run and exit before any verb is read.

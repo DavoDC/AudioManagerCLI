@@ -371,3 +371,6 @@ __pycache__/
 config/tagfix-exceptions.xml
 config/libchecker-exceptions.xml
 config/artist-primary-first.xml
+
+# Lyrics plan byte backups (--apply-lyrics-plan --apply)
+data/backups-lyrics/
