@@ -87,5 +87,59 @@ namespace AudioManager
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
+
+        public static void TrackXML_RoundTrip_HasLyricsTrueAndFalse_Preserved()
+        {
+            // HasLyrics is presence-only ("True"/"False"); both values must survive write then read
+            string path = TempXmlPath();
+            try
+            {
+                var withLyrics = SampleTag();
+                withLyrics.HasLyrics = "True";
+                TrackXML.Write(path, withLyrics);
+                var loaded = BlankTag();
+                TrackXML.Read(path, loaded);
+                Assert.Equal("True", loaded.HasLyrics, "HasLyrics True round trip");
+
+                var noLyrics = SampleTag();
+                noLyrics.HasLyrics = "False";
+                TrackXML.Write(path, noLyrics);
+                loaded = BlankTag();
+                TrackXML.Read(path, loaded);
+                Assert.Equal("False", loaded.HasLyrics, "HasLyrics False round trip");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        public static void TrackXML_ReadWithoutHasLyrics_SucceedsWithNull()
+        {
+            // An XML written before HasLyrics existed must stay readable; the field is optional
+            string path = TempXmlPath();
+            try
+            {
+                File.WriteAllText(path,
+                    "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                    "<Track>\n" +
+                    "  <Title>Song A</Title>\n" +
+                    "  <Artists>Artist A</Artists>\n" +
+                    "  <Album>Album A</Album>\n" +
+                    "  <Year>2020</Year>\n" +
+                    "  <TrackNumber>1</TrackNumber>\n" +
+                    "  <Genres>Pop</Genres>\n" +
+                    "  <Length>00:03:00.0000000</Length>\n" +
+                    "  <AlbumCover>\n" +
+                    "    <Count>1</Count>\n" +
+                    "    <Width>500</Width>\n" +
+                    "    <Height>500</Height>\n" +
+                    "  </AlbumCover>\n" +
+                    "  <Compilation>False</Compilation>\n" +
+                    "</Track>");
+                var loaded = BlankTag();
+                TrackXML.Read(path, loaded);
+                Assert.Equal("Song A", loaded.Title, "old XML still reads Title");
+                Assert.True(loaded.HasLyrics == null, "absent HasLyrics element reads as null (unknown)");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
     }
 }

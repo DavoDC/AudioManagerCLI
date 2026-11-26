@@ -8,7 +8,7 @@ A C# console application for managing, analysing, and auditing a personal music 
 
 ## What it does
 
-- **Mirror** - creates a lightweight XML snapshot of the library metadata (see [AudioMirror](https://github.com/DavoDC/AudioMirror))
+- **Mirror** - creates a lightweight XML snapshot of the library metadata (see [AudioMirror](https://github.com/DavoDC/AudioMirror)). Each XML now carries `<HasLyrics>True|False</HasLyrics>`, derived from the lyrics tag (presence only, never the text); a force regen (`--force-regen`) fills it in for XML files written before this field.
 - **Analyse** - generates timestamped statistical reports, runs full library validation (LibChecker), and auto-commits AudioMirror if the library is clean
 - **Integrate** - scans a staging folder for new MP3s, pre-processes tags, routes files automatically, and produces a confidence report
 

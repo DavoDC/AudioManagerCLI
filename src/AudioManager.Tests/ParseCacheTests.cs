@@ -166,8 +166,8 @@ namespace AudioManager
             string path = TempCachePath();
             try
             {
-                // Row with 11 fields instead of the required 12 - must be rejected
-                File.WriteAllText(path, "PARSE_CACHE_V2\nfield1|field2|field3|field4|field5|field6|field7|field8|field9|field10|field11");
+                // Row with the old 12 fields instead of the required 13 (no HasLyrics) - must be rejected
+                File.WriteAllText(path, "PARSE_CACHE_V3\nfield1|field2|field3|field4|field5|field6|field7|field8|field9|field10|field11|field12");
                 bool ok = ParseCache.TryDeserialize(path, out var tags);
                 Assert.True(!ok, "row with too few fields should return false");
             }
@@ -179,8 +179,8 @@ namespace AudioManager
             string path = TempCachePath();
             try
             {
-                // 13 fields (e.g. a title containing '|') - must be rejected
-                File.WriteAllText(path, "PARSE_CACHE_V2\nf1|f2|f3|f4|f5|f6|f7|f8|f9|f10|f11|f12|extra");
+                // 14 fields (e.g. a title containing '|') - must be rejected
+                File.WriteAllText(path, "PARSE_CACHE_V3\nf1|f2|f3|f4|f5|f6|f7|f8|f9|f10|f11|f12|f13|extra");
                 bool ok = ParseCache.TryDeserialize(path, out var tags);
                 Assert.True(!ok, "row with too many fields (e.g. pipe in field value) should return false");
             }
@@ -361,12 +361,12 @@ namespace AudioManager
 
         // ---- Extract() ----
 
-        public static void Extract_NullArg_Returns12Elements()
+        public static void Extract_NullArg_Returns13Elements()
         {
             // Extract(null) defines the schema length; FieldCount is derived from it.
             // Regression: if Extract's field list changes, this test catches the count change.
             var schema = ParseCache.Extract(null);
-            Assert.Equal("12", schema.Length.ToString(), "Extract(null) must return exactly 12 elements (one per cache field)");
+            Assert.Equal("13", schema.Length.ToString(), "Extract(null) must return exactly 13 elements (one per cache field)");
         }
 
         public static void Extract_ValidTag_ReturnsFieldsInCacheOrder()
@@ -374,6 +374,7 @@ namespace AudioManager
             // Verifies field order in Extract matches what TryDeserialize reads back positionally.
             // If the order drifts between Extract and TryDeserialize, round-trips silently corrupt data.
             var tag = MakeSample("E");
+            tag.HasLyrics = "True";
             var fields = ParseCache.Extract(tag);
             Assert.Equal(tag.RelPath,        fields[0],  "index 0 = RelPath");
             Assert.Equal(tag.Title,          fields[1],  "index 1 = Title");
@@ -387,6 +388,29 @@ namespace AudioManager
             Assert.Equal(tag.Compilation,    fields[9],  "index 9 = Compilation");
             Assert.Equal(tag.CoverWidth,     fields[10], "index 10 = CoverWidth");
             Assert.Equal(tag.CoverHeight,    fields[11], "index 11 = CoverHeight");
+            Assert.Equal(tag.HasLyrics,      fields[12], "index 12 = HasLyrics");
+        }
+
+        public static void RoundTrip_HasLyrics_Preserved()
+        {
+            // "True"/"False" survive the cache; an unknown (null) HasLyrics is stored as an empty field and reads back as null
+            string path = TempCachePath();
+            try
+            {
+                var withLyrics = MakeSample("L");
+                withLyrics.HasLyrics = "True";
+                var noLyrics = MakeSample("N");
+                noLyrics.HasLyrics = "False";
+                var unknown = MakeSample("U");
+                ParseCache.Save(path, new List<TrackTag> { withLyrics, noLyrics, unknown });
+                bool ok = ParseCache.TryDeserialize(path, out var loaded);
+
+                Assert.True(ok, "cache with HasLyrics should deserialize ok");
+                Assert.Equal("True", loaded[0].HasLyrics, "HasLyrics True survives");
+                Assert.Equal("False", loaded[1].HasLyrics, "HasLyrics False survives");
+                Assert.True(loaded[2].HasLyrics == null, "unknown HasLyrics survives as null");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
         }
     }
 }

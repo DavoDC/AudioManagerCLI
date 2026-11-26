@@ -13,20 +13,21 @@ namespace AudioManager
     /// If no XML is newer than the cache, the cached data is current and can be used directly.
     /// Each field is escaped (\ to \\, | to \p, CR to \r, LF to \n) so '|' and newlines survive.
     /// V1 files had no escaping; the V2 header makes them a cache miss so they are rebuilt.
+    /// V3 added HasLyrics as the 13th field; the V3 header makes V1 and V2 files a cache miss.
     /// </summary>
     internal static class ParseCache
     {
-        private const string Header = "PARSE_CACHE_V2";
+        private const string Header = "PARSE_CACHE_V3";
         private const char Sep = '|';
         private static readonly int FieldCount = Extract(null).Length;
 
-        // Returns fields in cache serialization order. Extract(null) returns an empty 12-element
+        // Returns fields in cache serialization order. Extract(null) returns an empty 13-element
         // array whose length is the authoritative field count - one edit here updates Save + validation.
         internal static string[] Extract(TrackTag t) => t == null
-            ? new string[12]
+            ? new string[13]
             : new[] { t.RelPath, t.Title, t.Artists, t.Album,
                       t.Year, t.TrackNumber, t.Genres, t.Length,
-                      t.AlbumCoverCount, t.Compilation, t.CoverWidth, t.CoverHeight };
+                      t.AlbumCoverCount, t.Compilation, t.CoverWidth, t.CoverHeight, t.HasLyrics };
 
         /// <summary>
         /// Try to load the parse cache. Returns false if cache is missing, stale, or corrupt.
@@ -96,9 +97,12 @@ namespace AudioManager
                     var f = new string[FieldCount];
                     for (int j = 0; j < FieldCount; j++)
                         if (!TryUnescape(parts[j], out f[j])) return false;
-                    result.Add(new TrackTag(f[0], f[1], f[2], f[3],
-                                            f[4], f[5], f[6], f[7],
-                                            f[8], f[9], f[10], f[11]));
+                    var tag = new TrackTag(f[0], f[1], f[2], f[3],
+                                           f[4], f[5], f[6], f[7],
+                                           f[8], f[9], f[10], f[11]);
+                    // An empty HasLyrics field is how a null (unknown) value is stored
+                    tag.HasLyrics = f[12].Length == 0 ? null : f[12];
+                    result.Add(tag);
                 }
                 tags = result;
                 return true;

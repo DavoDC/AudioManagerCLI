@@ -33,6 +33,10 @@ namespace AudioManager.Code.Modules
             t.CoverWidth     = RequiredElement(cover, "Width", path).Value;
             t.CoverHeight    = RequiredElement(cover, "Height", path).Value;
             t.Compilation    = RequiredElement(root, "Compilation", path).Value;
+
+            // Optional: XML written before HasLyrics existed has no element, so HasLyrics stays null (unknown)
+            XElement hasLyrics = root.Element("HasLyrics");
+            if (hasLyrics != null) t.HasLyrics = hasLyrics.Value;
         }
 
         private static XElement RequiredElement(XElement parent, string name, string path)
@@ -50,21 +54,23 @@ namespace AudioManager.Code.Modules
             string tmpPath = path + ".tmp";
             try
             {
-                var doc = new XDocument(
-                    new XDeclaration("1.0", "utf-8", null),
-                    new XElement("Track",
-                        new XElement("Title",       t.Title),
-                        new XElement("Artists",     t.Artists),
-                        new XElement("Album",       t.Album),
-                        new XElement("Year",        t.Year),
-                        new XElement("TrackNumber", t.TrackNumber),
-                        new XElement("Genres",      t.Genres),
-                        new XElement("Length",      t.Length),
-                        new XElement("AlbumCover",
-                            new XElement("Count",  t.AlbumCoverCount),
-                            new XElement("Width",  t.CoverWidth),
-                            new XElement("Height", t.CoverHeight)),
-                        new XElement("Compilation", t.Compilation)));
+                var track = new XElement("Track",
+                    new XElement("Title",       t.Title),
+                    new XElement("Artists",     t.Artists),
+                    new XElement("Album",       t.Album),
+                    new XElement("Year",        t.Year),
+                    new XElement("TrackNumber", t.TrackNumber),
+                    new XElement("Genres",      t.Genres),
+                    new XElement("Length",      t.Length),
+                    new XElement("AlbumCover",
+                        new XElement("Count",  t.AlbumCoverCount),
+                        new XElement("Width",  t.CoverWidth),
+                        new XElement("Height", t.CoverHeight)),
+                    new XElement("Compilation", t.Compilation));
+                // HasLyrics is written only when known (null = unknown, element omitted)
+                if (t.HasLyrics != null)
+                    track.Add(new XElement("HasLyrics", t.HasLyrics));
+                var doc = new XDocument(new XDeclaration("1.0", "utf-8", null), track);
 
                 var settings = new XmlWriterSettings
                 {

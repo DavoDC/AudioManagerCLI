@@ -82,6 +82,9 @@ namespace AudioManager.Code.Modules
                 ID3Tag id3tag = tagFile.GetTag(TagLib.TagTypes.Id3v2, false) as ID3Tag;
                 Compilation = (id3tag != null ? id3tag.IsCompilation : false).ToString();
 
+                // Lyrics presence only (never the text): TagLib's generic Tag.Lyrics reads the ID3v2 USLT frame
+                HasLyrics = (!string.IsNullOrWhiteSpace(tag.Lyrics)).ToString();
+
                 // Extract album art dimensions (pure byte parsing - no System.Drawing dependency)
                 var pics = tag.Pictures;
                 if (pics != null && pics.Length > 0)

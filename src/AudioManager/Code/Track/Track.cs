@@ -31,6 +31,9 @@ namespace AudioManager.Code.Modules
         public string CoverHeight { get; set; }
         public string Compilation { get; set; }
 
+        // "True"/"False" = lyrics tag present/absent; null = unknown (e.g. XML written before this field)
+        public string HasLyrics { get; set; }
+
         public override string ToString()
         {
             return $"{Artists} - {Title}";
@@ -48,7 +51,8 @@ namespace AudioManager.Code.Modules
                    $"Genres: {Genres ?? "NULL"}\n" +
                    $"Length: {Length ?? "NULL"}\n" +
                    $"AlbumCoverCount: {AlbumCoverCount ?? "NULL"}\n" +
-                   $"Compilation: {Compilation ?? "NULL"}";
+                   $"Compilation: {Compilation ?? "NULL"}\n" +
+                   $"HasLyrics: {HasLyrics ?? "NULL"}";
         }
 
         public static string[] ProcessProperty(string full)
