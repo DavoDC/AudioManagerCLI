@@ -142,7 +142,7 @@ namespace AudioManager
                     string filename = Path.GetFileName(xmlPath);
                     string newRelPath = destRelDir + "\\" + filename;
                     var migratedTag = new TrackTag(newRelPath,
-                        srcTag.Title, srcTag.Artists, srcTag.Album, srcTag.Year,
+                        srcTag.Title, srcTag.Artists, srcTag.Album, YearRule.OrMissing(srcTag.Year),
                         srcTag.TrackNumber, srcTag.Genres, srcTag.Length,
                         srcTag.AlbumCoverCount, srcTag.Compilation,
                         srcTag.CoverWidth, srcTag.CoverHeight);

@@ -184,6 +184,8 @@ Moved to `Architecture/IntegrationAndParseCacheArchitecture.md` (same folder). R
 
 - **Prefer atomic/per-item handling over all-or-nothing invalidation when partial data can be safely trusted** (2026-09-06, David's call). A parse failure or unrecognized value in one item of a collection (a JSON array element, a per-file record row) should flag or skip only that item, not discard everything else that parsed/validated fine. Only fall back to whole-document distrust when there's a specific safety reason the entire document must be treated as untrustworthy (e.g. a version mismatch that could mean the whole shape changed).
 
+- **Year plausibility is one rule, `YearRule` (Code/Modules/YearRule.cs, BL-316).** A year is valid only when it is exactly four digits in 1900..next calendar year. `TrackTag` extraction, the BatchScanner tag read and the TagFixer residual check all go through `YearRule.ToStoredYear`, so an implausible tag year (e.g. 201) is stored as Missing and prints a `[WARN] invalid year` line; the cache and XML never hold it. `ProjectedValidator` migration copies pass through `YearRule.OrMissing`. LibChecker reports a Year that is present but invalid (rule `invalid_year`), which catches XML written before the fix. No cache field was added, so ParseCache stays at PARSE_CACHE_V3. Cache rows written before the fix can still hold a bad year until their XML changes; LibChecker reports them. Analyser and StatsJson still parse any stored Year, so an old 201 skews age stats until the XML is regenerated.
+
 ---
 
 ## Repo Patterns

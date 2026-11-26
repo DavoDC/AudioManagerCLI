@@ -352,8 +352,8 @@ namespace AudioManager
                 string genres = tag.JoinedGenres ?? "";
                 log.OldTags = new TagState { Title = title, Album = album, Artists = artists, Genre = genres, Compilation = id3.IsCompilation, ArtCount = tag.Pictures.Length };
                 string coverIssue = CoverCheck.Evaluate(tag.Pictures);
-                // Same convention as TrackTag (Year 0 is "Missing"), so the residual check agrees with LibChecker's "has no Year set".
-                string yearValue = tag.Year == 0 ? Constants.MissingTag : tag.Year.ToString();
+                // Same convention as TrackTag (Year 0 or an implausible year is "Missing", BL-316), so the residual check agrees with LibChecker's "has no Year set".
+                string yearValue = YearRule.ToStoredYear(tag.Year, sourcePath);
 
                 // Empty title AND artists: derive both from an "Artist - Title.mp3" file name so the file is a normal fix.
                 string tagTitle = title, tagArtists = artists;

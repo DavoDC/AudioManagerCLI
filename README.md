@@ -63,6 +63,7 @@ Unknown or bare tokens are rejected and nothing runs. A standalone flag runs fir
 Ensures the library conforms to organization rules:
 - **Filename matching** - all artists from tag appear in filename
 - **Tag completeness** - Title, Artists, Album, Year present on all tracks
+- **Year plausibility** - a Year must be four digits from 1900 to next year; an implausible one (e.g. 201) is never written to the mirror and is reported as invalid
 - **Unwanted strings** - flags leftover credit and version text in tags
 - **Album cover** - exactly 1 cover per track (APIC frame)
 - **Compilation flag** - set consistently on all tracks

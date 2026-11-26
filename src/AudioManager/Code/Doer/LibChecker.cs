@@ -99,6 +99,9 @@ namespace AudioManager
                 // Check for missing properties
                 totalTagHits += CheckForMissing(tag);
 
+                // Check that a present Year is plausible (BL-316)
+                totalTagHits += CheckYearPlausible(tag);
+
                 // Check album cover counts
                 totalTagHits += CheckAlbumCoverCount(tag);
 
@@ -258,6 +261,19 @@ namespace AudioManager
             totalHits += CheckFieldMissing(tag.Album, "Album", tag.RelPath);
             totalHits += CheckFieldMissing(tag.Year, "Year", tag.RelPath);
             return totalHits;
+        }
+
+        /// <summary>
+        /// Reports a Year that is present but not plausible (BL-316), e.g. a mistyped 201 in an XML written before the fix.
+        /// Missing is reported by CheckForMissing, not here.
+        /// </summary>
+        /// <returns>1 if the Year is present and invalid, 0 otherwise.</returns>
+        private int CheckYearPlausible(TrackTag tag)
+        {
+            if (tag.Year == null || tag.Year.Equals(Constants.MissingTag) || YearRule.IsValid(tag.Year)) return 0;
+            Console.WriteLine($"  - '{tag.RelPath}' has an invalid Year '{tag.Year}'!");
+            Hit("invalid_year", tag.RelPath, $"has an invalid Year '{tag.Year}'");
+            return 1;
         }
 
         /// <summary>

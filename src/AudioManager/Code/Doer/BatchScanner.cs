@@ -286,7 +286,7 @@ namespace AudioManager
                         track.Artists = string.IsNullOrEmpty(cached.artists) ? Constants.MissingTag : cached.artists;
                         track.Album   = string.IsNullOrEmpty(cached.album)   ? Constants.MissingTag : cached.album;
                         track.Genres  = string.IsNullOrEmpty(cached.genres)  ? Constants.MissingTag : cached.genres;
-                        track.Year    = (cached.year == 0)                   ? Constants.MissingTag : cached.year.ToString();
+                        track.Year    = YearRule.ToStoredYear(cached.year, sourcePath);
                     }
                     else
                     {
@@ -297,7 +297,7 @@ namespace AudioManager
                             track.Artists = string.IsNullOrEmpty(tag.JoinedPerformers) ? Constants.MissingTag : tag.JoinedPerformers;
                             track.Album   = string.IsNullOrEmpty(tag.Album)           ? Constants.MissingTag : tag.Album;
                             track.Genres  = string.IsNullOrEmpty(tag.JoinedGenres)    ? Constants.MissingTag : tag.JoinedGenres;
-                            track.Year    = (tag.Year == 0)                           ? Constants.MissingTag : tag.Year.ToString();
+                            track.Year    = YearRule.ToStoredYear(tag.Year, sourcePath);
                         }
                     }
 

@@ -71,7 +71,8 @@ namespace AudioManager.Code.Modules
                 Title = string.IsNullOrEmpty(tag.Title) ? Constants.MissingTag : tag.Title;
                 Artists = string.IsNullOrEmpty(tag.JoinedPerformers) ? Constants.MissingTag : tag.JoinedPerformers;
                 Album = string.IsNullOrEmpty(tag.Album) ? Constants.MissingTag : tag.Album;
-                Year = (tag.Year == 0) ? Constants.MissingTag : tag.Year.ToString();
+                // BL-316: an implausible year (201) is cleaned to Missing here, so the cache and XML never hold it
+                Year = YearRule.ToStoredYear(tag.Year, RelPath);
                 TrackNumber = tag.Track.ToString();
                 Genres = string.IsNullOrEmpty(tag.JoinedGenres) ? Constants.MissingTag : tag.JoinedGenres;
                 AlbumCoverCount = (tag.Pictures?.Length ?? 0).ToString();

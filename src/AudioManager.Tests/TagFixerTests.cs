@@ -1006,6 +1006,15 @@ namespace AudioManager
             Assert.Equal("Missing tag: Year", log.ManualReason, "reason text");
         }
 
+        // BL-316: an implausible Year (201) is treated like an empty one, so the dry run flags it for a person.
+        public static void ProcessFile_ResidualImplausibleYear_IsNeedsManualWithMissingTag()
+        {
+            var log = ResidualRunYear("Song", "Album", "", 201, out _);
+            Assert.True(log.NeedsManual, "a file with Year 201 needs a person");
+            Assert.Equal("missing_tag", log.ManualRule, "rule id");
+            Assert.Equal("Missing tag: Year", log.ManualReason, "reason text");
+        }
+
         public static void ProcessFile_ResidualPresentYear_IsNotNeedsManual()
         {
             var log = ResidualRunYear("Song", "Album", "", 2020, out _);
