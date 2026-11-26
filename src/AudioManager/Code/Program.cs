@@ -53,6 +53,14 @@ namespace AudioManager
                     return;
                 }
 
+                // --validate-mirror / --commit-mirror --message "text" (BL-317): the AudioMirror health gate. Prints one JSON
+                // line last (docs/Contracts/MirrorCommitJSON.md). Returns before mode parsing; commits are local only.
+                if (MirrorGate.TryRunCommand(args, out int mirrorGateCode))
+                {
+                    if (mirrorGateCode != 0) Environment.Exit(mirrorGateCode);
+                    return;
+                }
+
                 // --apply-lyrics-plan <plan.json> [--apply] / --lyrics-revert <journal>: USLT lyrics from a verified plan. Dry-run
                 // unless --apply is present. Returns before mode parsing and never touches NewMusic.
                 if (TryRunLyricsPlan(args, Constants.AudioFolderPath, Constants.LogsPath, Constants.BackupsPath + "-lyrics", DateTime.Now, out int lyricsCode))

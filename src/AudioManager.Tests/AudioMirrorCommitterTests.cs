@@ -71,13 +71,22 @@ namespace AudioManager
             File.WriteAllText(full, content);
         }
 
+        // A healthy track XML so the BL-317 health gate passes. These tests check commit behaviour, not XML content.
+        private static string HealthyTrackXml()
+        {
+            return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<Track><Title>Song</Title><Artists>Alpha</Artists>"
+                + "<Album>Album1</Album><Year>2020</Year><TrackNumber>1</TrackNumber><Genres>Rock</Genres>"
+                + "<Length>200</Length><AlbumCover><Count>1</Count><Width>1000</Width><Height>1000</Height></AlbumCover>"
+                + "<Compilation>true</Compilation></Track>";
+        }
+
         // Repo with exactly one commit: LastRunInfo.txt, plus Artists/Alpha/Album1 when withArtist is true.
         // LastRunInfo.txt is always committed so 'git add AUDIO_MIRROR/ LastRunInfo.txt' never fails on a missing path.
         private static string CreateRepoWithInitialCommit(bool withArtist)
         {
             string dir = CreateTempGitRepo();
             WriteFile(dir, "LastRunInfo.txt", "run");
-            if (withArtist) WriteFile(dir, "AUDIO_MIRROR/Artists/Alpha/Album1/a.xml", "<a/>");
+            if (withArtist) WriteFile(dir, "AUDIO_MIRROR/Artists/Alpha/Album1/a.xml", HealthyTrackXml());
             else WriteFile(dir, "AUDIO_MIRROR/readme.txt", "no artists");
             RunProcess("git", "add -A", dir);
             RunProcess("git", "commit -m initial", dir);
@@ -178,7 +187,7 @@ namespace AudioManager
             string dir = CreateRepoWithInitialCommit(withArtist: true);
             try
             {
-                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", "<b/>");
+                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", HealthyTrackXml());
                 AudioMirrorCommitter.TryCommitAt(dir, libCheckerClean: true, trigger: CommitTrigger.AnalysisIncremental);
                 Assert.Equal("1", RunGitOut(dir, "rev-list --count HEAD"), "incremental trigger must not commit");
                 Assert.True(RunGitOut(dir, "status --porcelain").Contains("Beta"), "untracked changes must be left in the tree");
@@ -192,7 +201,7 @@ namespace AudioManager
             string dir = CreateRepoWithInitialCommit(withArtist: true);
             try
             {
-                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", "<b/>");
+                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", HealthyTrackXml());
                 AudioMirrorCommitter.TryCommitAt(dir, libCheckerClean: false, trigger: CommitTrigger.Integration);
                 Assert.Equal("1", RunGitOut(dir, "rev-list --count HEAD"), "dirty library must not commit");
             }
@@ -244,7 +253,7 @@ namespace AudioManager
                 WriteFile(dir, "AUDIO_MIRROR/readme.txt", "no artists");
                 RunProcess("git", "add -A", dir);
                 RunProcess("git", "commit -m initial", dir);
-                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", "<b/>");
+                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", HealthyTrackXml());
                 Assert.True(RunGitOut(dir, "add --dry-run LastRunInfo.txt").Contains("did not match any files"),
                     "precondition: LastRunInfo.txt pathspec must be missing so git add fails");
 
@@ -269,7 +278,7 @@ namespace AudioManager
             string dir = CreateRepoWithInitialCommit(withArtist: true);
             try
             {
-                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", "<b/>");
+                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", HealthyTrackXml());
                 AudioMirrorCommitter.TryCommitAt(dir, libCheckerClean: true, trigger: CommitTrigger.Integration);
                 Assert.Equal("2", RunGitOut(dir, "rev-list --count HEAD"), "clean mirror with a new artist should commit once");
                 string subject = RunGitOut(dir, "log -1 --format=%s");
@@ -287,7 +296,7 @@ namespace AudioManager
             string dir = CreateRepoWithInitialCommit(withArtist: true);
             try
             {
-                WriteFile(dir, "AUDIO_MIRROR/Artists/Alpha/Album3/c.xml", "<c/>");
+                WriteFile(dir, "AUDIO_MIRROR/Artists/Alpha/Album3/c.xml", HealthyTrackXml());
                 AudioMirrorCommitter.TryCommitAt(dir, libCheckerClean: true, trigger: CommitTrigger.AnalysisForceRegen);
                 string body = RunGitOut(dir, "log -1 --format=%b");
                 Assert.True(body.Contains("Existing artists:") && body.Contains("Alpha (Album3)"), "body should list Alpha under Existing artists, got: " + body);
@@ -304,7 +313,7 @@ namespace AudioManager
             string dir = CreateRepoWithInitialCommit(withArtist: true);
             try
             {
-                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", "<b/>");
+                WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", HealthyTrackXml());
                 HashSet<string> tracked = AudioMirrorCommitter.GetTrackedArtists(dir);
                 Assert.Equal("Alpha", Join(tracked), "only artists committed in HEAD should be tracked");
             }
@@ -330,7 +339,7 @@ namespace AudioManager
             {
                 string artist = "Björk";
                 WriteFile(dir, "LastRunInfo.txt", "run");
-                WriteFile(dir, "AUDIO_MIRROR/Artists/" + artist + "/x.xml", "<x/>");
+                WriteFile(dir, "AUDIO_MIRROR/Artists/" + artist + "/x.xml", HealthyTrackXml());
                 RunProcess("git", "add -A", dir);
                 RunProcess("git", "commit -m initial", dir);
                 HashSet<string> tracked = AudioMirrorCommitter.GetTrackedArtists(dir);

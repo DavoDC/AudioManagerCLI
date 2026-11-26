@@ -91,6 +91,21 @@ namespace AudioManager
                 return true;
             }
 
+            // Health gate (BL-317): only a healthy XML set may be committed. A refusal returns false (not committed).
+            MirrorGateResult gate = MirrorGate.Validate(repoPath);
+            if (gate.Error.Length > 0)
+            {
+                Console.WriteLine($" - FAILED: could not check the mirror health. {gate.Error}");
+                Console.WriteLine(" - Nothing was committed. Fix the git error above, then re-run.");
+                return false;
+            }
+            if (gate.Problems.Count > 0)
+            {
+                MirrorGate.PrintProblems(gate.Problems);
+                Console.WriteLine($"[WARN] AudioMirror commit refused: {gate.Problems.Count} XML file(s) failed the health gate. Nothing was committed. Fix them, then re-run.");
+                return false;
+            }
+
             // Build commit message with artist breakdown
             string commitTitle = DateTime.Now.ToString("MMM d", CultureInfo.InvariantCulture) + " Update";
             string commitBody = BuildCommitBody(
@@ -101,14 +116,32 @@ namespace AudioManager
                 : commitTitle + "\n\n" + commitBody; // blank line: git treats a single newline as part of the subject
 
             // Stage AUDIO_MIRROR folder + LastRunInfo.txt (audit metadata at repo root)
-            GitRunResult add = RunGitDetailed(repoPath, "add AUDIO_MIRROR/ LastRunInfo.txt");
+            CommitOutcome outcome = StageAndCommit(repoPath, "add AUDIO_MIRROR/ LastRunInfo.txt", fullMessage);
+            if (outcome == CommitOutcome.Failure) return false;
+            if (outcome == CommitOutcome.NothingToCommit) return true;
+
+            Console.WriteLine($" - Committed: {commitTitle}");
+            if (!string.IsNullOrWhiteSpace(commitBody))
+                Console.WriteLine(commitBody);
+            Console.WriteLine(" - Push AudioMirror manually when ready.");
+            return true;
+        }
+
+        /// <summary>
+        /// Stages with addArgs, then commits with fullMessage. Local only: this never pushes. Prints the FAILED
+        /// lines itself. Shared by the auto-commit path and --commit-mirror (BL-317), so both use one git route.
+        /// </summary>
+        /// <returns>Success after a commit, NothingToCommit when git had nothing staged, Failure when add or commit failed.</returns>
+        internal static CommitOutcome StageAndCommit(string repoPath, string addArgs, string fullMessage)
+        {
+            GitRunResult add = RunGitDetailed(repoPath, addArgs);
             if (add.ExitCode != 0)
             {
                 string addOutput = add.Stdout + add.Stderr;
                 string addFirstLine = addOutput.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? string.Empty;
                 Console.WriteLine($" - FAILED: git add exited {add.ExitCode}. {addFirstLine}");
                 Console.WriteLine(" - Nothing was committed. Fix the git error above, then re-run.");
-                return false;
+                return CommitOutcome.Failure;
             }
             GitRunResult commit = RunGitDetailed(repoPath, $"commit -m \"{fullMessage.Replace("\"", "\\\"")}\"");
             string commitResult = commit.Stdout + commit.Stderr;
@@ -117,7 +150,7 @@ namespace AudioManager
             if (outcome == CommitOutcome.NothingToCommit)
             {
                 Console.WriteLine(" - Nothing staged to commit.");
-                return true;
+                return CommitOutcome.NothingToCommit;
             }
 
             if (outcome == CommitOutcome.Failure)
@@ -125,14 +158,9 @@ namespace AudioManager
                 string firstLine = commitResult.Trim().Split('\n')[0].Trim();
                 Console.WriteLine($" - FAILED: git commit exited {commit.ExitCode}. {firstLine}");
                 Console.WriteLine(" - Nothing was committed. Fix the git error above, then re-run.");
-                return false;
+                return CommitOutcome.Failure;
             }
-
-            Console.WriteLine($" - Committed: {commitTitle}");
-            if (!string.IsNullOrWhiteSpace(commitBody))
-                Console.WriteLine(commitBody);
-            Console.WriteLine(" - Push AudioMirror manually when ready.");
-            return true;
+            return CommitOutcome.Success;
         }
 
         /// <summary>

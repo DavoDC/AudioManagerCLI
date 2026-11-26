@@ -1,0 +1,12 @@
+{
+  "ok": false,
+  "committed": false,
+  "checked": 2,
+  "problems": [
+    {
+      "file": "Artists/Alpha/Album1/c.xml",
+      "reason": "Year '201' is not a valid year (1900 to next year)"
+    }
+  ],
+  "error": ""
+}

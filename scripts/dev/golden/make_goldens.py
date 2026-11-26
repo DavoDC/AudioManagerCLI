@@ -60,6 +60,9 @@ CONTRACT = {
     "mirror-result": "MirrorResultJSONFormat.md",
     "mirror-result-libchecker-issues": "MirrorResultJSONFormat.md",
     "mirror-result-skipped": "MirrorResultJSONFormat.md",
+    "mirror-validate-ok": "MirrorCommitJSON.md",
+    "mirror-validate-refused": "MirrorCommitJSON.md",
+    "mirror-commit-committed": "MirrorCommitJSON.md",
     "tagfix-plan": "TagFixJSONFormat.md",
     "tagfix-apply-result": "TagFixApplyJSONFormat.md",
     "tagfix-apply-result-stale-plan": "TagFixApplyJSONFormat.md",
@@ -202,13 +205,59 @@ def capture(goldens: dict, runner: Runner, name: str, folder: Path, pattern: str
     goldens[name + "#command"] = runner.commands[-1]
 
 
-def capture_stdout_json(goldens: dict, runner: Runner, name: str, args: list) -> None:
+def capture_stdout_json(goldens: dict, runner: Runner, name: str, args: list, ok_codes: tuple = (0,),
+                        expect: dict = None) -> None:
     proc = runner.run(args)
-    if proc.returncode != 0:
+    if proc.returncode not in ok_codes:
         raise RuntimeError(f"{name}: exit {proc.returncode}: {proc.stdout[-400:]}")
     line = [ln for ln in proc.stdout.splitlines() if ln.strip().startswith("{")][-1]
-    goldens[name] = normalise(json.loads(line), runner.root)
+    doc = json.loads(line)
+    for key, want in (expect or {}).items():
+        if doc.get(key) != want:
+            raise RuntimeError(f"{name}: expected {key}={want!r}, engine wrote {doc.get(key)!r}")
+    goldens[name] = normalise(doc, runner.root)
     goldens[name + "#command"] = runner.commands[-1]
+
+
+def mirror_track_xml(year: str = "2020") -> str:
+    """A healthy AudioMirror track XML, the shape MirrorGateTests uses. Year is written as given."""
+    return ("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<Track>"
+            "<Title>Song</Title><Artists>Alpha</Artists><Album>Album1</Album>"
+            f"<Year>{year}</Year>"
+            "<TrackNumber>1</TrackNumber><Genres>Rock</Genres><Length>200</Length>"
+            "<AlbumCover><Count>1</Count><Width>1000</Width><Height>1000</Height></AlbumCover>"
+            "<Compilation>true</Compilation></Track>")
+
+
+def write_mirror_xml(mirror: Path, rel: str, text: str) -> Path:
+    dest = mirror / rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(text, encoding="utf-8")
+    return dest
+
+
+def build_mirror_gate(exe: Path, root: Path, goldens: dict) -> None:
+    """Minimal AudioMirror repo for the --validate-mirror and --commit-mirror goldens. No library, no tagfix, no cover flow.
+    Mirror commands (MirrorCommitJSON.md): a healthy changed XML validates, a Year 201 one is refused, then only the
+    healthy one is committed."""
+    r = Runner(exe, root)
+    mirror = root / "AudioMirror"
+    init_mirror_repo(root)
+    write_mirror_xml(mirror, "Artists/Alpha/Album1/a.xml", mirror_track_xml())
+    commit_mirror(root)  # committed healthy baseline
+    write_mirror_xml(mirror, "Artists/Alpha/Album1/b.xml", mirror_track_xml())
+    capture_stdout_json(goldens, r, "mirror-validate-ok", ["--validate-mirror"],
+                        expect={"ok": True, "committed": False, "checked": 1})
+    write_mirror_xml(mirror, "Artists/Alpha/Album1/c.xml", mirror_track_xml(year="201"))
+    capture_stdout_json(goldens, r, "mirror-validate-refused", ["--validate-mirror"], ok_codes=(3,),
+                        expect={"ok": False, "committed": False})
+    (mirror / "Artists" / "Alpha" / "Album1" / "c.xml").unlink()
+    capture_stdout_json(goldens, r, "mirror-commit-committed", ["--commit-mirror", "--message", "Golden probe commit"],
+                        expect={"ok": True, "committed": True, "checked": 1})
+
+
+# Isolated builds that --only can run on their own. Each gets its own sandbox.
+ONLY_BUILDS = {"mirror-gate": build_mirror_gate}
 
 
 def has_mirror_hit(kind: str):
@@ -525,19 +574,26 @@ def data_snapshot() -> set:
     return out
 
 
-def build_all(exe: Path) -> dict:
-    """Run the whole producer flow on fresh sandboxes; returns {golden name: normalised doc, name#command: str}."""
+def build_all(exe: Path, only: str = None) -> dict:
+    """Run the producer flow on fresh sandboxes (or one isolated build with only=NAME); returns
+    {golden name: normalised doc, name#command: str}."""
     if not exe.exists():
         raise SystemExit(f"make_goldens: engine exe missing: {exe}. Build it first (scripts\\dev\\build.bat --no-pause).")
     before = data_snapshot()
     goldens: dict = {}
-    roots = [make_sandbox() for _ in range(4)]  # main, missing mirror, edge cases, blocked path
-    main_root, missing_root, edge_root, blocked_root = roots
+    if only is not None:
+        roots = [make_sandbox()]
+        ONLY_BUILDS[only](exe, roots[0], goldens)
+    else:
+        roots = [make_sandbox() for _ in range(5)]  # main, missing mirror, edge cases, blocked path, mirror gate
+        main_root, missing_root, edge_root, blocked_root, gate_root = roots
     try:
-        build(exe, main_root, goldens)
-        build_missing_mirror(exe, missing_root, goldens)
-        build_edges(exe, edge_root, goldens)
-        build_blocked(exe, blocked_root, goldens)
+        if only is None:
+            build(exe, main_root, goldens)
+            build_missing_mirror(exe, missing_root, goldens)
+            build_edges(exe, edge_root, goldens)
+            build_blocked(exe, blocked_root, goldens)
+            build_mirror_gate(exe, gate_root, goldens)
     finally:
         for root in roots:
             remove_sandbox(root)
@@ -554,10 +610,12 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--exe", default=str(DEFAULT_EXE), help="engine exe (default: Release build)")
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="folder for the goldens (default tests/golden)")
+    parser.add_argument("--only", choices=sorted(ONLY_BUILDS), default=None,
+                        help="run one isolated build and write only its goldens (works while the full flow is stale)")
     args = parser.parse_args(argv)
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    goldens = build_all(Path(args.exe))
+    goldens = build_all(Path(args.exe), only=args.only)
     names = sorted(k for k in goldens if not k.endswith("#command"))
     for name in names:
         (out_dir / f"{name}.json").write_bytes(dump(goldens[name]).encode("utf-8"))

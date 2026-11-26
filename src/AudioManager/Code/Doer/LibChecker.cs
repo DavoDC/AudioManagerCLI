@@ -109,10 +109,11 @@ namespace AudioManager
                 totalTagHits += CheckAlbumCoverDimensions(tag);
 
                 // Check compilation status
-                if(!bool.Parse(tag.Compilation))
+                string compilationProblem = CompilationProblem(tag.Compilation);
+                if (compilationProblem != null)
                 {
-                    Console.WriteLine($"  - '{tag.RelPath}' is not set as a compilation!");
-                    Hit("not_compilation", tag.RelPath, "is not set as a compilation");
+                    Console.WriteLine($"  - '{tag.RelPath}' {compilationProblem}!");
+                    Hit("not_compilation", tag.RelPath, compilationProblem);
                     totalTagHits++;
                 }
             }
@@ -299,6 +300,27 @@ namespace AudioManager
         /// </summary>
         /// <param name="tag">The track tag.</param>
         /// <returns>1 if the album cover count is invalid (none or more than one); otherwise, 0.</returns>
+        /// <summary>
+        /// The album cover count rule, shared with MirrorGate (BL-317). Returns the problem text (without the
+        /// trailing punctuation) or null when the count is exactly one. A non-numeric count is also a problem here.
+        /// </summary>
+        internal static string CoverCountProblem(string albumCoverCount)
+        {
+            if (!int.TryParse(albumCoverCount, NumberStyles.Integer, CultureInfo.InvariantCulture, out int count)) return "album cover count is not a number";
+            if (count == 0) return "has no album cover";
+            if (count != 1) return $"has {count} album covers";
+            return null;
+        }
+
+        /// <summary>
+        /// The compilation rule, shared with MirrorGate (BL-317). Returns the problem text or null when the flag is set.
+        /// Throws FormatException on a non-boolean value, as the constructor always has.
+        /// </summary>
+        internal static string CompilationProblem(string compilation)
+        {
+            return bool.Parse(compilation) ? null : "is not set as a compilation";
+        }
+
         private int CheckAlbumCoverCount(TrackTag tag)
         {
             try
@@ -310,16 +332,11 @@ namespace AudioManager
                     HandleLibCheckerException(new FormatException("Album cover count is not a number: " + tag.AlbumCoverCount), tag);
                     return 0;
                 }
-                if (albumCoverNum == 0)
+                string coverProblem = CoverCountProblem(tag.AlbumCoverCount);
+                if (coverProblem != null)
                 {
-                    Console.WriteLine($"  - '{tag.RelPath}' has no album cover!");
-                    Hit("album_cover", tag.RelPath, "has no album cover");
-                    return 1;
-                }
-                else if (albumCoverNum != 1)
-                {
-                    Console.WriteLine($"  - '{tag.RelPath}' has {albumCoverNum} album covers!");
-                    Hit("album_cover", tag.RelPath, $"has {albumCoverNum} album covers");
+                    Console.WriteLine($"  - '{tag.RelPath}' {coverProblem}!");
+                    Hit("album_cover", tag.RelPath, coverProblem);
                     return 1;
                 }
             }

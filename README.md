@@ -44,6 +44,8 @@ Run `AudioManager.exe <verb> [flags]`. With no arguments it opens the interactiv
 | `--apply-plan` | no | `tagfix` (rejected with `--dry-run`) | Applies the reviewed tag-fix plan, with guards. |
 | `--revert <journal>` | yes, a tagfix journal | `tagfix` (rejected with `--dry-run`) | Reverts a tag-fix apply from its journal. |
 | `--mirror-retry` | no | standalone | Re-runs only the post-integration mirror step after a failed one. |
+| `--validate-mirror` | no | standalone | Runs the AudioMirror health gate on changed XML files and commits nothing. Prints a JSON last line ([format](docs/Contracts/MirrorCommitJSON.md)). |
+| `--commit-mirror --message "<text>"` | yes, the commit message | standalone | Runs the same gate and makes a local AudioMirror commit only when it finds zero problems. Never pushes ([format](docs/Contracts/MirrorCommitJSON.md)). |
 | `--fingerprint` | no | standalone | Prints one JSON line with the current NewMusic fingerprint. Read-only. |
 | `--libfix-plan` | no | standalone | Writes the library fix plan for album_in_singles hits. Moves nothing. |
 | `--libfix-apply <plan>` | yes, a plan file | standalone | Applies a library fix plan, journaling each move. |

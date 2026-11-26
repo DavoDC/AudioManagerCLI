@@ -80,6 +80,7 @@
     <Compile Include="Code\Doer\Analyser\TracksJson.cs" />
     <Compile Include="Code\Doer\RulesEngine.cs" />
     <Compile Include="Code\Doer\AudioMirrorCommitter.cs" />
+    <Compile Include="Code\Doer\MirrorGate.cs" />
     <Compile Include="Code\Doer\LibChecker.cs" />
     <Compile Include="Code\Doer\AgeChecker.cs" />
     <Compile Include="Code\Doer\ArtistSpellingCandidates.cs" />
