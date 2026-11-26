@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "tracks": {
+    "Artists/Example Artist/Singles/Example Song.mp3": { "status": "none_found", "checked": "2026-11-01" },
+    "Artists/Example Band/Albums/Example Album/03 Instrumental.mp3": { "status": "instrumental", "checked": "2026-11-02" }
+  }
+}

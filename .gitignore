@@ -374,3 +374,5 @@ config/artist-primary-first.xml
 
 # Lyrics plan byte backups (--apply-lyrics-plan --apply)
 data/backups-lyrics/
+# Lyrics status: real file is machine data (hand-checked tracks), example is tracked
+config/lyrics-status.json

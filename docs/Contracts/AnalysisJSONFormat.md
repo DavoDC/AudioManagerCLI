@@ -87,6 +87,14 @@ was not built against, rather than silently mis-reading.
     "covered": 5447,                         // known dims with min(w,h) >= 800
     "total": 5694,
     "percent": 95.7
+  },
+  "lyricsCoverage": {                          // added (additive, schemaVersion stays 1); numbers here are illustrative
+    "total": 5694,
+    "hasLyrics": 4100,                       // HasLyrics == "True" in the mirror XML (lyrics tag present)
+    "noneFound": 120,                        // not hasLyrics, and in the kept list (config/lyrics-status.json) as none_found
+    "instrumental": 45,                      // not hasLyrics, and in the kept list as instrumental
+    "missing": 1429,                         // everything else, incl. HasLyrics unknown (old XML) with no kept row
+    "percentHasLyrics": 72                   // hasLyrics / total, one decimal
   }
 }
 ```
@@ -147,8 +155,7 @@ sliced/filtered in memory by the consumer. This file is why consumers never need
 ### Consumption notes
 
 - **`filePath` is the real MP3 path**, reconstructed from the mirror path (the AudioMirror mirrors the
-  Audio folder 1:1). Use it with `mutagen` to extract embedded album art for display. Extract
-  lazily (current page only) and cache thumbnails - do not read 5,694 covers at startup.
+Audio folder 1:1). Use it with `mutagen` to extract embedded album art for display. Extract lazily (current page only) and cache thumbnails - do not read 5,694 covers at startup.
 - **`filePath` is best-effort:** for the rare track whose filename was sanitised into a different XML
   name, the reconstructed path won't exist on disk. Treat a missing file as "no extractable art" and
   show a placeholder - never crash. (Verified 2026-07-03: a random sample of 20 + the first track all

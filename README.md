@@ -114,7 +114,7 @@ Auto-runs after step 2, or manually: `AudioManager.exe analysis`
 
 This repo is the C# engine only. It owns the library, tags, routing and analysis, and it has no UI code and no streaming-service code.
 
-- The interface to any external client is data: the JSON files the exe writes under `data/logs/` (`tracks.json`, `analysis-stats.json`, `routing-<timestamp>.json`, `tagfix-plan.json` and others), plus the exe command line.
+- The interface to any external client is data: the JSON files the exe writes under `data/logs/` (`tracks.json`, `analysis-stats.json`, `routing-<timestamp>.json`, `tagfix-plan.json` and others), plus the exe command line. `analysis-stats.json` has a `lyricsCoverage` section: tracks with a lyrics tag, plus tracks checked by hand and kept in `config/lyrics-status.json` as none found or instrumental (the example file is tracked; the real one is gitignored).
 - The shapes of those files are documented in [docs/Contracts](docs/Contracts/), including [TagFixJSONFormat.md](docs/Contracts/TagFixJSONFormat.md) for `tagfix-plan.json` and [RoutingJSONFormat.md](docs/Contracts/RoutingJSONFormat.md) for routing records.
 - Changing the shape of any of these files means updating every consumer in the same working session.
 

@@ -343,6 +343,12 @@ Treat it like you treat the XML files: version-control it, don't relegate it to 
 
 **Audit trail:** See `docs/Rules/SafetyConstraints.md` for a detailed safety review against these rules.
 
+## Lyrics Coverage In Stats (kept status list)
+
+- `StatsJson.Build` adds a `lyricsCoverage` section (additive, SchemaVersion stays 1). A track counts as `hasLyrics` only when `HasLyrics == "True"`. Otherwise the kept list decides: `noneFound` / `instrumental`. Everything else, including null `HasLyrics` (old XML) with no kept row, is `missing`. The four buckets always sum to `total`.
+- The kept list is `config/lyrics-status.json` (gitignored machine data; `config/lyrics-status.example.json` is tracked). `LyricsStatus.LoadFile` never throws: missing = empty, malformed = empty plus one `[WARN]` line.
+- Matching uses `LyricsStatus.NormaliseKey` on both sides: backslash and forward slash, no leading slash, `.xml` mirror name read as `.mp3`, case-insensitive. Contract: `docs/Contracts/AnalysisJSONFormat.md`.
+
 ## Mirror Generation Architecture: Stub-to-Replacement Pattern
 
 **Reflector creates text-file stubs with MP3 paths; Parser reads MP3s via TagLib#; TrackXML overwrites stubs with actual XML.** This is the current design, not a bug - it works. However, the stubs are never read as input, only as intermediate placeholders. The pattern is vestigial: Reflector writes stub (path file) → Parser reads MP3 and caches → TrackXML overwrites stub with XML. The stubs exist but are never actually parsed - they're just temporary. Not a performance issue now, but worth refactoring if parsing becomes a bottleneck (Reflector could skip stub creation and TrackXML could read MP3 directly, bypassing the temp file stage entirely). Current design trades immediate clarity (the stubs are there) for simplicity (Reflector doesn't need to import TagLib# or know about XML generation).

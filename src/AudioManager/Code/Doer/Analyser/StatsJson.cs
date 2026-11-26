@@ -35,7 +35,7 @@ namespace AudioManager
         public static string Write(TagList audioTags)
         {
             long libraryBytes = TryGetLibraryBytes();
-            string json = Build(audioTags, libraryBytes);
+            string json = Build(audioTags, libraryBytes, LyricsStatus.LoadFile(LyricsStatus.ConfigPath));
 
             if (!Directory.Exists(Constants.LogsPath))
                 Directory.CreateDirectory(Constants.LogsPath);
@@ -47,8 +47,10 @@ namespace AudioManager
         /// <summary>
         /// Pure, unit-testable builder: produces the JSON document from the tag list plus a
         /// pre-computed library byte count (0 if unknown). No file or disk I/O here.
+        /// keptStatus (optional) maps a library path to LyricsStatus.NoneFound / Instrumental.
         /// </summary>
-        public static string Build(TagList audioTags, long totalLibraryBytes)
+        public static string Build(TagList audioTags, long totalLibraryBytes,
+                                   IReadOnlyDictionary<string, string> keptStatus = null)
         {
             int trackCount = audioTags.Count;
 
@@ -105,6 +107,22 @@ namespace AudioManager
             int complete = audioTags.Count(t =>
                 IsPresent(t.Title) && IsPresent(t.Artists) && IsPresent(t.Album) &&
                 IsPresent(t.Genres) && IsPresent(t.Year));
+
+            // ---- Lyrics coverage (HasLyrics "True" = has; otherwise the kept list decides; the rest is missing) ----
+            var kept = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (keptStatus != null)
+                foreach (var pair in keptStatus)
+                    kept[LyricsStatus.NormaliseKey(pair.Key)] = pair.Value;
+            int hasLyrics = 0, noneFound = 0, instrumental = 0, lyricsMissing = 0;
+            foreach (TrackTag t in audioTags)
+            {
+                if (t.HasLyrics == "True") { hasLyrics++; continue; }
+                string status;
+                kept.TryGetValue(LyricsStatus.NormaliseKey(t.RelPath), out status);
+                if (status == LyricsStatus.NoneFound) noneFound++;
+                else if (status == LyricsStatus.Instrumental) instrumental++;
+                else lyricsMissing++;
+            }
 
             // ---- Serialize ----
             var sb = new StringBuilder();
@@ -172,6 +190,15 @@ namespace AudioManager
             sb.AppendLine($"    \"covered\": {covered800},");
             sb.AppendLine($"    \"total\": {trackCount},");
             sb.AppendLine($"    \"percent\": {Percent(covered800, trackCount)}");
+            sb.AppendLine("  },");
+
+            sb.AppendLine("  \"lyricsCoverage\": {");
+            sb.AppendLine($"    \"total\": {trackCount},");
+            sb.AppendLine($"    \"hasLyrics\": {hasLyrics},");
+            sb.AppendLine($"    \"noneFound\": {noneFound},");
+            sb.AppendLine($"    \"instrumental\": {instrumental},");
+            sb.AppendLine($"    \"missing\": {lyricsMissing},");
+            sb.AppendLine($"    \"percentHasLyrics\": {Percent(hasLyrics, trackCount)}");
             sb.AppendLine("  }");
 
             sb.Append("}");

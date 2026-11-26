@@ -103,5 +103,81 @@ namespace AudioManager
             foreach (char c in json) { if (c == '[') bo++; if (c == ']') bc++; }
             Assert.Equal(bo.ToString(), bc.ToString(), "every [ has a matching ]");
         }
+
+        // ---- lyricsCoverage ----
+
+        private static TrackTag LyricsTag(string relPath, string hasLyrics)
+        {
+            var t = new TrackTag(relPath, "T", "A", "Al", "2020", "1", "Rock", "00:03:00", "1", "False", "1000", "1000");
+            t.HasLyrics = hasLyrics;
+            return t;
+        }
+
+        // Multi-line fragments use \n in the source; the builder writes Environment.NewLine.
+        private static bool Has(string json, string fragment) =>
+            json.Contains(fragment.Replace("\n", System.Environment.NewLine));
+
+        private static IReadOnlyDictionary<string, string> Kept(params string[] pairs)
+        {
+            var d = new Dictionary<string, string>();
+            for (int i = 0; i < pairs.Length; i += 2) d[pairs[i]] = pairs[i + 1];
+            return d;
+        }
+
+        public static void Build_LyricsCoverage_CountsAllFourBuckets()
+        {
+            var tags = new List<TrackTag>
+            {
+                LyricsTag("\\Artists\\A\\Singles\\has.xml", "True"),
+                LyricsTag("\\Artists\\A\\Singles\\none.xml", "False"),
+                LyricsTag("\\Artists\\A\\Singles\\inst.xml", "False"),
+                LyricsTag("\\Artists\\A\\Singles\\gap.xml", "False"),
+                LyricsTag("\\Artists\\A\\Singles\\old.xml", null),
+            };
+            var kept = Kept("Artists/A/Singles/none.mp3", "none_found", "Artists/A/Singles/inst.mp3", "instrumental");
+            string json = StatsJson.Build(tags, 0, kept);
+            Assert.True(json.Contains("\"lyricsCoverage\": {"), "lyricsCoverage block present");
+            Assert.True(Has(json, "\"total\": 5,\n    \"hasLyrics\": 1,\n    \"noneFound\": 1,\n    \"instrumental\": 1,\n    \"missing\": 2,\n    \"percentHasLyrics\": 20"),
+                "total 5: 1 has, 1 none, 1 instrumental, 2 missing, 20%");
+        }
+
+        public static void Build_LyricsCoverage_NullHasLyricsIsMissingUnlessKept()
+        {
+            var tags = new List<TrackTag> { LyricsTag("\\Artists\\A\\Singles\\old.xml", null) };
+            string bare = StatsJson.Build(tags, 0);
+            Assert.True(Has(bare, "\"noneFound\": 0,\n    \"instrumental\": 0,\n    \"missing\": 1,"), "null HasLyrics with no kept row is missing");
+            string kept = StatsJson.Build(tags, 0, Kept("Artists/A/Singles/old.mp3", "none_found"));
+            Assert.True(Has(kept, "\"noneFound\": 1,\n    \"instrumental\": 0,\n    \"missing\": 0,"), "null HasLyrics with a kept row counts as noneFound");
+        }
+
+        public static void Build_LyricsCoverage_NoKeptListMakesEverythingMissingExceptHasLyrics()
+        {
+            var tags = new List<TrackTag> { LyricsTag("\\Artists\\A\\Singles\\a.xml", "True"), LyricsTag("\\Artists\\A\\Singles\\b.xml", "False") };
+            string json = StatsJson.Build(tags, 0, null);
+            Assert.True(Has(json, "\"hasLyrics\": 1,\n    \"noneFound\": 0,\n    \"instrumental\": 0,\n    \"missing\": 1,"),
+                "null kept list: only the HasLyrics track is covered");
+        }
+
+        public static void Build_LyricsCoverage_MatchesSlashesAndCaseInsensitively()
+        {
+            var tags = new List<TrackTag> { LyricsTag("\\Artists\\Artist A\\Singles\\Song 1.xml", "False") };
+            string json = StatsJson.Build(tags, 0, Kept("artists/ARTIST a/singles/song 1.mp3", "instrumental"));
+            Assert.True(Has(json, "\"instrumental\": 1,\n    \"missing\": 0,"), "mixed-case forward-slash key matches the backslash track path");
+        }
+
+        public static void Build_LyricsCoverage_SumInvariantHolds()
+        {
+            var tags = new List<TrackTag>
+            {
+                LyricsTag("\\Artists\\A\\Singles\\1.xml", "True"),
+                LyricsTag("\\Artists\\A\\Singles\\2.xml", "False"),
+                LyricsTag("\\Artists\\A\\Singles\\3.xml", null),
+                LyricsTag("\\Artists\\A\\Singles\\4.xml", "False"),
+                LyricsTag("\\Artists\\A\\Singles\\5.xml", "True"),
+            };
+            string json = StatsJson.Build(tags, 0, Kept("Artists/A/Singles/2.mp3", "none_found", "Artists/A/Singles/9.mp3", "instrumental"));
+            Assert.True(Has(json, "\"total\": 5,\n    \"hasLyrics\": 2,\n    \"noneFound\": 1,\n    \"instrumental\": 0,\n    \"missing\": 2,"),
+                "a+b+c+d equals total (2+1+0+2 = 5)");
+        }
     }
 }
