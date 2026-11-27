@@ -374,5 +374,8 @@ config/artist-primary-first.xml
 
 # Lyrics plan byte backups (--apply-lyrics-plan --apply)
 data/backups-lyrics/
+
+# As-of statistics written by analysis --as-of (machine output, one file per AudioMirror commit)
+data/history/
 # Lyrics status: real file is machine data (hand-checked tracks), example is tracked
 config/lyrics-status.json

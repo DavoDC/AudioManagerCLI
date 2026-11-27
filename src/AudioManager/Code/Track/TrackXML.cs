@@ -7,18 +7,70 @@ namespace AudioManager.Code.Modules
 {
     internal static class TrackXML
     {
-        internal static void Read(string path, TrackTag t)
+        /// <summary>Which blocks an as-of read found in one XML. False means the file predates that block.</summary>
+        internal struct ShapeFlags
+        {
+            public bool CoverKnown;
+            public bool LyricsKnown;
+        }
+
+        /// <summary>
+        /// Lenient reader for analysis --as-of only (live code keeps the strict Read). Older commits hold XML without
+        /// the AlbumCover block (its count sits in a root AlbumCoverCount) or without HasLyrics. Those map to unknown:
+        /// cover width and height are "" (the missingData meaning) and HasLyrics is null. Any other absent element reads
+        /// as "". Malformed XML still throws. The returned flags say which blocks the file carried.
+        /// </summary>
+        internal static ShapeFlags ReadLenient(string path, TrackTag t)
+        {
+            XElement root = LoadDocument(path).Root ?? throw new XmlException($"Missing root element in XML: {path}");
+            XElement cover = root.Element("AlbumCover");
+            t.Title           = ValueOrEmpty(root, "Title");
+            t.Artists         = ValueOrEmpty(root, "Artists");
+            t.Album           = ValueOrEmpty(root, "Album");
+            t.Year            = ValueOrEmpty(root, "Year");
+            t.TrackNumber     = ValueOrEmpty(root, "TrackNumber");
+            t.Genres          = ValueOrEmpty(root, "Genres");
+            t.Length          = ValueOrEmpty(root, "Length");
+            t.Compilation     = ValueOrEmpty(root, "Compilation");
+            if (cover != null)
+            {
+                t.AlbumCoverCount = ValueOrEmpty(cover, "Count");
+                t.CoverWidth      = ValueOrEmpty(cover, "Width");
+                t.CoverHeight     = ValueOrEmpty(cover, "Height");
+            }
+            else
+            {
+                t.AlbumCoverCount = ValueOrEmpty(root, "AlbumCoverCount");
+                t.CoverWidth      = "";
+                t.CoverHeight     = "";
+            }
+            XElement hasLyrics = root.Element("HasLyrics");
+            t.HasLyrics = hasLyrics == null ? null : hasLyrics.Value;
+            return new ShapeFlags { CoverKnown = cover != null, LyricsKnown = hasLyrics != null };
+        }
+
+        private static string ValueOrEmpty(XElement parent, string name)
+        {
+            XElement element = parent.Element(name);
+            return element == null ? "" : element.Value;
+        }
+
+        private static XDocument LoadDocument(string path)
         {
             // IO failures (missing file, locked file) propagate as IO exceptions; only XML problems are XmlException
-            XDocument doc;
             try
             {
-                doc = XDocument.Load(path);
+                return XDocument.Load(path);
             }
             catch (XmlException ex)
             {
                 throw new XmlException($"Error reading XML: {path}", ex);
             }
+        }
+
+        internal static void Read(string path, TrackTag t)
+        {
+            XDocument doc = LoadDocument(path);
 
             XElement root = doc.Root ?? throw new XmlException($"Missing root element in XML: {path}");
             XElement cover = RequiredElement(root, "AlbumCover", path);

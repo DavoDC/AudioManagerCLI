@@ -77,6 +77,14 @@ namespace AudioManager
                     return;
                 }
 
+                // analysis --as-of <YYYY-MM-DD|sha> [--json-output] / analysis --as-of-list: read-only statistics at an
+                // AudioMirror commit. Returns before mode parsing, the library scan and any mirror regen (StatsAsOf.TryRun).
+                if (StatsAsOf.TryRun(args, StatsAsOf.GitInMirror, StatsAsOf.HistoryDir, StatsAsOf.ExtractMirror, out int asOfCode))
+                {
+                    if (asOfCode != 0) Environment.Exit(asOfCode);
+                    return;
+                }
+
                 // Detect CLI args: "analysis [--force-regen]" or "integrate [--dry-run] [--no-input]"
                 int mode;
                 bool forceMirrorRegen;

@@ -115,6 +115,19 @@ was not built against, rather than silently mis-reading.
 
 ---
 
+## As-of statistics (`analysis --as-of`)
+
+`AudioManager.exe analysis --as-of <YYYY-MM-DD|commit-sha> --json-output` writes the same `analysis-stats.json` shape for the library as it was at an AudioMirror commit. A date means the last commit on or before that day at 23:59:59; a sha is used as given. `analysis --as-of-list` prints the commits (date, sha8, subject).
+
+The file goes to `data/history/stats-<commit date>-<sha8>.json`. It never touches `data/logs/`, never regenerates the mirror and never commits. The XMLs are read from `git archive` of the commit into a temp folder, so the AudioMirror working tree is not touched.
+
+As-of documents add these fields, all absent from live documents. `schemaVersion` stays 1 because they are additive.
+
+- `asOf`: `{"date": "YYYY-MM-DD", "commit": "<full sha>"}`.
+- `sizeKnown`: always `false`. The XMLs hold no file size, so `totalLibraryBytes` and `avgFileBytes` are `0` and must not be read as real values.
+- `coverKnown`: `false` when any XML at that commit lacks the `AlbumCover` block. Older XMLs carry only `AlbumCoverCount`, so their width and height are empty and count as `missingData`.
+- `lyricsKnown`: `false` when any XML lacks `HasLyrics`. Those tracks count as lyrics missing unless the kept list says otherwise.
+
 ## `tracks.json` (per-track array for browsing)
 
 One object per track, every track. ~4 MB for 5,694 tracks - loaded once at startup (and on refresh),

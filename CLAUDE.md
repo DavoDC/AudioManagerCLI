@@ -84,6 +84,7 @@ For LibChecker-warning triage, post-integration validation mechanics, AudioMirro
 
 **Claude CAN run (read-only, no file moves):**
 - `analysis` (and `analysis --force-regen`) - reads library, generates report, no writes except AudioMirror XML regen
+- `analysis --as-of <YYYY-MM-DD|sha> --json-output` - library stats as they were at an AudioMirror commit, written to `data/history/stats-<date>-<sha8>.json`; reads the mirror's git history only (no regen, no commit). `analysis --as-of-list` prints the commits.
 - `integrate --dry-run` - previews routing decisions without touching any files
 
 **Always add `--no-auto-commit` when Claude runs force-regen.** AudioMirrorCommitter fires automatically and commits before the diff can be reviewed. Use:
