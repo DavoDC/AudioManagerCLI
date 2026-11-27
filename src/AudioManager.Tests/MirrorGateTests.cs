@@ -143,7 +143,7 @@ namespace AudioManager
             try
             {
                 Console.SetOut(capture);
-                code = MirrorGate.RunCommand(repo, commit, message);
+                code = MirrorGate.RunCommand(repo, commit, message, Path.Combine(repo, "parse-cache.txt"));
             }
             finally
             {
@@ -258,7 +258,8 @@ namespace AudioManager
             try
             {
                 string before = Head(repo);
-                WriteFile(repo, GoodRel, TrackXml());
+                // GUI-90: the library check also runs, so the fixture is a genuinely clean library: a lone song lives in Singles/ and is named "Artist - Title".
+                WriteFile(repo, "AUDIO_MIRROR/Artists/Alpha/Singles/Alpha - Song.xml", TrackXml());
                 int code = RunCaptured(repo, true, "Add healthy album", out string output);
                 Assert.True(code == 0, "clean commit exits 0, got " + code);
                 Assert.True(Head(repo) != before, "HEAD moved on a clean set");

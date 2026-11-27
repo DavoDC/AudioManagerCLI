@@ -23,9 +23,20 @@ namespace AudioManager
     {
         public int Checked;
         public List<MirrorProblem> Problems = new List<MirrorProblem>();
+        // GUI-90: every LibChecker hit over the AUDIO_MIRROR folder (fix-later kinds included). Only LibraryBlocked refuses.
+        public List<MirrorLibraryHit> Library = new List<MirrorLibraryHit>();
+        public bool LibraryBlocked;
         public string Error = string.Empty;
         public bool Committed;
-        public bool Ok => Error.Length == 0 && Problems.Count == 0;
+        public bool Ok => Error.Length == 0 && Problems.Count == 0 && !LibraryBlocked;
+    }
+
+    /// <summary>One LibChecker hit for the "library" JSON key. Path is mirror-relative (LibChecker's own path, forward slashes).</summary>
+    internal sealed class MirrorLibraryHit
+    {
+        public string Kind;
+        public string Path;
+        public string Detail;
     }
 
     /// <summary>
@@ -137,6 +148,39 @@ namespace AudioManager
                 Console.WriteLine($"[WARN]   {p.File}: {p.Reason}");
         }
 
+        /// <summary>
+        /// GUI-90: parses the AUDIO_MIRROR folder and runs LibChecker over it. Every hit goes to result.Library; the
+        /// commit is refused only when LibChecker.HasBlockingHits (a kind outside FixLaterKinds). A Parser failure
+        /// becomes result.Error so the JSON line stays the last stdout line.
+        /// </summary>
+        internal static void ValidateLibrary(string repoPath, MirrorGateResult result, string cachePath)
+        {
+            string mirrorFolder = Path.Combine(repoPath, Constants.MirrorFolderName);
+            LibChecker checker;
+            try
+            {
+                var parser = new Parser(mirrorFolder, cachePath);
+                checker = new LibChecker(parser.audioTags);
+            }
+            catch (Exception ex)
+            {
+                string detail = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+                result.Error = "library check failed: " + detail + ". Nothing was committed.";
+                return;
+            }
+
+            foreach (LibChecker.LibCheckerHit hit in checker.Hits)
+                result.Library.Add(new MirrorLibraryHit { Kind = hit.Kind, Path = hit.Path.Replace('\\', '/'), Detail = hit.Detail });
+            result.LibraryBlocked = checker.HasBlockingHits;
+        }
+
+        /// <summary>Prints one [WARN] line per library hit. Used before the JSON line, never after it.</summary>
+        internal static void PrintLibraryHits(IList<MirrorLibraryHit> hits)
+        {
+            foreach (MirrorLibraryHit h in hits)
+                Console.WriteLine($"[WARN]   library {h.Kind} {h.Path}: {h.Detail}");
+        }
+
         /// <summary>Pure builder for the one-line JSON object the GUI reads as the last stdout line.</summary>
         internal static string ToJson(MirrorGateResult r)
         {
@@ -151,6 +195,14 @@ namespace AudioManager
                 sb.Append("{\"file\": ").Append(JsonText.Quote(r.Problems[i].File))
                   .Append(", \"reason\": ").Append(JsonText.Quote(r.Problems[i].Reason)).Append('}');
             }
+            sb.Append("], \"library\": [");
+            for (int i = 0; i < r.Library.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append("{\"kind\": ").Append(JsonText.Quote(r.Library[i].Kind))
+                  .Append(", \"path\": ").Append(JsonText.Quote(r.Library[i].Path ?? string.Empty))
+                  .Append(", \"detail\": ").Append(JsonText.Quote(r.Library[i].Detail ?? string.Empty)).Append('}');
+            }
             sb.Append("], \"error\": ").Append(JsonText.Quote(r.Error ?? string.Empty));
             sb.Append('}');
             return sb.ToString();
@@ -161,7 +213,7 @@ namespace AudioManager
         /// [WARN] problem lines and commit output, then exactly one JSON line last. Returns the exit code:
         /// 0 ok, 3 refused (problems), 1 any other error.
         /// </summary>
-        internal static int RunCommand(string repoPath, bool commit, string message)
+        internal static int RunCommand(string repoPath, bool commit, string message, string cachePath = null)
         {
             var result = new MirrorGateResult();
             int code;
@@ -173,22 +225,28 @@ namespace AudioManager
             else
             {
                 result = Validate(repoPath);
+                // GUI-90: the library check runs even when per-file problems exist, so all issues surface in one round.
+                if (result.Error.Length == 0) ValidateLibrary(repoPath, result, cachePath);
                 if (result.Error.Length > 0)
                 {
                     code = ExitError;
                 }
-                else if (result.Problems.Count > 0)
+                else if (result.Problems.Count > 0 || result.LibraryBlocked)
                 {
                     PrintProblems(result.Problems);
-                    Console.WriteLine($"[WARN] AudioMirror commit refused: {result.Problems.Count} XML file(s) failed the health gate. Nothing was committed.");
+                    if (result.LibraryBlocked) PrintLibraryHits(result.Library);
+                    string refusedFiles = result.Problems.Count > 0 ? $"{result.Problems.Count} XML file(s) failed the health gate" : "the library check found blocking issues";
+                    Console.WriteLine($"[WARN] AudioMirror commit refused: {refusedFiles}. Nothing was committed.");
                     code = ExitRefused;
                 }
                 else if (!commit)
                 {
+                    PrintLibraryHits(result.Library);
                     code = ExitOk;
                 }
                 else
                 {
+                    PrintLibraryHits(result.Library);
                     // Local commit of the whole AudioMirror repo. Never a push.
                     string failureDetail;
                     CommitOutcome outcome = AudioMirrorCommitter.StageAndCommit(repoPath, CommitAddArgs, message, out failureDetail);
