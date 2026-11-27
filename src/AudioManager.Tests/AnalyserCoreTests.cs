@@ -40,6 +40,20 @@ namespace AudioManager
             new TrackTag("\\Artists\\Artist A\\Singles\\Artist A - Song.xml",
                 "Song", "Artist A", "Album", year, "1", "Rock", "00:03:25.5000000", "1", "False", "1200", "1200");
 
+        private static TrackTag TagWithLength(string length) =>
+            new TrackTag("\\Artists\\Artist A\\Singles\\Artist A - Song.xml",
+                "Song", "Artist A", "Album", "2020", "1", "Rock", length, "1", "False", "1200", "1200");
+
+        // Cluster 2: a Length TimeSpan cannot parse is skipped and counted, never thrown.
+        public static void ParseDurations_UnparseableLength_IsSkippedAndCounted()
+        {
+            var tags = new List<TrackTag> { TagWithLength("00:03:20.0000000"), TagWithLength("garbage") };
+            int skipped;
+            var durations = Analyser.ParseDurations(tags, out skipped);
+            Assert.True(durations.Count == 1, "only the parseable row is kept, got " + durations.Count);
+            Assert.True(skipped == 1, "one row is skipped, got " + skipped);
+        }
+
         public static void Analyser_EmptyInput_DoesNotThrow()
         {
             // Currently throws ArgumentException from TimeSpan.FromSeconds(NaN) on the average-length line.

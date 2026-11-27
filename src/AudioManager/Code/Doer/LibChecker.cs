@@ -116,6 +116,15 @@ namespace AudioManager
                     Hit("not_compilation", tag.RelPath, compilationProblem);
                     totalTagHits++;
                 }
+
+                // Check that Length parses (cluster 2): an unparseable Length is a hit, never an exception in the analysis
+                string lengthProblem = UnparseableLengthProblem(tag.Length);
+                if (lengthProblem != null)
+                {
+                    Console.WriteLine($"  - '{tag.RelPath}' {lengthProblem}!");
+                    Hit("bad_length", tag.RelPath, lengthProblem);
+                    totalTagHits++;
+                }
             }
             PrintLowResCoverSummary();
             PrintTotalHits(totalTagHits);
@@ -318,7 +327,20 @@ namespace AudioManager
         /// </summary>
         internal static string CompilationProblem(string compilation)
         {
-            return bool.Parse(compilation) ? null : "is not set as a compilation";
+            bool value;
+            if (!bool.TryParse(compilation ?? string.Empty, out value)) return "has a Compilation that is not true or false";
+            return value ? null : "is not set as a compilation";
+        }
+
+        /// <summary>
+        /// Cluster 2: a Length FieldRules blocks (not hh:mm:ss) is a hit, so the statistics and the library check never throw on it.
+        /// Under-20-second and over-30-minute Lengths only warn in FieldRules, so they are not hits here.
+        /// </summary>
+        internal static string UnparseableLengthProblem(string length)
+        {
+            FieldProblem p = FieldRules.Check("Length", length);
+            if (p == null || p.Severity != FieldSeverity.Block) return null;
+            return "has an unparseable Length '" + (length ?? string.Empty) + "' (" + p.Reason + ")";
         }
 
         private int CheckAlbumCoverCount(TrackTag tag)

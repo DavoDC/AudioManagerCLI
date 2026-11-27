@@ -67,6 +67,23 @@ namespace AudioManager
         }
 
         /// <summary>
+        /// Seconds for each Length that TimeSpan can parse. A row it cannot parse is skipped and counted in skipped (cluster 2),
+        /// so one bad XML never throws the whole statistics run.
+        /// </summary>
+        internal static List<double> ParseDurations(IEnumerable<TrackTag> tags, out int skipped)
+        {
+            var result = new List<double>();
+            skipped = 0;
+            foreach (TrackTag tag in tags)
+            {
+                TimeSpan span;
+                if (TimeSpan.TryParse(tag.Length, CultureInfo.InvariantCulture, out span)) result.Add(span.TotalSeconds);
+                else skipped++;
+            }
+            return result;
+        }
+
+        /// <summary>
         /// Prints general statistics for the library.
         /// </summary>
         /// <param name="audioTags">List of audio tags</param>
@@ -81,15 +98,24 @@ namespace AudioManager
                 return;
             }
 
-            double totalDuration = audioTags.Sum(tag => TimeSpan.Parse(tag.Length, CultureInfo.InvariantCulture).TotalSeconds);
+            int skipped;
+            List<double> durationList = ParseDurations(audioTags, out skipped);
+            if (skipped > 0) Console.WriteLine($"[WARN] skipped {skipped} track(s) with an unparseable Length");
+            if (durationList.Count == 0)
+            {
+                Console.WriteLine(" - No tracks with a usable Length");
+                return;
+            }
+
+            double totalDuration = durationList.Sum();
             double totalHours = Math.Round(totalDuration / 3600.0, 1);
             double days = Math.Round(totalHours / 24.0, 1);
             Console.WriteLine(FormattableString.Invariant($" - Total playback hours: {totalHours} hours (≈{days} days)"));
 
-            TimeSpan avgLength = TimeSpan.FromSeconds(totalDuration / audioTags.Count);
+            TimeSpan avgLength = TimeSpan.FromSeconds(totalDuration / durationList.Count);
             Console.WriteLine($" - Average song length: {(int)avgLength.TotalMinutes}m{avgLength.Seconds:D2}s");
 
-            var durations = audioTags.Select(t => TimeSpan.Parse(t.Length, CultureInfo.InvariantCulture).TotalSeconds).OrderBy(x => x).ToArray();
+            var durations = durationList.OrderBy(x => x).ToArray();
             double medianSeconds = durations.Length % 2 == 1
                 ? durations[durations.Length / 2]
                 : (durations[durations.Length / 2 - 1] + durations[durations.Length / 2]) / 2;

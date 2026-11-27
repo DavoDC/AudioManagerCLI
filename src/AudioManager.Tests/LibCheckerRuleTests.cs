@@ -225,5 +225,22 @@ namespace AudioManager
             Assert.True(console.Contains("'\\Artists\\Known Artist\\Singles\\Known Artist - Song A.xml' has genre 'Motivation' but is not in Motivation/"),
                 "the track should be reported with its RelPath and the expected folder");
         }
+
+        // Cluster 2: a Compilation that is not a boolean is a hit, not an exception (bool.Parse used to throw).
+        public static void CompilationProblem_NonBoolean_IsProblemNotThrow()
+        {
+            string problem = LibChecker.CompilationProblem("maybe");
+            Assert.True(problem != null, "a non-boolean Compilation is a problem");
+            Assert.True(LibChecker.CompilationProblem("True") == null, "True is fine");
+            Assert.True(LibChecker.CompilationProblem("False") != null, "False is still the old not-compilation problem");
+        }
+
+        // Cluster 2: an unparseable Length is a LibChecker hit (FieldRules BLOCK); an under-20s Length only warns, so no hit.
+        public static void UnparseableLengthProblem_BadShapeIsHit_ShortIsNot()
+        {
+            Assert.True(LibChecker.UnparseableLengthProblem("garbage") != null, "an unparseable Length is a hit");
+            Assert.True(LibChecker.UnparseableLengthProblem("00:00:05.0000000") == null, "a short Length warns only");
+            Assert.True(LibChecker.UnparseableLengthProblem("00:03:20.0000000") == null, "a good Length passes");
+        }
     }
 }
