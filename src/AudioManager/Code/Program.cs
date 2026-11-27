@@ -85,6 +85,14 @@ namespace AudioManager
                     return;
                 }
 
+                // analysis --backfill-date-added [--apply]: fills DateAdded in AudioMirror XML from the mirror's git history.
+                // Dry run by default; returns before mode parsing and the library scan (DateAddedBackfill.TryRun).
+                if (DateAddedBackfill.TryRun(args, StatsAsOf.GitInMirror, Constants.MirrorFolderPath, out int backfillCode))
+                {
+                    if (backfillCode != 0) Environment.Exit(backfillCode);
+                    return;
+                }
+
                 // analysis --import-report <AudioReport.txt>: one old text report becomes data/history/stats-<date>-report.json.
                 // Read-only with respect to the library; returns before mode parsing (StatsReportImport.TryRun).
                 if (StatsReportImport.TryRun(args, StatsAsOf.HistoryDir, out int importCode))

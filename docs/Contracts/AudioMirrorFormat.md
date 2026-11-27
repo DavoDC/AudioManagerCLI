@@ -37,6 +37,8 @@ Each track is an individual `.xml` file. **Final schema (locked 2026-06-06):**
 
 `DateAdded` is the day a track was first seen. A regeneration reads it from the XML it is about to replace (in memory, no sidecar file) and writes the same value back, so it is never overwritten once stored. A track with no earlier XML, or an earlier XML with no `DateAdded`, gets the day of the run. `FileBytes` is the MP3's size from the file system at the time the XML is written. The parse cache (`PARSE_CACHE_V4`) carries both fields; an older cache is discarded and rebuilt.
 
+`analysis --backfill-date-added [--apply]` fills `DateAdded` in XML that predates it, from the AudioMirror git history: the date (`%cs`, the commit's own date) of the commit that first added the file, read in one bulk `git log --reverse --diff-filter=AR -M --name-status`. A rename (`R`) inherits the old path's date, and files in the first commit get that commit's date. It never overwrites an existing `DateAdded`; a path with no history stays unset and is reported as unresolved. The default is a dry run that prints counts (to fill, already set, unresolved, earliest, latest, per year) and writes nothing; `--apply` rewrites one file at a time through the same reader and writer, and first warns how many mirror XML files are already modified in the working tree. A second `--apply` changes nothing.
+
 **Schema policy:** This is the only supported schema. AudioManager enforces strict parsing - all fields are required. No backwards compatibility with old formats. Schema changes require full library regeneration.
 
 ## Folder Structure

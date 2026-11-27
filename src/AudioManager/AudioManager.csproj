@@ -77,6 +77,7 @@
     <Compile Include="Code\Doer\Analyser\StatList.cs" />
     <Compile Include="Code\Doer\Analyser\StatsJson.cs" />
     <Compile Include="Code\Doer\Analyser\StatsReportImport.cs" />
+    <Compile Include="Code\Doer\Analyser\DateAddedBackfill.cs" />
     <Compile Include="Code\Doer\Analyser\LyricsStatus.cs" />
     <Compile Include="Code\Doer\Analyser\TracksJson.cs" />
     <Compile Include="Code\Doer\RulesEngine.cs" />

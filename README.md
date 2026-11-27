@@ -45,6 +45,7 @@ Run `AudioManager.exe <verb> [flags]`. With no arguments it opens the interactiv
 | `--revert <journal>` | yes, a tagfix journal | `tagfix` (rejected with `--dry-run`) | Reverts a tag-fix apply from its journal. |
 | `--mirror-retry` | no | standalone | Re-runs only the post-integration mirror step after a failed one. |
 | `--import-report <file>` | yes, an old AudioReport.txt | `analysis` | Turns one old text report into a partial stats snapshot under `data/history/`, named by the report's date. |
+| `--backfill-date-added [--apply]` | no | `analysis` | Fills the optional `DateAdded` in AudioMirror XML that lacks one, from the mirror's git history (the commit that first added each file). Dry run by default and writes nothing; `--apply` writes. Never overwrites an existing `DateAdded`. |
 | `--validate-mirror` | no | standalone | Runs the AudioMirror health gate on changed XML files and commits nothing. Prints a JSON last line ([format](docs/Contracts/MirrorCommitJSON.md)). |
 | `--commit-mirror --message "<text>"` | yes, the commit message | standalone | Runs the same gate and makes a local AudioMirror commit only when it finds zero problems. Never pushes ([format](docs/Contracts/MirrorCommitJSON.md)). |
 | `--fingerprint` | no | standalone | Prints one JSON line with the current NewMusic fingerprint. Read-only. |
