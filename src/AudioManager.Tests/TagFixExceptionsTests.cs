@@ -88,8 +88,7 @@ namespace AudioManager
                 TagFixExceptions set = TagFixExceptions.Load(path);
                 Assert.True(set.Accepts("a.mp3", "unwanted_text"), "accepted rule matches");
                 Assert.True(!set.Accepts("a.mp3", "missing_tag"), "other rule on same file still fails");
-                Assert.True(set.Accepts("b.mp3", "missing_tag", "x/b.mp3"), "sourceRel row matches own path");
-                Assert.True(!set.Accepts("b.mp3", "missing_tag", "Y\\b.mp3"), "sourceRel row misses other folder");
+                Assert.True(!set.Accepts("b.mp3", "missing_tag", "x/b.mp3"), "missing_tag is never accepted, even on its own path");
                 Assert.True(!set.Accepts("c.mp3", "bogus"), "unknown rule ignored");
             }
             finally { Directory.Delete(dir, true); }

@@ -34,7 +34,9 @@ namespace AudioManager
         private readonly HashSet<string> acceptKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> acceptRelKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         /// <summary>The rule ids an Accept row may name. Anything else is skipped with a warning.</summary>
-        internal static readonly string[] ValidAcceptRules = { "unwanted_text", "missing_tag", "apply_title", "bad_cover", "bad_field" };
+        internal static readonly string[] ValidAcceptRules = { "unwanted_text", "apply_title" };
+        /// <summary>Residual rules an Accept row may never bypass (David 2026-11-27): the file still needs a person.</summary>
+        internal static readonly string[] NeverAcceptRules = { "missing_tag", "bad_field", "bad_cover" };
 
         /// <summary>
         /// Loads exceptions from the given path (or Constants.TagFixExceptionsPath by default).
@@ -119,6 +121,7 @@ namespace AudioManager
             string file = el.GetAttribute("file").Trim();
             string rule = el.GetAttribute("rule").Trim().ToLowerInvariant();
             if (string.IsNullOrEmpty(file)) { Console.WriteLine("  [WARN] Accept row skipped: missing file attribute"); return; }
+            if (NeverAcceptRules.Contains(rule)) { Console.WriteLine($"  [WARN] Accept row for '{file}': rule '{rule}' cannot be accepted, only unwanted_text can. Ignored"); return; }
             if (!ValidAcceptRules.Contains(rule)) { Console.WriteLine($"  [WARN] Accept row for '{file}': unknown rule '{rule}' ignored"); return; }
             string rel = NormRel(el.GetAttribute("sourceRel"));
             if (string.IsNullOrEmpty(rel)) acceptKeys.Add(rule + "|" + file);

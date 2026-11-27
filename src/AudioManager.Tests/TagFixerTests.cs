@@ -1072,10 +1072,11 @@ namespace AudioManager
             Assert.True(!log.NeedsManual, "a missing cover is not a bad_cover row");
         }
 
-        public static void ProcessFile_BadCoverAccepted_IsSkipped()
+        // David 2026-11-27 (decision e): only unwanted_text can be accepted, so an Accept row for bad_cover does not skip the file.
+        public static void ProcessFile_BadCoverAccepted_StillNeedsManual()
         {
             var log = CoverRun("image/webp", new byte[] { 1, 2, 3, 4 }, "<Accept file=\"Band - Song.mp3\" rule=\"bad_cover\" />");
-            Assert.True(!log.NeedsManual, "an accepted bad_cover is skipped");
+            Assert.True(log.NeedsManual, "an accepted bad_cover still needs a person");
         }
 
         // missing_tag (Year only): a dry run raises a file whose Year is empty, the same field LibChecker reports as "has no Year set".
@@ -1102,10 +1103,12 @@ namespace AudioManager
             Assert.True(!log.NeedsManual, "a file with a Year raises no missing_tag");
         }
 
-        public static void ProcessFile_AcceptedMissingTag_IsNotNeedsManual()
+        // David 2026-11-27 (decision e): missing_tag is never accepted; the file still needs a person.
+        public static void ProcessFile_AcceptedMissingTag_StillNeedsManual()
         {
             var log = ResidualRunYear("Song", "Album", "<Accept file=\"Band - Song.mp3\" rule=\"missing_tag\" />", 0, out _);
-            Assert.True(!log.NeedsManual, "accepted missing_tag is skipped");
+            Assert.True(log.NeedsManual, "an accepted missing_tag still needs a person");
+            Assert.Equal("missing_tag", log.ManualRule, "rule id");
         }
 
         public static void ProcessFile_AcceptedUnwantedText_IsNotNeedsManual()
