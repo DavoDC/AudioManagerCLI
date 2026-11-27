@@ -222,7 +222,7 @@ namespace AudioManager
         // ---- helpers ----
 
         /// <summary>Appends a "name": [ {"label":..,"count":..}, .. ] block. </summary>
-        private static void AppendLabelCountArray(
+        internal static void AppendLabelCountArray(
             StringBuilder sb, string name, IEnumerable<KeyValuePair<string, int>> data,
             bool allEntries, int indent = 2, bool trailingComma = true)
         {

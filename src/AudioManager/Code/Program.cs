@@ -85,6 +85,14 @@ namespace AudioManager
                     return;
                 }
 
+                // analysis --import-report <AudioReport.txt>: one old text report becomes data/history/stats-<date>-report.json.
+                // Read-only with respect to the library; returns before mode parsing (StatsReportImport.TryRun).
+                if (StatsReportImport.TryRun(args, StatsAsOf.HistoryDir, out int importCode))
+                {
+                    if (importCode != 0) Environment.Exit(importCode);
+                    return;
+                }
+
                 // Detect CLI args: "analysis [--force-regen]" or "integrate [--dry-run] [--no-input]"
                 int mode;
                 bool forceMirrorRegen;

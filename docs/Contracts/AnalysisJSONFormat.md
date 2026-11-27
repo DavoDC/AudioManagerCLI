@@ -128,6 +128,18 @@ As-of documents add these fields, all absent from live documents. `schemaVersion
 - `coverKnown`: `false` when any XML at that commit lacks the `AlbumCover` block. Older XMLs carry only `AlbumCoverCount`, so their width and height are empty and count as `missingData`.
 - `lyricsKnown`: `false` when any XML lacks `HasLyrics`. Those tracks count as lyrics missing unless the kept list says otherwise.
 
+## Report import (`analysis --import-report`)
+
+`AudioManager.exe analysis --import-report <AudioReport.txt>` turns one old text report into `data/history/stats-<date>-report.json`. The date is the report's filename prefix (`YYYY-MM-DD`), and a rerun overwrites the same file. It never reads the library or the mirror and never writes `data/logs/`.
+
+An old report prints only tables, so an imported snapshot is partial. Real values: `summary.trackCount` (from the `Tags parsed` line), the genre, year and decade distributions, `topArtists.all` (the Artists table), and `topArtists.exclMusivation` (the Excluding Musivation table, present only in the newest layout; otherwise an empty array). A layout without a decade table gives an empty `decadeDistribution`.
+
+`summary.artistCount` and `summary.genreCount` are the row counts of the printed tables. The old reports cut those tables short, so both are lower bounds, not the library's distinct counts.
+
+Everything else is zero, null or an empty array and must not be read as a measurement: the size, length and playback fields, `ageStats` (null), `ageDistribution` (zero buckets), `coverArt`, `tagCompleteness`, `coverCoverage800` and `lyricsCoverage`. The flags `sizeKnown`, `coverKnown`, `lyricsKnown` and `lengthKnown` are all `false`; `lengthKnown` appears only in report snapshots.
+
+`asOf` is `{"date": "YYYY-MM-DD", "commit": "report"}`. `schemaVersion` stays 1 because the change is additive.
+
 ## `tracks.json` (per-track array for browsing)
 
 One object per track, every track. ~4 MB for 5,694 tracks - loaded once at startup (and on refresh),
