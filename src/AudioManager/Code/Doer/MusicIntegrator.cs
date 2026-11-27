@@ -171,6 +171,12 @@ namespace AudioManager
 
                 // Step 1: Fix tags in NewMusic folder
                 var tagFixer = new TagFixer(_roots.NewMusic, dryRun, manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f, _roots.NewMusic))), _artistSpellingChoices);
+                // Post-rewrite gate (GUI-82 f): a real run stops here, before any file can move into the library, if a rewritten file still needs manual review.
+                if (!dryRun && !PostRewriteGate(_roots.NewMusic, manifest))
+                {
+                    WriteJsonOutput(logEntries, Blocked, NeedsManualBlocked);
+                    return;
+                }
                 var tagChanges = tagFixer.FileChanges;
 
                 var files = Directory.Exists(_roots.NewMusic)
@@ -427,6 +433,42 @@ namespace AudioManager
             bool clear = RunMirrorPathGate(scannedFiles, newArtistFolders, mirrorPath);
             if (clear) Console.WriteLine(" - Pre-flight: mirror path gate passed on final tag values");
             return clear;
+        }
+
+        /// <summary>
+        /// Post-rewrite gate (GUI-82 f), real runs only: runs right after the real TagFixer rewrote NewMusic and before any
+        /// file can move into the library. Re-reads the manifest-selected files through the same dry projection the
+        /// pre-flight uses, so the residual rules are the ones PreflightMirrorGate applies (no second rule list). A file the
+        /// dry pass cannot read back (the TagFixer error path) blocks as rule error. Writes nothing.
+        /// Returns false when the batch is blocked (NeedsManualBlocked is set; Blocked stays null, as in the pre-flight).
+        /// </summary>
+        internal bool PostRewriteGate(string newMusicRoot, IntegrationManifest manifest = null)
+        {
+            var files = Directory.Exists(newMusicRoot)
+                ? Directory.GetFiles(newMusicRoot, "*.mp3", SearchOption.AllDirectories)
+                : Array.Empty<string>();
+            Func<string, bool> keep = manifest == null ? (Func<string, bool>)null : (f => manifest.Matches(Path.GetFileName(f), RelToNewMusic(f, newMusicRoot)));
+            if (keep != null && files.Length > 0)
+                files = files.Where(keep).ToArray();
+            if (files.Length == 0) return true;
+
+            // The read-back scan prints its header and per-file lines once in the real pass already; run it quiet.
+            TagFixer readBack;
+            using (new QuietConsole())
+                readBack = new TagFixer(newMusicRoot, true, keep, _artistSpellingChoices);
+
+            NeedsManualBlocked = null;
+            foreach (TagFixer.FixLog l in readBack.Results.Where(r => r.Status == "error" || r.NeedsManual))
+            {
+                string rule = TagFixPlanJson.ManualRule(l);
+                string reason = l.Status == "error" ? (l.Detail ?? "could not be read back") : (l.ManualReason ?? "needs manual review");
+                if (NeedsManualBlocked == null) NeedsManualBlocked = new NeedsManualBlock();
+                NeedsManualBlocked.Files.Add((l.OriginalFilename, rule, reason));
+                Console.WriteLine($"[BLOCK] {l.OriginalFilename}: {rule}: {reason}");
+            }
+            if (NeedsManualBlocked == null) return true;
+            Console.WriteLine($"[BLOCK] {NeedsManualBlocked.Files.Count} file(s) still need manual review after the tag fix. Nothing was moved into the library.");
+            return false;
         }
 
         /// <summary>
