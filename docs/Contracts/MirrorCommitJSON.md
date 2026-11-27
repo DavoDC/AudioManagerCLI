@@ -53,12 +53,14 @@ is printed after it. Parse the last line only.
   "library": [                // [] when clean; every LibChecker hit, fix-later kinds included
     {"kind": "single_in_album_folder", "path": "/Artists/Alpha/Album1/a.xml", "detail": "only 1 song from album 'Album1' but in subfolder 'Album1/' (should be Singles/)"}
   ],
+  "libWarnings": [],          // additive warn-only hits {kind, path, detail}; never affect ok or the exit code
   "error": ""                 // empty string when none
 }
 ```
 
 - `file` is repo-relative with forward slashes, relative to the AudioMirror repo root.
 - `library[].path` is the LibChecker path, relative to the `AUDIO_MIRROR` folder, forward slashes; `kind` is the LibChecker hit kind.
+- `libWarnings[].kind` is a warn rule id: `padded_text` or `unknown_cover_dims` (same ids as `libWarningHits` in GateResultJSONFormat.md); a warning never refuses a commit.
 - `reason` is the human message for the first failed rule in the order of the table above.
 - `error` is non-empty for a git failure, a missing repo, a missing or empty `--message`, or a flag mix that is not allowed.
 - Strings use the same escaping as the other contract files (`JsonText.Quote`).

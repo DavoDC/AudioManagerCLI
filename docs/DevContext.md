@@ -367,3 +367,4 @@ David's actual integration cadence is one big batch every 2-4 weeks, not daily. 
 
 ## Development Priority (moved from CLAUDE.md 2026-10-12)
 
+- **libWarnings is the additive warn-only channel (GUI-91).** `LibChecker.Warnings` (padded_text, unknown_cover_dims) never enter Hits, TotalHits or HasBlockingHits; they surface as `libWarnings` in integrate-gate.json and the commit-mirror JSON. Unwanted text is still a blocking library hit, so David's warn-only decision for it needs a separate blocking-behaviour change.

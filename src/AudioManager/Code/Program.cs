@@ -853,6 +853,7 @@ namespace AudioManager
                 Parser p = null;
                 string statusOutput = "";
                 int libIssues = 0;
+                IList<LibChecker.LibCheckerHit> libWarnings = null;
                 PreIntegrationGateResult result = DecidePreIntegrationGate(
                     Directory.Exists(mirrorRepoPath),
                     () =>
@@ -873,6 +874,7 @@ namespace AudioManager
                         Console.WriteLine(" - Running library validation...");
                         LibChecker lc = new LibChecker(p.audioTags);
                         libIssues = lc.TotalHits;
+                        libWarnings = lc.Warnings.ToList();
                         // Only blocking kinds refuse; fix-later hits (duplicate, artist folder spelling) stay in the report.
                         if (!lc.IsClean && !lc.HasBlockingHits)
                             Console.WriteLine($" - {lc.TotalHits} fix-later LibChecker hit(s) reported; not blocking.");
@@ -883,7 +885,7 @@ namespace AudioManager
                 if (jsonOutput)
                 {
                     var statusLines = statusOutput.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-                    Console.WriteLine($" - Gate JSON written: {GateResultJson.Write(result, statusLines, libIssues)}");
+                    Console.WriteLine($" - Gate JSON written: {GateResultJson.Write(result, statusLines, libIssues, libWarnings)}");
                 }
 
                 switch (result)

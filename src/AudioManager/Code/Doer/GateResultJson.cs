@@ -21,9 +21,9 @@ namespace AudioManager
         public const string OutputFileName = "integrate-gate.json";
 
         /// <summary>Builds and writes the file; returns the path written.</summary>
-        public static string Write(Program.PreIntegrationGateResult result, IList<string> mirrorStatusLines, int libCheckerIssues)
+        public static string Write(Program.PreIntegrationGateResult result, IList<string> mirrorStatusLines, int libCheckerIssues, IList<LibChecker.LibCheckerHit> libWarnings = null)
         {
-            string json = Build(result, mirrorStatusLines, libCheckerIssues, DateTime.Now);
+            string json = Build(result, mirrorStatusLines, libCheckerIssues, DateTime.Now, libWarnings);
             if (!Directory.Exists(Constants.LogsPath))
                 Directory.CreateDirectory(Constants.LogsPath);
             return WriteTo(Constants.LogsPath, json, DateTime.Now);
@@ -72,8 +72,9 @@ namespace AudioManager
         }
 
         /// <summary>Pure builder. mirrorStatusLines are raw 'git status --porcelain' lines; every non-blank line is reported.</summary>
-        public static string Build(Program.PreIntegrationGateResult result, IList<string> mirrorStatusLines, int libCheckerIssues, DateTime generatedAt)
+        public static string Build(Program.PreIntegrationGateResult result, IList<string> mirrorStatusLines, int libCheckerIssues, DateTime generatedAt, IList<LibChecker.LibCheckerHit> libWarnings = null)
         {
+            var warns = libWarnings ?? new List<LibChecker.LibCheckerHit>();
             var dirty = (mirrorStatusLines ?? new List<string>())
                 .Where(l => !string.IsNullOrWhiteSpace(l))
                 .ToList();
@@ -88,6 +89,15 @@ namespace AudioManager
             sb.AppendLine($"  \"mirrorDirty\": {(mirrorDirty ? "true" : "false")},");
             sb.AppendLine($"  \"mirrorDirtyCount\": {(mirrorDirty ? dirty.Count : 0)},");
             sb.AppendLine($"  \"libCheckerIssues\": {libCheckerIssues},");
+            sb.AppendLine($"  \"libWarnings\": {warns.Count},");
+            if (warns.Count == 0) sb.AppendLine("  \"libWarningHits\": [],");
+            else
+            {
+                sb.AppendLine("  \"libWarningHits\": [");
+                for (int i = 0; i < warns.Count; i++)
+                    sb.AppendLine($"    {{\"kind\": {JsonText.Quote(warns[i].Kind)}, \"path\": {JsonText.Quote((warns[i].Path ?? "").Replace('\\', '/'))}, \"detail\": {JsonText.Quote(warns[i].Detail ?? "")}}}{(i < warns.Count - 1 ? "," : "")}");
+                sb.AppendLine("  ],");
+            }
             var shown = mirrorDirty ? dirty : new List<string>();
             sb.AppendLine(shown.Count == 0 ? "  \"mirrorDirtyFiles\": []" : "  \"mirrorDirtyFiles\": [");
             for (int i = 0; i < shown.Count; i++)

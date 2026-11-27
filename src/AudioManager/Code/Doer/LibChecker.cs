@@ -65,6 +65,33 @@ namespace AudioManager
         /// <summary>True when any hit is of a kind outside FixLaterKinds. This, not IsClean, decides the gate refusal.</summary>
         public bool HasBlockingHits => hits.Any(h => !FixLaterKinds.Contains(h.Kind)) || grandTotalHits > hits.Count;
 
+        private readonly List<LibCheckerHit> warnings = new List<LibCheckerHit>();
+
+        /// <summary>
+        /// GUI-91: warn-only hits (rule ids padded_text, unknown_cover_dims). Additive: they never enter Hits, TotalHits,
+        /// IsClean or HasBlockingHits, so libIssues and every gate decision are identical with or without them.
+        /// </summary>
+        internal IReadOnlyList<LibCheckerHit> Warnings => warnings;
+
+        /// <summary>Number of warn-only hits (the libWarnings count).</summary>
+        public int WarningCount => warnings.Count;
+
+        private void Warn(string kind, string path, string detail)
+        {
+            warnings.Add(new LibCheckerHit { Kind = kind, Path = path ?? "", Detail = detail ?? "" });
+        }
+
+        private void CollectWarnings(TrackTag tag)
+        {
+            foreach (var f in new[] { Tuple.Create("Title", tag.Title), Tuple.Create("Artists", tag.Artists), Tuple.Create("Album", tag.Album) })
+            {
+                FieldProblem p = FieldRules.Check(f.Item1, f.Item2);
+                if (p != null && p.Whitespace) Warn("padded_text", tag.RelPath, f.Item1 + " " + p.Reason);
+            }
+            if (tag.AlbumCoverCount != "0" && (tag.CoverWidth == Constants.UnknownCover || tag.CoverHeight == Constants.UnknownCover))
+                Warn("unknown_cover_dims", tag.RelPath, "cover size is Unknown (art present, format not recognised)");
+        }
+
         private void Hit(string kind, string path, string detail)
         {
             hits.Add(new LibCheckerHit { Kind = kind, Path = path ?? "", Detail = detail ?? "" });
@@ -96,6 +123,9 @@ namespace AudioManager
             Console.WriteLine(" - Checking all tags for unwanted/missing info...");
             foreach (TrackTag tag in audioTags)
             {
+                // Warn-only checks (GUI-91): reported in Warnings, never counted
+                CollectWarnings(tag);
+
                 // Check filename against tag
                 totalTagHits += CheckFilename(tag);
 

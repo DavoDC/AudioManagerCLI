@@ -26,6 +26,8 @@ namespace AudioManager
         // GUI-90: every LibChecker hit over the AUDIO_MIRROR folder (fix-later kinds included). Only LibraryBlocked refuses.
         public List<MirrorLibraryHit> Library = new List<MirrorLibraryHit>();
         public bool LibraryBlocked;
+        // GUI-91: warn-only library hits (LibChecker.Warnings). Never affect Ok, LibraryBlocked or the exit code.
+        public List<MirrorLibraryHit> LibraryWarnings = new List<MirrorLibraryHit>();
         public string Error = string.Empty;
         public bool Committed;
         public bool Ok => Error.Length == 0 && Problems.Count == 0 && !LibraryBlocked;
@@ -171,6 +173,8 @@ namespace AudioManager
 
             foreach (LibChecker.LibCheckerHit hit in checker.Hits)
                 result.Library.Add(new MirrorLibraryHit { Kind = hit.Kind, Path = hit.Path.Replace('\\', '/'), Detail = hit.Detail });
+            foreach (LibChecker.LibCheckerHit w in checker.Warnings)
+                result.LibraryWarnings.Add(new MirrorLibraryHit { Kind = w.Kind, Path = w.Path.Replace('\\', '/'), Detail = w.Detail });
             result.LibraryBlocked = checker.HasBlockingHits;
         }
 
@@ -202,6 +206,14 @@ namespace AudioManager
                 sb.Append("{\"kind\": ").Append(JsonText.Quote(r.Library[i].Kind))
                   .Append(", \"path\": ").Append(JsonText.Quote(r.Library[i].Path ?? string.Empty))
                   .Append(", \"detail\": ").Append(JsonText.Quote(r.Library[i].Detail ?? string.Empty)).Append('}');
+            }
+            sb.Append("], \"libWarnings\": [");
+            for (int i = 0; i < r.LibraryWarnings.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append("{\"kind\": ").Append(JsonText.Quote(r.LibraryWarnings[i].Kind))
+                  .Append(", \"path\": ").Append(JsonText.Quote(r.LibraryWarnings[i].Path ?? string.Empty))
+                  .Append(", \"detail\": ").Append(JsonText.Quote(r.LibraryWarnings[i].Detail ?? string.Empty)).Append('}');
             }
             sb.Append("], \"error\": ").Append(JsonText.Quote(r.Error ?? string.Empty));
             sb.Append('}');
