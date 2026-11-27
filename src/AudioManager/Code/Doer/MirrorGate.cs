@@ -31,9 +31,9 @@ namespace AudioManager
     /// <summary>
     /// The health gate every AudioMirror commit path runs before git add (BL-317 / GUI-140). A set of changed or
     /// untracked XML files is committed only when every file passes the per-file rules, which reuse the LibChecker
-    /// and YearRule rules. Local commits only: nothing here pushes.
-    /// Rules run per file: well-formed XML, Title, Artists and Album present, Year Missing or YearRule.IsValid,
-    /// exactly one album cover, Compilation set. Deleted files are skipped. Library-wide LibChecker rules
+    /// and FieldRules (BL-319, Year through YearRule) rules. Local commits only: nothing here pushes.
+    /// Rules run per file: well-formed XML, the FieldRules BLOCK results (Title, Artists, Album, Year, Length, cover size;
+    /// whitespace only on added files), exactly one album cover, Compilation set. Deleted files are skipped. Library-wide LibChecker rules
     /// (filename match, unwanted text, duplicates, folder rules) need the whole library and are not run here.
     /// Output contract: docs/Contracts/MirrorCommitJSON.md.
     /// </summary>
@@ -81,15 +81,23 @@ namespace AudioManager
                 if (!File.Exists(fullPath)) continue;
 
                 result.Checked++;
-                string reason = CheckXml(fullPath);
+                // Untracked (??) or added (A) is a new file: its whitespace problems refuse. Any other status is an existing file: they warn.
+                bool added = statusCode == "??" || statusCode[0] == 'A';
+                var warnings = new List<string>();
+                string reason = CheckXml(fullPath, added, warnings);
+                foreach (string w in warnings)
+                    Console.WriteLine($"[WARN]   {path.Replace('\\', '/')}: {w} (existing file, not refused)");
                 if (reason != null)
                     result.Problems.Add(new MirrorProblem { File = path.Replace('\\', '/'), Reason = reason });
             }
             return result;
         }
 
-        /// <summary>The per-file rules. Returns null when the XML is healthy, otherwise the reason it is refused.</summary>
-        internal static string CheckXml(string fullPath)
+        /// <summary>
+        /// The per-file rules. Returns null when the XML is healthy, otherwise the reason it is refused. A whitespace
+        /// problem refuses only a new file (added); on an existing file it is added to warnings instead.
+        /// </summary>
+        internal static string CheckXml(string fullPath, bool added, List<string> warnings)
         {
             var tag = new TrackTag("", "", "", "", "", "", "", "", "", "", "", "");
             try
@@ -102,11 +110,8 @@ namespace AudioManager
                 return "not well-formed track XML: " + detail;
             }
 
-            if (IsBlankOrMissing(tag.Title)) return "Title is missing or blank";
-            if (IsBlankOrMissing(tag.Artists)) return "Artists is missing or blank";
-            if (IsBlankOrMissing(tag.Album)) return "Album is missing or blank";
-            if (!tag.Year.Equals(Constants.MissingTag) && !YearRule.IsValid(tag.Year))
-                return "Year '" + tag.Year + "' is not a valid year (1900 to next year)";
+            string fieldProblem = FirstBlockingFieldProblem(tag, added, warnings);
+            if (fieldProblem != null) return fieldProblem;
 
             string coverProblem = LibChecker.CoverCountProblem(tag.AlbumCoverCount);
             if (coverProblem != null) return "track " + coverProblem;
@@ -240,9 +245,27 @@ namespace AudioManager
             return true;
         }
 
-        private static bool IsBlankOrMissing(string value)
+        // BL-319: the FieldRules BLOCK results over the fields this gate reads. WARN results never refuse a commit.
+        // Genres and TrackNumber have no FieldRules rule (David 2026-11-27), so they are not checked here.
+        private static string FirstBlockingFieldProblem(TrackTag tag, bool added, List<string> warnings)
         {
-            return string.IsNullOrWhiteSpace(value) || value.Equals(Constants.MissingTag);
+            var checks = new[]
+            {
+                ("Title", tag.Title), ("Artists", tag.Artists), ("Album", tag.Album), ("Year", tag.Year),
+                ("Length", tag.Length), ("CoverWidth", tag.CoverWidth), ("CoverHeight", tag.CoverHeight),
+            };
+            foreach (var check in checks)
+            {
+                FieldProblem p = FieldRules.Check(check.Item1, check.Item2);
+                if (p == null || p.Severity != FieldSeverity.Block) continue;
+                if (p.Whitespace && !added)
+                {
+                    warnings.Add(check.Item1 + " " + p.Reason);
+                    continue;
+                }
+                return check.Item1 + " " + p.Reason;
+            }
+            return null;
         }
 
         // Porcelain path after the status columns: a rename shows 'old -> new' (keep new), a quoted path loses its quotes.

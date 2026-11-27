@@ -76,7 +76,7 @@ namespace AudioManager
         {
             return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<Track><Title>Song</Title><Artists>Alpha</Artists>"
                 + "<Album>Album1</Album><Year>2020</Year><TrackNumber>1</TrackNumber><Genres>Rock</Genres>"
-                + "<Length>200</Length><AlbumCover><Count>1</Count><Width>1000</Width><Height>1000</Height></AlbumCover>"
+                + "<Length>00:03:20.0000000</Length><AlbumCover><Count>1</Count><Width>1000</Width><Height>1000</Height></AlbumCover>"
                 + "<Compilation>true</Compilation></Track>";
         }
 

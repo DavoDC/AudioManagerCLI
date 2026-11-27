@@ -337,6 +337,25 @@ namespace AudioManager
             finally { Cleanup(repo); }
         }
 
+        // Pre-existing library state: a tracked XML that an edit leaves with a trailing space is a WARN, not a refusal, so
+        // the regen commit of existing files is not blocked. The same text in a new (untracked) file is refused above.
+        public static void FieldRules_ModifiedFileWhitespace_WarnsNotRefused()
+        {
+            string repo = CreateRepoWithInitialCommit();
+            try
+            {
+                WriteFile(repo, GoodRel, FieldsXml());
+                RunProcess("git", "add -A", repo);
+                RunProcess("git", "commit -m tracked", repo);
+                WriteFile(repo, GoodRel, FieldsXml(title: "Song "));
+                MirrorGateResult r = MirrorGate.Validate(repo);
+                Assert.True(r.Checked == 1, "the modified XML was checked");
+                Assert.True(r.Problems.Count == 0, "a modified file with a trailing space warns, it is not refused");
+                Assert.True(r.Ok, "the set is ok");
+            }
+            finally { Cleanup(repo); }
+        }
+
         public static void FieldRules_WarnOnlyFields_AllowedByGate()
         {
             string repo = CreateRepoWithInitialCommit();

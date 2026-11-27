@@ -49,22 +49,32 @@ namespace AudioManager
             }
         }
 
-        public static void FieldRules_Genres_BlankOrMissing_Passes()
+        // David 2026-11-27: Genre and TrackNumber are deliberately unvalidated. Blank or Missing genre is allowed, and
+        // TrackNumber 0 is TagLib's "unset" for singles, not an error. Neither has a rule, so asking for one throws.
+        public static void FieldRules_TrackNumberAndGenres_HaveNoRule()
         {
-            Assert.True(Passes("Genres", ""), "empty genre is allowed (David 2026-11-27)");
-            Assert.True(Passes("Genres", "Missing"), "Missing genre is allowed");
-            Assert.True(Passes("Genres", "Rock; Pop"), "a genre passes");
+            Assert.True(ThrowsForField("Genres"), "Genres has no rule");
+            Assert.True(ThrowsForField("TrackNumber"), "TrackNumber has no rule");
         }
 
-        public static void FieldRules_TrackNumber_DigitsRequired_ZeroAndAbove99Warn()
+        public static void FieldRules_WhitespaceProblem_IsFlaggedSoModifiedFilesCanWarn()
         {
-            Assert.True(Passes("TrackNumber", "1"), "1 passes");
-            Assert.True(Passes("TrackNumber", "99"), "99 passes");
-            Assert.True(Warns("TrackNumber", "0"), "0 warns (466 library files are grandfathered)");
-            Assert.True(Warns("TrackNumber", "100"), "100 warns");
-            Assert.True(Blocks("TrackNumber", ""), "blank blocks");
-            Assert.True(Blocks("TrackNumber", "1a"), "non-digit blocks");
-            Assert.True(Blocks("TrackNumber", "-1"), "minus sign blocks");
+            Assert.True(FieldRules.Check("Title", "Song ").Whitespace, "trailing space is a whitespace problem");
+            Assert.True(FieldRules.Check("Artists", "A  B").Whitespace, "double space is a whitespace problem");
+            Assert.True(!FieldRules.Check("Title", "Song\u0001").Whitespace, "a control character is not a whitespace problem");
+        }
+
+        private static bool ThrowsForField(string field)
+        {
+            try
+            {
+                FieldRules.Check(field, "x");
+                return false;
+            }
+            catch (ArgumentException)
+            {
+                return true;
+            }
         }
 
         public static void FieldRules_Length_ShapeAndBounds()
