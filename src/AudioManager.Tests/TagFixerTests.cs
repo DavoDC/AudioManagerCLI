@@ -495,7 +495,8 @@ namespace AudioManager
         /// starting tags. No binary fixture is committed to the repo - the frame is synthesized
         /// so TagLib# recognizes the file and can read/write ID3v2 tags on it.
         /// </summary>
-        internal static string CreateSilentMp3Fixture(string directory, string filename, string title, string album, string artist, uint year = 0)
+        // 1000 frames is about 26 s of audio, a realistic track length (BL-319 Length floor is 20 s). Pass a small count for a short file.
+        internal static string CreateSilentMp3Fixture(string directory, string filename, string title, string album, string artist, uint year = 0, int frames = 1000)
         {
             string path = System.IO.Path.Combine(directory, filename);
             const int frameLength = 417; // floor(144 * 128000 / 44100), no padding
@@ -503,7 +504,7 @@ namespace AudioManager
             frame[0] = 0xFF; frame[1] = 0xFB; frame[2] = 0x90; frame[3] = 0x64;
             using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create, System.IO.FileAccess.Write))
             {
-                for (int i = 0; i < 20; i++) fs.Write(frame, 0, frame.Length);
+                for (int i = 0; i < frames; i++) fs.Write(frame, 0, frame.Length);
             }
 
             TagLib.File tagFile = TagLib.File.Create(path);
@@ -928,6 +929,48 @@ namespace AudioManager
         {
             var log = ResidualRun("Song", "", "", out _);
             Assert.True(!log.NeedsManual, "missing album is reported by projectedHits, not tagfix");
+        }
+
+        // BL-319 bad_field: FieldRules BLOCK results on the values a new file would integrate with. Genre and TrackNumber have no rule.
+        public static void ProcessFile_ResidualShortLength_IsNotNeedsManual()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "Band - Song.mp3", "Song", "Album", "Band", 2020, frames: 20);
+                string exPath = System.IO.Path.Combine(tempDir, "ex.xml");
+                System.IO.File.WriteAllText(exPath, "<Exceptions></Exceptions>");
+                var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(tempDir, "q"), exceptionsPath: exPath);
+                var log = fixer.ProcessFile(fixturePath);
+                Assert.True(!log.NeedsManual, "a file under 20 seconds only warns, so it does not need a person");
+            }
+            finally { System.IO.Directory.Delete(tempDir, true); }
+        }
+
+        public static void ProcessFile_ResidualBlankTitle_IsNeedsManual()
+        {
+            var log = ResidualRun("", "Album", "", out _);
+            Assert.True(log.NeedsManual, "a blank title needs a person");
+        }
+
+        public static void ProcessFile_ResidualNoGenre_IsNotNeedsManual()
+        {
+            var log = ResidualRun("Song", "Album", "", out _);
+            Assert.True(!log.NeedsManual, "a missing genre is allowed (David 2026-11-27)");
+        }
+
+        public static void ResidualFieldProblem_UnknownCoverDimensions_IsBadField()
+        {
+            string reason = TagFixer.ResidualFieldProblem("Song", "Band", "00:03:20.0000000", "Unknown", "Unknown");
+            Assert.True(reason != null, "Unknown cover dimensions give a problem");
+            Assert.True(reason.Contains("CoverWidth"), "the reason names the cover field: " + reason);
+        }
+
+        public static void ResidualFieldProblem_CleanTrackAndNoCover_IsNull()
+        {
+            Assert.True(TagFixer.ResidualFieldProblem("Song", "Band", "00:03:20.0000000", "1200", "1200") == null, "a clean track passes");
+            Assert.True(TagFixer.ResidualFieldProblem("Song", "Band", "00:03:20.0000000", "0", "0") == null, "no cover (0x0) passes");
         }
 
         // bad_cover: a non-JPEG/PNG or solid-black front cover is a needsManual row (detection only, art is never changed).

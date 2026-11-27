@@ -352,6 +352,8 @@ namespace AudioManager
                 string genres = tag.JoinedGenres ?? "";
                 log.OldTags = new TagState { Title = title, Album = album, Artists = artists, Genre = genres, Compilation = id3.IsCompilation, ArtCount = tag.Pictures.Length };
                 string coverIssue = CoverCheck.Evaluate(tag.Pictures);
+                (string coverWidth, string coverHeight) = CoverSize(tag.Pictures);
+                string lengthValue = FormatLength(tagFile.Properties?.Duration ?? TimeSpan.Zero);
                 // Same convention as TrackTag (Year 0 or an implausible year is "Missing", BL-316), so the residual check agrees with LibChecker's "has no Year set".
                 string yearValue = YearRule.ToStoredYear(tag.Year, sourcePath);
 
@@ -542,7 +544,7 @@ namespace AudioManager
                 {
                     log.Status = "skipped";
                     log.Detail = "no fixes needed";
-                    MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, yearValue, originalName, originalRel, coverIssue);
+                    MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, yearValue, originalName, originalRel, lengthValue, coverWidth, coverHeight, coverIssue);
                     skippedCount++;
                     return log;
                 }
@@ -678,7 +680,7 @@ namespace AudioManager
                             log.RenameBlocked = true;
                         }
                     }
-                    if (!log.NeedsManual) MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, yearValue, originalName, originalRel, coverIssue);
+                    if (!log.NeedsManual) MarkResidualIssue(log, finalTitle, finalArtists, finalAlbum, yearValue, originalName, originalRel, lengthValue, coverWidth, coverHeight, coverIssue);
                     log.Status = "would-fix";
                     fixedCount++;
                 }
@@ -745,7 +747,7 @@ namespace AudioManager
         /// needsManual row (rule missing_tag, reason "Missing tag: Year"). A missing title or artist already gives
         /// empty_artist_or_title, and a missing album is reported by projectedHits only.
         /// </summary>
-        private void MarkResidualIssue(FixLog log, string title, string artists, string album, string year, string name, string rel, string coverIssue = null)
+        private void MarkResidualIssue(FixLog log, string title, string artists, string album, string year, string name, string rel, string length, string coverWidth, string coverHeight, string coverIssue = null)
         {
             if (!dryRun) return;
             string rule = null, reason = null, flagged = null, flaggedField = null;
@@ -757,6 +759,11 @@ namespace AudioManager
             }
             if (rule == null && year.Equals(Constants.MissingTag)) { rule = "missing_tag"; reason = "Missing tag: Year"; }
             if (rule == null && coverIssue != null) { rule = "bad_cover"; reason = coverIssue; }
+            if (rule == null)
+            {
+                string fieldReason = ResidualFieldProblem(title, artists, length, coverWidth, coverHeight);
+                if (fieldReason != null) { rule = "bad_field"; reason = fieldReason; }
+            }
             if (rule == null || exceptions.Accepts(name, rule, rel)) return;
             if (rule == "unwanted_text" && new[] { "title", "artist", "album", "casing" }.Any(k => exceptions.Keeps(name, k, rel))) return;
             log.NeedsManual = true;
@@ -770,6 +777,33 @@ namespace AudioManager
                 log.OldAlbum = log.OldTags?.Album ?? "";
             }
         }
+
+        /// <summary>
+        /// BL-319 bad_field: the first FieldRules BLOCK result over Title, Artists, Length and the cover size, or null. Year is
+        /// left to missing_tag (YearRule stores an implausible year as Missing), Album to projectedHits, and Genre and
+        /// TrackNumber have no rule (David 2026-11-27).
+        /// </summary>
+        internal static string ResidualFieldProblem(string title, string artists, string length, string coverWidth, string coverHeight)
+        {
+            var checks = new[] { ("Title", title), ("Artists", artists), ("Length", length), ("CoverWidth", coverWidth), ("CoverHeight", coverHeight) };
+            foreach (var check in checks)
+            {
+                FieldProblem p = FieldRules.Check(check.Item1, check.Item2);
+                if (p != null && p.Severity == FieldSeverity.Block) return check.Item1 + " " + p.Reason;
+            }
+            return null;
+        }
+
+        // The cover size as the mirror writes it (TrackTag): "0" with no art, the pixel size, or Unknown when the bytes do not parse.
+        private static (string width, string height) CoverSize(IPicture[] pictures)
+        {
+            if (pictures == null || pictures.Length == 0) return ("0", "0");
+            var (w, h) = TrackTag.GetCoverDimensions(pictures[0].Data.Data);
+            return (w > 0 ? w.ToString() : Constants.UnknownCover, h > 0 ? h.ToString() : Constants.UnknownCover);
+        }
+
+        // hh:mm:ss.fffffff, the Length shape the mirror writes and FieldRules reads.
+        private static string FormatLength(TimeSpan duration) => duration.ToString(@"hh\:mm\:ss\.fffffff", System.Globalization.CultureInfo.InvariantCulture);
 
         /// <summary>
         /// Embedded-cover health check (rule bad_cover). Detection only: TagFixer never changes art. A cover that is not

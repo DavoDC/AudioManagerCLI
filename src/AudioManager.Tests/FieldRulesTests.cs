@@ -85,7 +85,9 @@ namespace AudioManager
             Assert.True(Passes("Length", "00:30:00"), "exactly 30 minutes passes");
             Assert.True(Blocks("Length", "200"), "bare seconds is not hh:mm:ss");
             Assert.True(Blocks("Length", ""), "blank blocks");
-            Assert.True(Blocks("Length", "00:00:19.9999999"), "under 20 seconds blocks");
+            Assert.True(Warns("Length", "00:00:19.9999999"), "under 20 seconds warns, never blocks");
+            Assert.True(Warns("Length", "00:00:17.7270000"), "Undertale Bergentruckung (17.7 s) warns");
+            Assert.True(Blocks("Length", "00:00:"), "unparseable Length still blocks");
             Assert.True(Warns("Length", "00:30:00.0000001"), "over 30 minutes warns");
             Assert.True(Warns("Length", "01:12:00"), "an hour long warns (Motivation folder is legitimate)");
         }

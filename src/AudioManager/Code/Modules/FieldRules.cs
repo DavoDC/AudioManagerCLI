@@ -93,7 +93,7 @@ namespace AudioManager.Code.Modules
             double seconds = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) * 3600
                 + double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture) * 60
                 + double.Parse(m.Groups[3].Value, NumberStyles.Float, CultureInfo.InvariantCulture);
-            if (seconds < MinLengthSeconds) return Block("is under 20 seconds");
+            if (seconds < MinLengthSeconds) return Warn("is under 20 seconds");
             if (seconds > WarnLengthSeconds) return Warn("is over 30 minutes");
             return null;
         }

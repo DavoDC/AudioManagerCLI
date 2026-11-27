@@ -376,7 +376,9 @@ namespace AudioManager
             try
             {
                 WriteFile(repo, GoodRel, FieldsXml(length: "00:00:05"));
-                Assert.True(MirrorGate.Validate(repo).Problems.Count == 1, "a 5 second Length is refused");
+                Assert.True(MirrorGate.Validate(repo).Problems.Count == 0, "a 5 second Length only warns, so it is not refused");
+                WriteFile(repo, GoodRel, FieldsXml(length: "00:0x:05"));
+                Assert.True(MirrorGate.Validate(repo).Problems.Count == 1, "an unparseable Length is refused");
                 WriteFile(repo, GoodRel, FieldsXml(coverWidth: "Unknown"));
                 Assert.True(MirrorGate.Validate(repo).Problems.Count == 1, "an Unknown cover width is refused");
             }
