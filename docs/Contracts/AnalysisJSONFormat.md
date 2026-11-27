@@ -124,7 +124,7 @@ The file goes to `data/history/stats-<commit date>-<sha8>.json`. It never touche
 As-of documents add these fields, all absent from live documents. `schemaVersion` stays 1 because they are additive.
 
 - `asOf`: `{"date": "YYYY-MM-DD", "commit": "<full sha>"}`.
-- `sizeKnown`: always `false`. The XMLs hold no file size, so `totalLibraryBytes` and `avgFileBytes` are `0` and must not be read as real values.
+- `sizeKnown`: `true` only when every XML at that commit carries `FileBytes`; `totalLibraryBytes` is then the real sum and `avgFileBytes` follows from it. Otherwise `false`, both are `0` and must not be read as real values (commits from before `FileBytes` existed).
 - `coverKnown`: `false` when any XML at that commit lacks the `AlbumCover` block. Older XMLs carry only `AlbumCoverCount`, so their width and height are empty and count as `missingData`.
 - `lyricsKnown`: `false` when any XML lacks `HasLyrics`. Those tracks count as lyrics missing unless the kept list says otherwise.
 

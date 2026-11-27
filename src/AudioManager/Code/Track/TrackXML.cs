@@ -12,6 +12,7 @@ namespace AudioManager.Code.Modules
         {
             public bool CoverKnown;
             public bool LyricsKnown;
+            public bool SizeKnown;
         }
 
         /// <summary>
@@ -46,7 +47,8 @@ namespace AudioManager.Code.Modules
             }
             XElement hasLyrics = root.Element("HasLyrics");
             t.HasLyrics = hasLyrics == null ? null : hasLyrics.Value;
-            return new ShapeFlags { CoverKnown = cover != null, LyricsKnown = hasLyrics != null };
+            ReadOptionalSize(root, t);
+            return new ShapeFlags { CoverKnown = cover != null, LyricsKnown = hasLyrics != null, SizeKnown = t.FileBytes != null };
         }
 
         private static string ValueOrEmpty(XElement parent, string name)
@@ -89,6 +91,17 @@ namespace AudioManager.Code.Modules
             // Optional: XML written before HasLyrics existed has no element, so HasLyrics stays null (unknown)
             XElement hasLyrics = root.Element("HasLyrics");
             if (hasLyrics != null) t.HasLyrics = hasLyrics.Value;
+            ReadOptionalSize(root, t);
+        }
+
+        // Optional like HasLyrics: absent (older XML) reads as null; a non-numeric FileBytes also reads as null
+        private static void ReadOptionalSize(XElement root, TrackTag t)
+        {
+            XElement dateAdded = root.Element("DateAdded");
+            t.DateAdded = dateAdded == null ? null : dateAdded.Value;
+            XElement bytes = root.Element("FileBytes");
+            t.FileBytes = bytes != null && long.TryParse(bytes.Value, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out long n) ? n : (long?)null;
         }
 
         private static XElement RequiredElement(XElement parent, string name, string path)
@@ -122,6 +135,11 @@ namespace AudioManager.Code.Modules
                 // HasLyrics is written only when known (null = unknown, element omitted)
                 if (t.HasLyrics != null)
                     track.Add(new XElement("HasLyrics", t.HasLyrics));
+                // DateAdded and FileBytes are likewise written only when known
+                if (t.DateAdded != null)
+                    track.Add(new XElement("DateAdded", t.DateAdded));
+                if (t.FileBytes != null)
+                    track.Add(new XElement("FileBytes", t.FileBytes.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
                 var doc = new XDocument(new XDeclaration("1.0", "utf-8", null), track);
 
                 var settings = new XmlWriterSettings

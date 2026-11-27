@@ -1,3 +1,4 @@
+using AudioManager.Code.Modules;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -68,6 +69,9 @@ namespace AudioManager
             bool regen = AgeChecker.RegenMirror;
             buildPath = regen ? mirrorPath + StagingSuffix : mirrorPath;
             DateTime builtAt = DateTime.Now;
+
+            // Fresh first-seen hand-off for this build, keyed relative to the live mirror (also what the Parser reads after the swap)
+            FirstSeenDates.Reset(mirrorPath);
 
             // Setup folder structure
             CreateFolders();
@@ -323,19 +327,33 @@ namespace AudioManager
 
             if (!xmlExists)
             {
+                // Regen builds into a fresh staging folder, so the live XML still holds the first-seen date: keep it for the Parser
+                RememberDateAdded(fullMirrorPath);
                 // XML doesn't exist: create it containing the real path
                 AtomicFile.WriteAllText(fullMirrorPath, realFilePath, new UTF8Encoding(false));
             }
             else if ((knownMp3TimeUtc ?? File.GetLastWriteTimeUtc(realFilePath)) > xmlTimeUtc)
             {
                 // MP3 was modified after the XML was written (e.g., tag edit in Mp3tag):
-                // overwrite with the real path so this run re-reads fresh tag data
+                // overwrite with the real path so this run re-reads fresh tag data (the first-seen date is read before it goes)
+                RememberDateAdded(fullMirrorPath);
                 AtomicFile.WriteAllText(fullMirrorPath, realFilePath, new UTF8Encoding(false));
                 refreshed = true;
             }
 
             // Return sanitised flag
             return sanitised;
+        }
+
+        /// <summary>
+        /// Records the DateAdded held by the XML about to be replaced by a stub. The XML is read from the live mirror
+        /// (a regen stub goes into the staging folder, so the live one is still intact); the key is relative to the mirror root.
+        /// </summary>
+        private void RememberDateAdded(string fullMirrorPath)
+        {
+            string live = buildPath == mirrorPath ? fullMirrorPath : mirrorPath + fullMirrorPath.Substring(buildPath.Length);
+            string key = FirstSeenDates.KeyFor(buildPath, fullMirrorPath);
+            if (key != null) FirstSeenDates.RecordFrom(live, key);
         }
 
         /// <summary>

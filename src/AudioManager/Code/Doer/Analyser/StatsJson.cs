@@ -51,13 +51,13 @@ namespace AudioManager
         /// pre-computed library byte count (0 if unknown). No file or disk I/O here.
         /// keptStatus (optional) maps a library path to LyricsStatus.NoneFound / Instrumental.
         /// asOfDate / asOfCommit (both or neither) are set only by analysis --as-of: the document then carries an
-        /// "asOf" block, "sizeKnown": false (the XMLs hold no file size), and coverKnown / lyricsKnown (false when
+        /// "asOf" block, "sizeKnown" (true only when every XML holds FileBytes, else false with a zero total), and coverKnown / lyricsKnown (false when
         /// the commit's XMLs predate those blocks). Live documents omit all of these.
         /// </summary>
         public static string Build(TagList audioTags, long totalLibraryBytes,
                                    IReadOnlyDictionary<string, string> keptStatus = null,
                                    string asOfDate = null, string asOfCommit = null,
-                                   bool coverKnown = true, bool lyricsKnown = true)
+                                   bool coverKnown = true, bool lyricsKnown = true, bool sizeKnown = false)
         {
             int trackCount = audioTags.Count;
 
@@ -139,7 +139,7 @@ namespace AudioManager
             if (asOfDate != null)
             {
                 sb.AppendLine($"  \"asOf\": {{\"date\": {JsonText.Quote(asOfDate)}, \"commit\": {JsonText.Quote(asOfCommit ?? "")}}},");
-                sb.AppendLine("  \"sizeKnown\": false,");
+                sb.AppendLine($"  \"sizeKnown\": {(sizeKnown ? "true" : "false")},");
                 sb.AppendLine($"  \"coverKnown\": {(coverKnown ? "true" : "false")},");
                 sb.AppendLine($"  \"lyricsKnown\": {(lyricsKnown ? "true" : "false")},");
             }
@@ -421,11 +421,20 @@ namespace AudioManager
         /// Reads with the lenient as-of reader. coverKnown / lyricsKnown are true only when every XML carries that block,
         /// so one old file makes the whole commit's flag false.
         /// </summary>
-        internal static List<TrackTag> LoadTags(string mirrorRoot, out bool coverKnown, out bool lyricsKnown)
+        internal static List<TrackTag> LoadTags(string mirrorRoot, out bool coverKnown, out bool lyricsKnown) =>
+            LoadTags(mirrorRoot, out coverKnown, out lyricsKnown, out _, out _);
+
+        /// <summary>
+        /// As above, plus the summed FileBytes. sizeKnown is true only when every XML carries FileBytes (and there is at
+        /// least one), so the total is real or the document stays "sizeKnown": false with a zero total.
+        /// </summary>
+        internal static List<TrackTag> LoadTags(string mirrorRoot, out bool coverKnown, out bool lyricsKnown, out long totalBytes, out bool sizeKnown)
         {
             var tags = new List<TrackTag>();
             coverKnown = true;
             lyricsKnown = true;
+            bool allSized = true;
+            long sum = 0;
             foreach (string file in Directory.GetFiles(mirrorRoot, "*.xml", SearchOption.AllDirectories))
             {
                 // *.xml also matches longer extensions on .NET Framework (8.3 semantics), so filter exactly.
@@ -442,8 +451,11 @@ namespace AudioManager
                 }
                 if (!shape.CoverKnown) coverKnown = false;
                 if (!shape.LyricsKnown) lyricsKnown = false;
+                if (!shape.SizeKnown) allSized = false; else sum += tag.FileBytes.Value;
                 tags.Add(tag);
             }
+            sizeKnown = allSized && tags.Count > 0;
+            totalBytes = sizeKnown ? sum : 0;
             return tags;
         }
 
@@ -548,8 +560,8 @@ namespace AudioManager
             try
             {
                 string mirrorRoot = extractMirror(commit.FullSha, tempDir);
-                List<TrackTag> tags = LoadTags(mirrorRoot, out bool coverKnown, out bool lyricsKnown);
-                string json = StatsJson.Build(tags, 0, null, commit.Date, commit.FullSha, coverKnown, lyricsKnown);
+                List<TrackTag> tags = LoadTags(mirrorRoot, out bool coverKnown, out bool lyricsKnown, out long totalBytes, out bool sizeKnown);
+                string json = StatsJson.Build(tags, totalBytes, null, commit.Date, commit.FullSha, coverKnown, lyricsKnown, sizeKnown);
                 Directory.CreateDirectory(historyDir);
                 string outPath = OutputPath(historyDir, commit);
                 AtomicFile.WriteAllText(outPath, json, Encoding.UTF8);

@@ -181,7 +181,7 @@ namespace AudioManager
             string path = TempCachePath();
             try
             {
-                // Row with the old 12 fields instead of the required 13 (no HasLyrics) - must be rejected
+                // Row with the old 12 fields instead of the required 15 (no HasLyrics, DateAdded, FileBytes) - must be rejected
                 File.WriteAllText(path, "PARSE_CACHE_V3\nfield1|field2|field3|field4|field5|field6|field7|field8|field9|field10|field11|field12");
                 bool ok = ParseCache.TryDeserialize(path, out var tags);
                 Assert.True(!ok, "row with too few fields should return false");
@@ -194,7 +194,7 @@ namespace AudioManager
             string path = TempCachePath();
             try
             {
-                // 14 fields (e.g. a title containing '|') - must be rejected
+                // 16 fields (e.g. a title containing '|') - must be rejected
                 File.WriteAllText(path, "PARSE_CACHE_V3\nf1|f2|f3|f4|f5|f6|f7|f8|f9|f10|f11|f12|f13|extra");
                 bool ok = ParseCache.TryDeserialize(path, out var tags);
                 Assert.True(!ok, "row with too many fields (e.g. pipe in field value) should return false");
@@ -381,7 +381,7 @@ namespace AudioManager
             // Extract(null) defines the schema length; FieldCount is derived from it.
             // Regression: if Extract's field list changes, this test catches the count change.
             var schema = ParseCache.Extract(null);
-            Assert.Equal("13", schema.Length.ToString(), "Extract(null) must return exactly 13 elements (one per cache field)");
+            Assert.Equal("15", schema.Length.ToString(), "Extract(null) must return exactly 15 elements (one per cache field)");
         }
 
         public static void Extract_ValidTag_ReturnsFieldsInCacheOrder()
@@ -390,6 +390,8 @@ namespace AudioManager
             // If the order drifts between Extract and TryDeserialize, round-trips silently corrupt data.
             var tag = MakeSample("E");
             tag.HasLyrics = "True";
+            tag.DateAdded = "2026-02-03";
+            tag.FileBytes = 4096;
             var fields = ParseCache.Extract(tag);
             Assert.Equal(tag.RelPath,        fields[0],  "index 0 = RelPath");
             Assert.Equal(tag.Title,          fields[1],  "index 1 = Title");
@@ -404,6 +406,42 @@ namespace AudioManager
             Assert.Equal(tag.CoverWidth,     fields[10], "index 10 = CoverWidth");
             Assert.Equal(tag.CoverHeight,    fields[11], "index 11 = CoverHeight");
             Assert.Equal(tag.HasLyrics,      fields[12], "index 12 = HasLyrics");
+            Assert.Equal(tag.DateAdded,      fields[13], "index 13 = DateAdded");
+            Assert.Equal("4096",             fields[14], "index 14 = FileBytes");
+        }
+
+        public static void TryDeserialize_V3Cache_IsDiscarded()
+        {
+            // A well-formed V3 file (13 fields) must be a clean miss, not a crash and not a partial load
+            string path = TempCachePath();
+            try
+            {
+                File.WriteAllText(path, "PARSE_CACHE_V3\nArtists/X/a.xml|T|A|Al|2020|1|Pop|00:03:30.0000000|1|False|500|499|True");
+                bool ok = ParseCache.TryDeserialize(path, out var tags);
+                Assert.True(!ok, "V3 header is a cache miss");
+                Assert.True(tags == null, "no tags returned from a V3 file");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        public static void RoundTrip_DateAddedAndFileBytes_Preserved()
+        {
+            string path = TempCachePath();
+            try
+            {
+                var known = MakeSample("K");
+                known.DateAdded = "2026-01-02";
+                known.FileBytes = 123456789012L;
+                var unknown = MakeSample("U");
+                ParseCache.Save(path, new List<TrackTag> { known, unknown });
+                bool ok = ParseCache.TryDeserialize(path, out var loaded);
+                Assert.True(ok, "V4 cache deserializes");
+                Assert.Equal("2026-01-02", loaded[0].DateAdded, "DateAdded survives");
+                Assert.True(loaded[0].FileBytes == 123456789012L, "FileBytes survives");
+                Assert.True(loaded[1].DateAdded == null, "unknown DateAdded stays null");
+                Assert.True(loaded[1].FileBytes == null, "unknown FileBytes stays null");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
         }
 
         public static void RoundTrip_HasLyrics_Preserved()

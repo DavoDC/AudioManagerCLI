@@ -279,6 +279,32 @@ namespace AudioManager
             Assert.True(coverKnown && lyricsKnown, "every XML carries both blocks");
         }
 
+        public static void LoadTags_AllXmlsHaveFileBytes_SizeKnownAndTotalReal()
+        {
+            string root = Path.Combine(NewTempDir(), "AUDIO_MIRROR");
+            WriteXml(root, "a.xml", FullXml.Replace("</Track>", "<FileBytes>1000</FileBytes></Track>"));
+            WriteXml(root, "b.xml", FullXml.Replace("</Track>", "<FileBytes>2500</FileBytes></Track>"));
+            bool c, l;
+            List<TrackTag> tags = StatsAsOf.LoadTags(root, out c, out l, out long total, out bool sizeKnown);
+            Assert.True(sizeKnown, "every XML has FileBytes");
+            Assert.True(total == 3500L, "total is the sum");
+            string json = StatsJson.Build(tags, total, null, "2025-12-30", FullSha, true, true, sizeKnown);
+            Assert.True(json.Contains("\"sizeKnown\": true"), "sizeKnown true in the document");
+            Assert.True(json.Contains("\"totalLibraryBytes\": 3500"), "real total in the document");
+        }
+
+        public static void LoadTags_OneXmlLacksFileBytes_SizeUnknown()
+        {
+            string root = Path.Combine(NewTempDir(), "AUDIO_MIRROR");
+            WriteXml(root, "a.xml", FullXml.Replace("</Track>", "<FileBytes>1000</FileBytes></Track>"));
+            WriteXml(root, "b.xml", FullXml);
+            bool c, l;
+            StatsAsOf.LoadTags(root, out c, out l, out long total, out bool sizeKnown);
+            Assert.True(!sizeKnown, "one XML without FileBytes makes size unknown");
+            string json = StatsJson.Build(Sample(), 0, null, "2025-12-30", FullSha);
+            Assert.True(json.Contains("\"sizeKnown\": false"), "default stays false");
+        }
+
         public static void Build_AsOf_EmitsCoverAndLyricsKnownFlags()
         {
             string json = StatsJson.Build(Sample(), 0, null, "2025-12-30", FullSha, false, true);

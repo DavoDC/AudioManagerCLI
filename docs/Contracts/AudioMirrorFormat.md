@@ -27,8 +27,15 @@ Each track is an individual `.xml` file. **Final schema (locked 2026-06-06):**
     <Height>800</Height>
   </AlbumCover>
   <Compilation>True</Compilation>
+  <HasLyrics>True</HasLyrics>          <!-- optional: omitted when unknown -->
+  <DateAdded>2026-03-04</DateAdded>    <!-- optional: first-seen date, yyyy-MM-dd -->
+  <FileBytes>7654321</FileBytes>       <!-- optional: MP3 size in bytes -->
 </Track>
 ```
+
+`HasLyrics`, `DateAdded` and `FileBytes` are optional: an XML without them reads as unknown (null), and the writer omits each one when it is unknown. Older XML stays valid.
+
+`DateAdded` is the day a track was first seen. A regeneration reads it from the XML it is about to replace (in memory, no sidecar file) and writes the same value back, so it is never overwritten once stored. A track with no earlier XML, or an earlier XML with no `DateAdded`, gets the day of the run. `FileBytes` is the MP3's size from the file system at the time the XML is written. The parse cache (`PARSE_CACHE_V4`) carries both fields; an older cache is discarded and rebuilt.
 
 **Schema policy:** This is the only supported schema. AudioManager enforces strict parsing - all fields are required. No backwards compatibility with old formats. Schema changes require full library regeneration.
 

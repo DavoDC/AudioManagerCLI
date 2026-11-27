@@ -63,6 +63,9 @@ namespace AudioManager.Code.Modules
             // # Otherwise, if mirror file contains a valid path, initialise fields
 
             // Load metadata object from file; disposed (releasing the file handle) once read
+            // First-seen date: the one Reflector read from the XML it replaced, else today (a new track). Size from the mp3.
+            DateAdded = FirstSeenDates.Lookup(mirrorFilePath) ?? FirstSeenDates.Today();
+            FileBytes = new System.IO.FileInfo(fileContents[0]).Length;
             using (TagLib.File tagFile = TagLib.File.Create(fileContents[0]))
             {
                 // Extract duration info from properties

@@ -34,6 +34,12 @@ namespace AudioManager.Code.Modules
         // "True"/"False" = lyrics tag present/absent; null = unknown (e.g. XML written before this field)
         public string HasLyrics { get; set; }
 
+        // First-seen date "yyyy-MM-dd"; null = unknown (XML written before this field). Kept once set, never overwritten
+        public string DateAdded { get; set; }
+
+        // MP3 size in bytes; null = unknown (XML written before this field)
+        public long? FileBytes { get; set; }
+
         public override string ToString()
         {
             return $"{Artists} - {Title}";

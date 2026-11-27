@@ -141,5 +141,56 @@ namespace AudioManager
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
+
+        public static void TrackXML_ReadWithoutDateAddedOrFileBytes_SucceedsWithNull()
+        {
+            string path = TempXmlPath();
+            try
+            {
+                TrackXML.Write(path, SampleTag());
+                var loaded = BlankTag();
+                TrackXML.Read(path, loaded);
+                Assert.True(loaded.DateAdded == null, "absent DateAdded reads as null");
+                Assert.True(loaded.FileBytes == null, "absent FileBytes reads as null");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        public static void TrackXML_Write_OmitsDateAddedAndFileBytesWhenNull()
+        {
+            string path = TempXmlPath();
+            try
+            {
+                TrackXML.Write(path, SampleTag());
+                string text = File.ReadAllText(path);
+                Assert.True(!text.Contains("DateAdded"), "no DateAdded element when null");
+                Assert.True(!text.Contains("FileBytes"), "no FileBytes element when null");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        public static void TrackXML_RoundTrip_DateAddedAndFileBytes_Preserved()
+        {
+            string path = TempXmlPath();
+            try
+            {
+                var tag = SampleTag();
+                tag.DateAdded = "2026-03-04";
+                tag.FileBytes = 7654321L;
+                TrackXML.Write(path, tag);
+                string text = File.ReadAllText(path);
+                Assert.True(text.Contains("<DateAdded>2026-03-04</DateAdded>"), "DateAdded written when set");
+                Assert.True(text.Contains("<FileBytes>7654321</FileBytes>"), "FileBytes written when set");
+                var loaded = BlankTag();
+                TrackXML.Read(path, loaded);
+                Assert.Equal("2026-03-04", loaded.DateAdded, "DateAdded round trip");
+                Assert.True(loaded.FileBytes == 7654321L, "FileBytes round trip");
+                var lenient = BlankTag();
+                TrackXML.ReadLenient(path, lenient);
+                Assert.Equal("2026-03-04", lenient.DateAdded, "DateAdded lenient read");
+                Assert.True(lenient.FileBytes == 7654321L, "FileBytes lenient read");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
     }
 }
