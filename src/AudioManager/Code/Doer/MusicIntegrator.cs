@@ -109,6 +109,9 @@ namespace AudioManager
         /// <summary>Set by the pre-move MAX_PATH gate. Null when the batch was allowed to proceed.</summary>
         internal MirrorPathBlock Blocked { get; private set; }
 
+        /// <summary>BL-319: set when the pre-flight refuses a batch for needsManual files (see NeedsManualBlock).</summary>
+        internal NeedsManualBlock NeedsManualBlocked { get; private set; }
+
         /// <summary>
         /// Construct and run the music integrator
         /// </summary>
@@ -162,7 +165,7 @@ namespace AudioManager
                 // will produce. Writes nothing. A block stops the batch before the real TagFixer rewrites NewMusic.
                 if (!dryRun && !PreflightMirrorGate(_roots.NewMusic, _roots.Mirror, manifest))
                 {
-                    WriteJsonOutput(logEntries, Blocked);
+                    WriteJsonOutput(logEntries, Blocked, NeedsManualBlocked);
                     return;
                 }
 
@@ -405,6 +408,22 @@ namespace AudioManager
                 _previewTagFixer = previewFixer;
                 scannedFiles = PreScanFiles(files, previewFixer.FileChanges, previewFixer.LogsByFile, projectFixes: true);
             }
+            // BL-319: a file the dry TagFixer marks needsManual stops the batch, with the same rule id the dry plan shows.
+            NeedsManualBlocked = null;
+            var manual = previewFixer.LogsByFile.Values.Distinct().Where(l => l.NeedsManual).ToList();
+            if (manual.Count > 0)
+            {
+                NeedsManualBlocked = new NeedsManualBlock();
+                foreach (TagFixer.FixLog l in manual)
+                {
+                    string rule = TagFixPlanJson.ManualRule(l);
+                    string reason = l.ManualReason ?? "needs manual review";
+                    NeedsManualBlocked.Files.Add((l.OriginalFilename, rule, reason));
+                    Console.WriteLine($"[BLOCK] {l.OriginalFilename}: {rule}: {reason}");
+                }
+                Console.WriteLine($"[BLOCK] {manual.Count} file(s) need manual review. Nothing was integrated or rewritten.");
+                return false;
+            }
             bool clear = RunMirrorPathGate(scannedFiles, newArtistFolders, mirrorPath);
             if (clear) Console.WriteLine(" - Pre-flight: mirror path gate passed on final tag values");
             return clear;
@@ -567,8 +586,8 @@ namespace AudioManager
         internal static string BuildJson(List<LogEntry> entries, BatchSummary summary = null, bool dryRun = true, ConfidenceRecord confidence = null,
             MirrorPathBlock blocked = null, IList<(string original, string held)> replaced = null,
             string newMusicFingerprint = null, string previewFingerprint = null, IList<ArtistSpellingCandidate> artistSpellingCandidates = null,
-            LeftoversSnapshot leftovers = null, IList<ProjectedHits.Item> projectedHits = null) =>
-            RoutingJsonWriter.BuildJson(entries, summary, dryRun, confidence, blocked, replaced, newMusicFingerprint, previewFingerprint, artistSpellingCandidates, leftovers, projectedHits);
+            LeftoversSnapshot leftovers = null, IList<ProjectedHits.Item> projectedHits = null, NeedsManualBlock needsManual = null) =>
+            RoutingJsonWriter.BuildJson(entries, summary, dryRun, confidence, blocked, replaced, newMusicFingerprint, previewFingerprint, artistSpellingCandidates, leftovers, projectedHits, needsManual);
 
         /// <summary>Forwards to RoutingJsonWriter.NewMusicFingerprint.</summary>
         internal static string NewMusicFingerprint(string folder) =>
@@ -594,7 +613,7 @@ namespace AudioManager
             return summary;
         }
 
-        private void WriteJsonOutput(List<LogEntry> entries, MirrorPathBlock blocked = null)
+        private void WriteJsonOutput(List<LogEntry> entries, MirrorPathBlock blocked = null, NeedsManualBlock needsManual = null)
         {
             try
             {
@@ -604,7 +623,7 @@ namespace AudioManager
                 string jsonPath = Path.Combine(_roots.Logs, $"routing-{timestamp}.json");
 
                 AtomicFile.WriteAllText(jsonPath, BuildJson(entries, BuildCurrentSummary(), dryRun: dryRun, blocked: blocked, newMusicFingerprint: _startFingerprint,
-                    artistSpellingCandidates: _artistSpellingCandidates, projectedHits: _projectedHits), System.Text.Encoding.UTF8);
+                    artistSpellingCandidates: _artistSpellingCandidates, projectedHits: _projectedHits, needsManual: needsManual), System.Text.Encoding.UTF8);
                 Console.WriteLine($"\n  JSON: {jsonPath}");
             }
             catch (Exception ex)

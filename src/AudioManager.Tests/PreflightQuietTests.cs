@@ -26,7 +26,7 @@ namespace AudioManager
                 string newMusic = Path.Combine(root, "NewMusic");
                 Directory.CreateDirectory(newMusic);
                 TagFixerTests.CreateSilentMp3Fixture(newMusic, "fixture.mp3",
-                    "Song Title (feat. Featured Artist)", "Album Name (Deluxe Edition)", "Primary Artist");
+                    "Song Title (feat. Featured Artist)", "Album Name (Deluxe Edition)", "Primary Artist", 2020);
                 string mirror = Path.Combine(root, "AudioMirror", "AUDIO_MIRROR");
 
                 var captured = new StringWriter();

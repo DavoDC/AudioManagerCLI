@@ -77,7 +77,7 @@ namespace AudioManager
                 var roots = RootsUnder(root);
                 Directory.CreateDirectory(roots.NewMusic);
                 TagFixerTests.CreateSilentMp3Fixture(roots.NewMusic, "fixture.mp3",
-                    "Song Title (feat. Featured Artist)", "Album Name", "Primary Artist");
+                    "Song Title (feat. Featured Artist)", "Album Name", "Primary Artist", 2020);
                 string mirror = MirrorPadded(root, PadExtra);
 
                 var real = new MusicIntegrator(roots.Library, roots);
@@ -91,6 +91,70 @@ namespace AudioManager
                 Assert.True(realClear, "real mode projects the fixed (shorter) title: passes");
                 Assert.True(real.Blocked == null || real.Blocked.Files.Count == 0, "nothing is blocked in real mode");
                 Assert.True(dryClear, "dry mode projects the fixed (shorter) title on the same mirror: passes");
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        // BL-319: a real-run pre-flight refuses a file the dry TagFixer marks needsManual (here missing_tag, no Year).
+        // The refusal writes nothing: the file keeps its name and bytes and no other file appears in NewMusic.
+        public static void PreflightMirrorGate_RealMode_NeedsManualFile_BlocksAndWritesNothing()
+        {
+            string root = TempRoot();
+            try
+            {
+                var roots = RootsUnder(root);
+                Directory.CreateDirectory(roots.NewMusic);
+                string file = TagFixerTests.CreateSilentMp3Fixture(roots.NewMusic, "noyear.mp3", "Song Title", "Album Name", "Primary Artist");
+                DateTime stamp = File.GetLastWriteTimeUtc(file);
+                string mirror = MirrorPadded(root, 0);
+
+                var real = new MusicIntegrator(roots.Library, roots);
+                bool clear = real.PreflightMirrorGate(roots.NewMusic, mirror);
+
+                Assert.True(!clear, "a file the dry run marks needsManual (missing Year) blocks the real pre-flight");
+                Assert.True(File.Exists(file), "the blocked file is not renamed or moved");
+                Assert.True(File.GetLastWriteTimeUtc(file) == stamp, "the blocked file is not rewritten");
+                Assert.True(Directory.GetFiles(roots.NewMusic, "*", SearchOption.AllDirectories).Length == 1, "nothing is added to NewMusic");
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        // BL-319 parity: the rule the real pre-flight block names for a file is the rule the dry plan shows for that file.
+        public static void PreflightBlock_RuleMatchesDryPlanRule_ForSameFile()
+        {
+            string root = TempRoot();
+            try
+            {
+                var roots = RootsUnder(root);
+                Directory.CreateDirectory(roots.NewMusic);
+                TagFixerTests.CreateSilentMp3Fixture(roots.NewMusic, "noyear.mp3", "Song Title", "Album Name", "Primary Artist");
+
+                var dry = new TagFixer(roots.NewMusic, true, null, null);
+                Assert.True(dry.LogsByFile.ContainsKey("noyear.mp3"), "the dry plan holds the file");
+                TagFixer.FixLog dryLog = dry.LogsByFile["noyear.mp3"];
+                Assert.True(dryLog.NeedsManual, "the dry plan marks the file needsManual");
+                string dryRule = TagFixPlanJson.ManualRule(dryLog);
+
+                var real = new MusicIntegrator(roots.Library, roots);
+                Assert.True(!real.PreflightMirrorGate(roots.NewMusic, MirrorPadded(root, 0)), "the real pre-flight blocks the batch");
+                Assert.True(real.NeedsManualBlocked != null && real.NeedsManualBlocked.Files.Count == 1, "the real block lists one file");
+                Assert.Equal("noyear.mp3", real.NeedsManualBlocked.Files[0].file, "the block names the same file");
+                Assert.Equal(dryRule, real.NeedsManualBlocked.Files[0].rule, "the block names the same rule as the dry plan");
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
+
+        // BL-319 guard: a file with every field set passes the pre-flight exactly as before.
+        public static void PreflightMirrorGate_RealMode_CompleteFile_Passes()
+        {
+            string root = TempRoot();
+            try
+            {
+                var roots = RootsUnder(root);
+                Directory.CreateDirectory(roots.NewMusic);
+                TagFixerTests.CreateSilentMp3Fixture(roots.NewMusic, "complete.mp3", "Song Title", "Album Name", "Primary Artist", 2020);
+                var real = new MusicIntegrator(roots.Library, roots);
+                Assert.True(real.PreflightMirrorGate(roots.NewMusic, MirrorPadded(root, 0)), "a complete file passes the pre-flight");
             }
             finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }

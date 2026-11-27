@@ -44,6 +44,24 @@ namespace AudioManager
             sb.AppendLine("  },");
         }
 
+        /// <summary>BL-319: writes the top-level "blocked" object when the pre-flight refused files marked needsManual. Absent otherwise.</summary>
+        internal static void AppendNeedsManualBlock(StringBuilder sb, MusicIntegrator.NeedsManualBlock needsManual)
+        {
+            if (needsManual == null) return;
+            sb.AppendLine("  \"blocked\": {");
+            sb.AppendLine($"    \"status\": {JsonText.Quote(needsManual.Status)},");
+            sb.AppendLine($"    \"action\": {JsonText.Quote(needsManual.Action)},");
+            sb.AppendLine("    \"files\": [");
+            for (int i = 0; i < needsManual.Files.Count; i++)
+            {
+                var (file, rule, reason) = needsManual.Files[i];
+                string comma = i < needsManual.Files.Count - 1 ? "," : "";
+                sb.AppendLine($"      {{\"file\": {JsonText.Quote(file)}, \"rule\": {JsonText.Quote(rule)}, \"reason\": {JsonText.Quote(reason)}}}{comma}");
+            }
+            sb.AppendLine("    ]");
+            sb.AppendLine("  },");
+        }
+
         /// <summary>
         /// Writes the top-level "artistSpellingCandidates" array: artists whose batch and Misc tags carry two or more
         /// spellings. Always present, empty when there are none. A suggestion only; no tag changes (see docs/Contracts/RoutingJSONFormat.md).
@@ -102,7 +120,8 @@ namespace AudioManager
         internal static string BuildJson(List<MusicIntegrator.LogEntry> entries, MusicIntegrator.BatchSummary summary = null, bool dryRun = true, MusicIntegrator.ConfidenceRecord confidence = null,
             MusicIntegrator.MirrorPathBlock blocked = null, IList<(string original, string held)> replaced = null,
             string newMusicFingerprint = null, string previewFingerprint = null, IList<ArtistSpellingCandidate> artistSpellingCandidates = null,
-            MusicIntegrator.LeftoversSnapshot leftovers = null, IList<ProjectedHits.Item> projectedHits = null)
+            MusicIntegrator.LeftoversSnapshot leftovers = null, IList<ProjectedHits.Item> projectedHits = null,
+            MusicIntegrator.NeedsManualBlock needsManual = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine("{");
@@ -125,6 +144,7 @@ namespace AudioManager
             if (!dryRun) AppendLeftoversBlock(sb, leftovers);
             AppendConfidenceBlock(sb, confidence);
             AppendBlockedBlock(sb, blocked);
+            AppendNeedsManualBlock(sb, needsManual);
             AppendReplacedOriginalsBlock(sb, replaced);
             AppendArtistSpellingCandidatesBlock(sb, artistSpellingCandidates);
             if (dryRun) ProjectedHits.AppendBlock(sb, projectedHits);

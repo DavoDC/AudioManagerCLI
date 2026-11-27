@@ -948,6 +948,41 @@ namespace AudioManager
             finally { System.IO.Directory.Delete(tempDir, true); }
         }
 
+        // BL-319: a cover that decodes (so bad_cover does not fire) but has no parseable pixel size reads as Unknown, and
+        // the FieldRules CoverWidth check makes it bad_field. A 4x4 white BMP tagged as JPEG is such a cover.
+        public static void ProcessFile_ResidualUnknownCoverDimensions_IsBadField()
+        {
+            string tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "AudioManagerTest_" + Guid.NewGuid());
+            System.IO.Directory.CreateDirectory(tempDir);
+            try
+            {
+                string fixturePath = CreateSilentMp3Fixture(tempDir, "Band - Song.mp3", "Song", "Album", "Band", 2020);
+                byte[] bmp;
+                using (var img = new System.Drawing.Bitmap(4, 4))
+                using (var ms = new System.IO.MemoryStream())
+                {
+                    for (int y = 0; y < 4; y++)
+                        for (int x = 0; x < 4; x++)
+                            img.SetPixel(x, y, System.Drawing.Color.White);
+                    img.Save(ms, System.Drawing.Imaging.ImageFormat.Bmp);
+                    bmp = ms.ToArray();
+                }
+                var tagFile = TagLib.File.Create(fixturePath);
+                tagFile.Tag.Pictures = new TagLib.IPicture[] { new TagLib.Picture(new TagLib.ByteVector(bmp)) { MimeType = "image/jpeg", Type = TagLib.PictureType.FrontCover } };
+                tagFile.Save();
+                tagFile.Dispose();
+
+                string exPath = System.IO.Path.Combine(tempDir, "ex.xml");
+                System.IO.File.WriteAllText(exPath, "<Exceptions></Exceptions>");
+                var fixer = TagFixer.ForTesting(dryRun: true, quarantineRoot: System.IO.Path.Combine(tempDir, "q"), exceptionsPath: exPath);
+                var log = fixer.ProcessFile(fixturePath);
+                Assert.True(log.NeedsManual, "an undecodable-dimension cover needs a person");
+                Assert.Equal("bad_field", log.ManualRule, "rule id");
+                Assert.True(log.ManualReason.Contains("CoverWidth"), "reason names the cover width: " + log.ManualReason);
+            }
+            finally { System.IO.Directory.Delete(tempDir, true); }
+        }
+
         public static void ProcessFile_ResidualBlankTitle_IsNeedsManual()
         {
             var log = ResidualRun("", "Album", "", out _);

@@ -40,7 +40,7 @@ namespace AudioManager
         {
             Directory.CreateDirectory(newMusic);
             return TagFixerTests.CreateSilentMp3Fixture(newMusic, "fixture.mp3",
-                "Song Title (feat. Featured Artist)", "Album Name (Deluxe Edition)", "Primary Artist");
+                "Song Title (feat. Featured Artist)", "Album Name (Deluxe Edition)", "Primary Artist", 2020);
         }
 
         public static void Preflight_BlockedBatch_LeavesNewMusicBytesTagsAndNameUntouched()

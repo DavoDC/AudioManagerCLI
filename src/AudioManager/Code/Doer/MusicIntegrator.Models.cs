@@ -124,6 +124,18 @@ namespace AudioManager
             public List<(string file, int length)> Files = new List<(string file, int length)>();
         }
 
+        /// <summary>
+        /// BL-319: set when the real-run pre-flight refuses a batch because the dry TagFixer marks files needsManual
+        /// (missing Year, bad cover, unwanted text, bad field). Written as the top-level "blocked" object with
+        /// status needs_manual, one entry per file with its rule id and reason.
+        /// </summary>
+        internal class NeedsManualBlock
+        {
+            public string Status = "needs_manual";
+            public string Action = "fix_tags_or_accept";
+            public List<(string file, string rule, string reason)> Files = new List<(string file, string rule, string reason)>();
+        }
+
         /// <summary>A file pre-scanned from NewMusic with its cleaned tags and duplicate data.</summary>
         internal class ScannedFile
         {
