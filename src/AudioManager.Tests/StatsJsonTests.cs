@@ -57,6 +57,15 @@ namespace AudioManager
             Assert.True(json.Contains("\"total\": 4"), "4 tags total");
         }
 
+        public static void Build_TopArtistsListsEveryArtist()
+        {
+            var tags = new List<TrackTag>();
+            for (int i = 0; i < 60; i++) tags.Add(Tag("Artist " + i.ToString("D2"), "Song", "2020", "Rock"));
+            string json = StatsJson.Build(tags, 0);
+            Assert.True(json.Contains("\"label\": \"Artist 59\""), "the 60th artist is emitted, not cut at 50");
+            Assert.True(json.Contains("\"artistCount\": 60"), "artist count = 60");
+        }
+
         public static void Build_CoverCoverageCountsOnly800Plus()
         {
             // Two tags >=800 (1200,800), one below (500) -> covered = 2 of 3

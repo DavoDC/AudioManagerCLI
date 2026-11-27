@@ -161,8 +161,8 @@ namespace AudioManager
             AppendLabelCountArray(sb, "yearDistribution", yearStats.SortedFreqDist, allEntries: true);
 
             sb.AppendLine("  \"topArtists\": {");
-            AppendLabelCountArray(sb, "exclMusivation", artistStatsExcl.SortedFreqDist, allEntries: false, indent: 4, trailingComma: true);
-            AppendLabelCountArray(sb, "all", artistStatsAll.SortedFreqDist, allEntries: false, indent: 4, trailingComma: false);
+            AppendLabelCountArray(sb, "exclMusivation", artistStatsExcl.SortedFreqDist, allEntries: true, indent: 4, trailingComma: true);
+            AppendLabelCountArray(sb, "all", artistStatsAll.SortedFreqDist, allEntries: true, indent: 4, trailingComma: false);
             sb.AppendLine("  },");
 
             sb.AppendLine("  \"ageStats\": {");

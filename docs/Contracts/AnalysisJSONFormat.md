@@ -49,8 +49,8 @@ was not built against, rather than silently mis-reading.
   "yearDistribution":   [ {"label": "2022",    "count": 515},  ... ],   // all years present
 
   "topArtists": {
-    "exclMusivation": [ {"label": "Eminem",        "count": 155}, ... ],  // top 50, Musivation-genre tracks removed
-    "all":            [ {"label": "Akira The Don", "count": 510}, ... ]   // top 50, everything
+    "exclMusivation": [ {"label": "Eminem",        "count": 155}, ... ],  // every artist, Musivation-genre tracks removed
+    "all":            [ {"label": "Akira The Don", "count": 510}, ... ]   // every artist
   },
 
   "ageStats": {                              // years; null if no track has a parseable Year
