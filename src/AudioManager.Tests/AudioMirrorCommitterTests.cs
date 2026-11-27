@@ -241,6 +241,31 @@ namespace AudioManager
             finally { DeleteQuietly(dir); }
         }
 
+        public static void StageAndCommit_GitAddFails_DetailNamesStepAndGitMessage()
+        {
+            // The detail string is what the GUI shows: it must say which git step failed and quote git's own words.
+            string dir = CreateTempGitRepo();
+            TextWriter previousOut = Console.Out;
+            try
+            {
+                WriteFile(dir, "AUDIO_MIRROR/readme.txt", "x");
+                RunProcess("git", "add -A", dir);
+                RunProcess("git", "commit -m initial", dir);
+                Console.SetOut(new StringWriter());
+                string detail;
+                CommitOutcome outcome = AudioMirrorCommitter.StageAndCommit(dir, "add LastRunInfo.txt", "data: x", out detail);
+                Console.SetOut(previousOut);
+                Assert.True(outcome == CommitOutcome.Failure, "a failing git add is a Failure");
+                Assert.True(detail.Contains("git add failed"), "detail names the step: " + detail);
+                Assert.True(detail.Contains("did not match any files"), "detail quotes git: " + detail);
+            }
+            finally
+            {
+                Console.SetOut(previousOut);
+                DeleteQuietly(dir);
+            }
+        }
+
         public static void TryCommit_GitAddFails_DoesNotCommitAndReportsFailure()
         {
             // LastRunInfo.txt is never created here, so 'git add AUDIO_MIRROR/ LastRunInfo.txt' exits non-zero

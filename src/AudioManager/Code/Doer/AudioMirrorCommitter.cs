@@ -134,6 +134,17 @@ namespace AudioManager
         /// <returns>Success after a commit, NothingToCommit when git had nothing staged, Failure when add or commit failed.</returns>
         internal static CommitOutcome StageAndCommit(string repoPath, string addArgs, string fullMessage)
         {
+            string detail;
+            return StageAndCommit(repoPath, addArgs, fullMessage, out detail);
+        }
+
+        /// <summary>
+        /// As above, and on Failure `failureDetail` says which git step failed and quotes git's own first lines, so a
+        /// caller (the GUI) can show the real reason. Empty on any other outcome.
+        /// </summary>
+        internal static CommitOutcome StageAndCommit(string repoPath, string addArgs, string fullMessage, out string failureDetail)
+        {
+            failureDetail = string.Empty;
             GitRunResult add = RunGitDetailed(repoPath, addArgs);
             if (add.ExitCode != 0)
             {
@@ -141,6 +152,7 @@ namespace AudioManager
                 string addFirstLine = addOutput.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? string.Empty;
                 Console.WriteLine($" - FAILED: git add exited {add.ExitCode}. {addFirstLine}");
                 Console.WriteLine(" - Nothing was committed. Fix the git error above, then re-run.");
+                failureDetail = $"git add failed (exit {add.ExitCode}): {FirstLines(addOutput, 3)}";
                 return CommitOutcome.Failure;
             }
             GitRunResult commit = RunGitDetailed(repoPath, $"commit -m \"{fullMessage.Replace("\"", "\\\"")}\"");
@@ -158,9 +170,17 @@ namespace AudioManager
                 string firstLine = commitResult.Trim().Split('\n')[0].Trim();
                 Console.WriteLine($" - FAILED: git commit exited {commit.ExitCode}. {firstLine}");
                 Console.WriteLine(" - Nothing was committed. Fix the git error above, then re-run.");
+                failureDetail = $"git commit failed (exit {commit.ExitCode}): {FirstLines(commitResult, 3)}";
                 return CommitOutcome.Failure;
             }
             return CommitOutcome.Success;
+        }
+
+        // The first n non-empty lines of git output on one line; a short placeholder when git said nothing.
+        private static string FirstLines(string output, int n)
+        {
+            var lines = (output ?? string.Empty).Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).Take(n).ToArray();
+            return lines.Length == 0 ? "git gave no message (is another program, such as Desktop Plus, using the repo?)" : string.Join(" | ", lines);
         }
 
         /// <summary>

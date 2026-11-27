@@ -188,10 +188,11 @@ namespace AudioManager
                 else
                 {
                     // Local commit of the whole AudioMirror repo. Never a push.
-                    CommitOutcome outcome = AudioMirrorCommitter.StageAndCommit(repoPath, "add -A", message);
+                    string failureDetail;
+                    CommitOutcome outcome = AudioMirrorCommitter.StageAndCommit(repoPath, "add -A", message, out failureDetail);
                     if (outcome == CommitOutcome.Failure)
                     {
-                        result.Error = "git add or git commit failed. See the lines above. Nothing was committed.";
+                        result.Error = failureDetail + ". Nothing was committed. Close any program using the AudioMirror repo (Desktop Plus) and try again.";
                         code = ExitError;
                     }
                     else
