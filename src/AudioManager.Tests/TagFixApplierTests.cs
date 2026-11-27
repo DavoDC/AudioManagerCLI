@@ -680,7 +680,7 @@ namespace AudioManager
             var e = NewEnv();
             try
             {
-                string path = TagFixerTests.CreateSilentMp3Fixture(e.Folder, "mike. - hail mary.mp3", "", "", "", 2020);
+                string path = TagFixerTests.CreateSilentMp3Fixture(e.Folder, "mike. - hail mary.mp3", "", "Album", "", 2020);
                 var log = TagFixer.ForTesting(dryRun: true, quarantineRoot: e.Quarantine).ProcessFile(path);
                 Assert.Equal("would-fix", log.Status, "empty tags are a normal fix, not manual");
                 Assert.True(!log.NeedsManual, "not flagged for manual review");

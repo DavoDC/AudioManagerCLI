@@ -745,7 +745,7 @@ namespace AudioManager
         /// ENG-83: dry run only. A tag that still holds unwanted text after the fix is a needsManual row (rule unwanted_text)
         /// unless the user accepted it for this file or kept the field. A file with no unwanted text but an empty Year is a
         /// needsManual row (rule missing_tag, reason "Missing tag: Year"). A missing title or artist already gives
-        /// empty_artist_or_title, and a missing album is reported by projectedHits only.
+        /// empty_artist_or_title. A blank or padded album is bad_field (FieldRules Album).
         /// </summary>
         private void MarkResidualIssue(FixLog log, string title, string artists, string album, string year, string name, string rel, string length, string coverWidth, string coverHeight, string coverIssue = null)
         {
@@ -761,7 +761,7 @@ namespace AudioManager
             if (rule == null && coverIssue != null) { rule = "bad_cover"; reason = coverIssue; }
             if (rule == null)
             {
-                string fieldReason = ResidualFieldProblem(title, artists, length, coverWidth, coverHeight);
+                string fieldReason = ResidualFieldProblem(title, artists, album, length, coverWidth, coverHeight);
                 if (fieldReason != null) { rule = "bad_field"; reason = fieldReason; }
             }
             if (rule == null || exceptions.Accepts(name, rule, rel)) return;
@@ -779,13 +779,13 @@ namespace AudioManager
         }
 
         /// <summary>
-        /// BL-319 bad_field: the first FieldRules BLOCK result over Title, Artists, Length and the cover size, or null. Year is
-        /// left to missing_tag (YearRule stores an implausible year as Missing), Album to projectedHits, and Genre and
-        /// TrackNumber have no rule (David 2026-11-27).
+        /// BL-319 bad_field: the first FieldRules BLOCK result over Title, Artists, Album, Length and the cover size, or null. Year
+        /// is left to missing_tag (YearRule stores an implausible year as Missing), and Genre and TrackNumber have no rule
+        /// (David 2026-11-27).
         /// </summary>
-        internal static string ResidualFieldProblem(string title, string artists, string length, string coverWidth, string coverHeight)
+        internal static string ResidualFieldProblem(string title, string artists, string album, string length, string coverWidth, string coverHeight)
         {
-            var checks = new[] { ("Title", title), ("Artists", artists), ("Length", length), ("CoverWidth", coverWidth), ("CoverHeight", coverHeight) };
+            var checks = new[] { ("Title", title), ("Artists", artists), ("Album", album), ("Length", length), ("CoverWidth", coverWidth), ("CoverHeight", coverHeight) };
             foreach (var check in checks)
             {
                 FieldProblem p = FieldRules.Check(check.Item1, check.Item2);

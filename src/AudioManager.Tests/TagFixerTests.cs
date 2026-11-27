@@ -925,11 +925,14 @@ namespace AudioManager
             Assert.Equal("", log.SuggestedAlbum, "no trailing group, so no album suggestion");
         }
 
-        public static void ProcessFile_ResidualMissingAlbum_IsNotNeedsManual()
+        public static void ProcessFile_ResidualMissingAlbum_IsBadField()
         {
             var log = ResidualRun("Song", "", "", out _);
-            Assert.True(!log.NeedsManual, "missing album is reported by projectedHits, not tagfix");
+            Assert.True(log.NeedsManual, "a blank album needs manual review (FieldRules Album)");
+            Assert.True(log.ManualRule == "bad_field", "the rule is bad_field, got " + log.ManualRule);
+            Assert.True(log.ManualReason != null && log.ManualReason.Contains("Album"), "the reason names Album: " + log.ManualReason);
         }
+
 
         // BL-319 bad_field: FieldRules BLOCK results on the values a new file would integrate with. Genre and TrackNumber have no rule.
         public static void ProcessFile_ResidualShortLength_IsNotNeedsManual()
@@ -997,15 +1000,15 @@ namespace AudioManager
 
         public static void ResidualFieldProblem_UnknownCoverDimensions_IsBadField()
         {
-            string reason = TagFixer.ResidualFieldProblem("Song", "Band", "00:03:20.0000000", "Unknown", "Unknown");
+            string reason = TagFixer.ResidualFieldProblem("Song", "Band", "Album", "00:03:20.0000000", "Unknown", "Unknown");
             Assert.True(reason != null, "Unknown cover dimensions give a problem");
             Assert.True(reason.Contains("CoverWidth"), "the reason names the cover field: " + reason);
         }
 
         public static void ResidualFieldProblem_CleanTrackAndNoCover_IsNull()
         {
-            Assert.True(TagFixer.ResidualFieldProblem("Song", "Band", "00:03:20.0000000", "1200", "1200") == null, "a clean track passes");
-            Assert.True(TagFixer.ResidualFieldProblem("Song", "Band", "00:03:20.0000000", "0", "0") == null, "no cover (0x0) passes");
+            Assert.True(TagFixer.ResidualFieldProblem("Song", "Band", "Album", "00:03:20.0000000", "1200", "1200") == null, "a clean track passes");
+            Assert.True(TagFixer.ResidualFieldProblem("Song", "Band", "Album", "00:03:20.0000000", "0", "0") == null, "no cover (0x0) passes");
         }
 
         // bad_cover: a non-JPEG/PNG or solid-black front cover is a needsManual row (detection only, art is never changed).
