@@ -86,7 +86,7 @@ namespace AudioManager
             public TagState NewTags;
             /// <summary>Dry run only: the instrumental would be moved to quarantine.</summary>
             public bool WouldQuarantine;
-            /// <summary>Dry run only: the planned rename is blocked (empty artist or title, or the target name is taken).</summary>
+            /// <summary>Dry run only: the planned rename is blocked (empty title or artists, or the target name is taken).</summary>
             public bool NeedsManual;
             public string ManualReason;
             /// <summary>Stable rule id for a residual-tag needsManual row (unwanted_text, missing_tag); null for the rename reasons.</summary>
@@ -613,7 +613,7 @@ namespace AudioManager
                     string sanitisedTitle = Reflector.SanitiseFilename(finalTitle);
                     if (string.IsNullOrEmpty(sanitisedArtists) || string.IsNullOrEmpty(sanitisedTitle))
                     {
-                        log.Changes.Add("[WARN] Rename skipped: empty artist or title after sanitisation");
+                        log.Changes.Add("[WARN] Rename skipped: " + EmptyFieldReason(sanitisedArtists, sanitisedTitle));
                         log.Filename = log.OriginalFilename;
                     }
                     else
@@ -661,10 +661,10 @@ namespace AudioManager
                     string sanitisedTitle = Reflector.SanitiseFilename(finalTitle);
                     if (string.IsNullOrEmpty(sanitisedArtists) || string.IsNullOrEmpty(sanitisedTitle))
                     {
-                        log.Changes.Add("[WARN] Rename skipped: empty artist or title after sanitisation");
+                        log.Changes.Add("[WARN] Rename skipped: " + EmptyFieldReason(sanitisedArtists, sanitisedTitle));
                         log.Filename = log.OriginalFilename;
                         log.NeedsManual = true;
-                        log.ManualReason = "empty artist or title after sanitisation";
+                        log.ManualReason = EmptyFieldReason(sanitisedArtists, sanitisedTitle);
                         log.RenameBlocked = true;
                     }
                     else
@@ -742,10 +742,22 @@ namespace AudioManager
         }
 
         /// <summary>
+        /// Names the empty field(s) of a blocked rename. Rule ids (TagFixPlanJson.ManualRule): empty_title, empty_artists,
+        /// empty_artists_and_title.
+        /// </summary>
+        internal static string EmptyFieldReason(string sanitisedArtists, string sanitisedTitle)
+        {
+            bool artistsEmpty = string.IsNullOrEmpty(sanitisedArtists);
+            bool titleEmpty = string.IsNullOrEmpty(sanitisedTitle);
+            if (artistsEmpty && titleEmpty) return "empty artists and title after sanitisation";
+            return titleEmpty ? "empty title after sanitisation" : "empty artists after sanitisation";
+        }
+
+        /// <summary>
         /// ENG-83: dry run only. A tag that still holds unwanted text after the fix is a needsManual row (rule unwanted_text)
         /// unless the user accepted it for this file or kept the field. A file with no unwanted text but an empty Year is a
         /// needsManual row (rule missing_tag, reason "Missing tag: Year"). A missing title or artist already gives
-        /// empty_artist_or_title. A blank or padded album is bad_field (FieldRules Album).
+        /// empty_title, empty_artists or empty_artists_and_title. A blank or padded album is bad_field (FieldRules Album).
         /// </summary>
         private void MarkResidualIssue(FixLog log, string title, string artists, string album, string year, string name, string rel, string length, string coverWidth, string coverHeight, string coverIssue = null)
         {

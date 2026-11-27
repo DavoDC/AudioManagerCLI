@@ -138,12 +138,15 @@ namespace AudioManager
             return kinds;
         }
 
-        /// <summary>Stable rule id for a needsManual entry: error, empty_artist_or_title, rename_target_exists, else needs_manual.</summary>
+        /// <summary>Stable rule id for a needsManual entry: error, empty_title, empty_artists, empty_artists_and_title, rename_target_exists, else needs_manual. The old reason "empty artist or title" still maps to empty_artist_or_title (stored plans).</summary>
         internal static string ManualRule(TagFixer.FixLog m)
         {
             if (m.Status == "error") return "error";
             if (!string.IsNullOrEmpty(m.ManualRule)) return m.ManualRule;
             string r = m.ManualReason ?? "";
+            if (r.StartsWith("empty artists and title")) return "empty_artists_and_title";
+            if (r.StartsWith("empty artists")) return "empty_artists";
+            if (r.StartsWith("empty title")) return "empty_title";
             if (r.StartsWith("empty artist or title")) return "empty_artist_or_title";
             if (r.StartsWith("rename target already exists")) return "rename_target_exists";
             return "needs_manual";

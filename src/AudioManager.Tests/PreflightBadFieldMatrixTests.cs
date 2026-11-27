@@ -117,17 +117,17 @@ namespace AudioManager
             return path;
         }
 
-        // Case 1: blank Title (the fixture writes an empty title). TagFixer reports empty artist or title.
+        // Case 1: blank Title (the fixture writes an empty title). TagFixer reports empty title (rule empty_title).
         public static void BadField_BlankTitle_BlocksAndNamesTitle()
         {
             AssertBlockedNamingField("Title", dir =>
                 TagFixerTests.CreateSilentMp3Fixture(dir, "blank-title.mp3", "", "Album Name", "Primary Artist", 2020));
         }
 
-        // Case 2: blank Artists (an empty performer).
-        public static void BadField_BlankArtists_BlocksAndNamesArtist()
+        // Case 2: blank Artists (an empty performer). TagFixer reports empty artists (rule empty_artists).
+        public static void BadField_BlankArtists_BlocksAndNamesArtists()
         {
-            AssertBlockedNamingField("Artist", dir =>
+            AssertBlockedNamingField("Artists", dir =>
                 TagFixerTests.CreateSilentMp3Fixture(dir, "blank-artist.mp3", "Song Title", "Album Name", "", 2020));
         }
 
