@@ -89,6 +89,35 @@ namespace AudioManager
             Assert.Equal("add AUDIO_MIRROR/", MirrorGate.CommitAddArgs, "same staging as AudioMirrorCommitter");
         }
 
+        // A Missing Year is refused on a new (added) XML, but an existing (modified) one still passes (David 2026-11-27).
+        public static void CheckXml_AddedMissingYear_IsRefused()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "am_gate_year_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                string path = Path.Combine(dir, "added.xml");
+                File.WriteAllText(path, TrackXml(year: Constants.MissingTag));
+                string reason = MirrorGate.CheckXml(path, true, new List<string>());
+                Assert.True(reason != null && reason.Contains("Year"), "an added XML with Year Missing is refused, got: " + reason);
+            }
+            finally { try { Directory.Delete(dir, true); } catch (IOException) { } }
+        }
+
+        public static void CheckXml_ModifiedMissingYear_Passes()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "am_gate_year_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                string path = Path.Combine(dir, "modified.xml");
+                File.WriteAllText(path, TrackXml(year: Constants.MissingTag));
+                string reason = MirrorGate.CheckXml(path, false, new List<string>());
+                Assert.True(reason == null, "a modified XML with Year Missing stays allowed, got: " + reason);
+            }
+            finally { try { Directory.Delete(dir, true); } catch (IOException) { } }
+        }
+
         // A complete mirror XML with every element TrackXML.Read requires. Year is written as given.
         private static string TrackXml(string title = "Song", string artists = "Alpha", string year = "2020")
         {

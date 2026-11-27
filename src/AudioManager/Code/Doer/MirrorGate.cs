@@ -268,6 +268,8 @@ namespace AudioManager
                 }
                 return check.Item1 + " " + p.Reason;
             }
+            // FieldRules accepts Missing (a stored value), so a new file with no Year is refused here (David 2026-11-27).
+            if (added && tag.Year == Constants.MissingTag) return "Year is missing (a new file needs a year)";
             return null;
         }
 
