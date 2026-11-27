@@ -19,6 +19,11 @@ namespace AudioManager
         private List<TrackTag> audioTags;
         private List<XmlElement> exceptions;
 
+        // Exception rows indexed once in the ctor: per unwanted string (OrdinalIgnoreCase, the same match as before),
+        // the rows that can apply to it in document order; wildcardOnly serves unwanted strings with no keyed rows.
+        private Dictionary<string, List<XmlElement>> exceptionsByUnwanted;
+        private List<XmlElement> wildcardOnly;
+
         /// <summary>True if LibChecker found zero issues across all checks.</summary>
         public bool IsClean { get; private set; }
 
@@ -83,6 +88,7 @@ namespace AudioManager
 
             // Load exceptions from config
             exceptions = LoadExceptions(exceptionsPath);
+            IndexExceptions();
 
             // Check all tags
             int totalTagHits = 0;
@@ -406,18 +412,22 @@ namespace AudioManager
         /// <param name="propertyName">The name of the property being checked</param>
         /// <param name="unwanted">The unwanted part</param>
         /// <returns>One if unwanted part was found, zero otherwise</returns>
+        private static readonly Regex FeatRegex = new Regex(@"(?:^|[\s\-\(\)\[\]\/,])" + Regex.Escape("feat."), RegexOptions.Compiled);
+        private static readonly Regex FtRegex = new Regex(@"(?:^|[\s\-\(\)\[\]\/,])" + Regex.Escape("ft."), RegexOptions.Compiled);
+        private static readonly Regex EditRegex = new Regex(@"\bedit\b", RegexOptions.Compiled);
+
         /// <summary>The unwanted-string match shared by LibChecker and tagfix's residual check.</summary>
         internal static bool ContainsUnwanted(string value, string unwanted)
         {
             string propValue = (value ?? "").ToLowerInvariant();
             string u = unwanted.ToLowerInvariant();
             // For "feat." and "ft.", require whitespace/punctuation before the abbreviation
-            // to avoid false positives like "ft." in "LEFT" or "Theft"
-            if (u == "feat." || u == "ft.")
-                return Regex.IsMatch(propValue, @"(?:^|[\s\-\(\)\[\]\/,])" + Regex.Escape(u));
+            // to avoid false positives like "ft." in "LEFT" or "Theft" (patterns precompiled, same text as before)
+            if (u == "feat.") return FeatRegex.IsMatch(propValue);
+            if (u == "ft.") return FtRegex.IsMatch(propValue);
             // Word-boundary match: "Radio Edit" flags but "Edition" does not
             if (u == "edit")
-                return Regex.IsMatch(propValue, @"\bedit\b");
+                return EditRegex.IsMatch(propValue);
             // For other unwanted strings, use simple Contains check
             return propValue.Contains(u);
         }
@@ -476,10 +486,33 @@ namespace AudioManager
             return result;
         }
 
+        /// <summary>
+        /// Groups exception rows by their unwanted attribute once, so IsExceptionToRules scans only the rows that can apply.
+        /// Same filter as the per-call check it replaces: rows with an empty unwanted never apply; "*" applies to all.
+        /// </summary>
+        private void IndexExceptions()
+        {
+            exceptionsByUnwanted = new Dictionary<string, List<XmlElement>>(StringComparer.OrdinalIgnoreCase);
+            wildcardOnly = exceptions.Where(e => e.GetAttribute("unwanted") == "*").ToList();
+            foreach (XmlElement ex in exceptions)
+            {
+                string key = ex.GetAttribute("unwanted");
+                if (key == "" || key == "*" || exceptionsByUnwanted.ContainsKey(key)) continue;
+                exceptionsByUnwanted[key] = exceptions.Where(e =>
+                {
+                    string u = e.GetAttribute("unwanted");
+                    return u != "" && (u == "*" || u.Equals(key, StringComparison.OrdinalIgnoreCase));
+                }).ToList();
+            }
+        }
+
         /// <returns>True if metadata combination is whitelisted by config, false otherwise</returns>
         private bool IsExceptionToRules(TrackTag tag, string unwanted)
         {
-            foreach (XmlElement ex in exceptions)
+            // Only the rows indexed for this unwanted string (or the wildcard rows), still in document order
+            List<XmlElement> candidates;
+            if (unwanted == null || !exceptionsByUnwanted.TryGetValue(unwanted, out candidates)) candidates = wildcardOnly;
+            foreach (XmlElement ex in candidates)
             {
                 string exUnwanted = ex.GetAttribute("unwanted");
 
