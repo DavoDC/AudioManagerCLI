@@ -1,0 +1,408 @@
+##### normal root #####
+=== pass 1: create ===
+--- console (time line removed) ---
+
+Creating mirror of '<ROOT>\Audio'...
+ - Path: '<ROOT>\AUDIO_MIRROR'
+ - MP3 file count: 10
+ - Non-MP3 files found: 3 (UNEXPECTED!)
+  - Extension list: .ini, .jpg, .txt
+  - Unexpected file types:
+    .jpg (1 files):
+      - Artists\cover.jpg
+ - MP3 filenames sanitised: 4
+ - Recreated: False
+
+--- helper per mp3 ---
+Artists\Alpha\Album One\Alpha - One.xml | Alpha - One.mp3
+Artists\Alpha\Album One\Alpha - Two (feat. B).xml | Alpha - Two (feat. B).mp3
+Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | Beyonce - Sorry.mp3
+Artists\Pct\100% Real\100% - Hash #1.xml | 100% - Hash #1.mp3
+Artists\Pct\Brackets [x]\A & B - [x] Song.xml | A & B - [x] Song.mp3
+Artists\Wide　Name\Wide_ Title.xml | Wide_ Title.mp3
+Miscellaneous Songs\Cafe del Mar - __.xml | Cafe del Mar - __.mp3
+Miscellaneous Songs\Solo - Track.xml | Solo - Track.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+--- mirror files (relative | length | bytes hex) ---
+\Artists\Alpha\Album One\Alpha - One.xml | 103 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-4F-6E-65-2E-6D-70-33
+\Artists\Alpha\Album One\Alpha - Two (feat. B).xml | 113 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-54-77-6F-20-28-66-65-61-74-2E-20-42-29-2E-6D-70-33
+\Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | 110 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-42-65-79-6F-6E-63-C3-A9-5C-4C-65-6D-6F-6E-61-64-65-5C-42-65-79-6F-6E-63-C3-A9-20-2D-20-53-6F-72-72-79-2E-6D-70-33
+\Artists\Pct\100% Real\100% - Hash #1.xml | 104 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-31-30-30-25-20-52-65-61-6C-5C-31-30-30-25-20-2D-20-48-61-73-68-20-23-31-2E-6D-70-33
+\Artists\Pct\Brackets [x]\A & B - [x] Song.xml | 109 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-42-72-61-63-6B-65-74-73-20-5B-78-5D-5C-41-20-26-20-42-20-2D-20-5B-78-5D-20-53-6F-6E-67-2E-6D-70-33
+\Artists\Wide　Name\Wide_ Title.xml | 101 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-57-69-64-65-E3-80-80-4E-61-6D-65-5C-57-69-64-65-EF-BC-9A-20-54-69-74-6C-65-2E-6D-70-33
+\Miscellaneous Songs\Cafe del Mar - __.xml | 108 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-43-61-66-C3-A9-20-64-65-6C-20-4D-61-72-20-2D-20-D0-94-D0-B0-2E-6D-70-33
+\Miscellaneous Songs\Solo - Track.xml | 100 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-53-6F-6C-6F-20-2D-20-54-72-61-63-6B-2E-6D-70-33
+\Miscellaneous Songs\Twin - Cafe.xml | 99 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-54-77-69-6E-20-2D-20-43-61-66-65-2E-6D-70-33
+--- mirror dirs ---
+\Artists
+\Artists\Alpha
+\Artists\Alpha\Album One
+\Artists\Beyoncé
+\Artists\Beyoncé\Lemonade
+\Artists\Pct
+\Artists\Pct\100% Real
+\Artists\Pct\Brackets [x]
+\Artists\Wide　Name
+\Empty Folder
+\Miscellaneous Songs
+--- stamp / staging ---
+staging exists: False
+old exists: False
+=== pass 2: no change ===
+--- console (time line removed) ---
+
+Creating mirror of '<ROOT>\Audio'...
+ - Path: '<ROOT>\AUDIO_MIRROR'
+ - MP3 file count: 10
+ - Non-MP3 files found: 3 (UNEXPECTED!)
+  - Extension list: .ini, .jpg, .txt
+  - Unexpected file types:
+    .jpg (1 files):
+      - Artists\cover.jpg
+ - MP3 filenames sanitised: 4
+ - Recreated: False
+
+--- helper per mp3 ---
+Artists\Alpha\Album One\Alpha - One.xml | Alpha - One.mp3
+Artists\Alpha\Album One\Alpha - Two (feat. B).xml | Alpha - Two (feat. B).mp3
+Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | Beyonce - Sorry.mp3
+Artists\Pct\100% Real\100% - Hash #1.xml | 100% - Hash #1.mp3
+Artists\Pct\Brackets [x]\A & B - [x] Song.xml | A & B - [x] Song.mp3
+Artists\Wide　Name\Wide_ Title.xml | Wide_ Title.mp3
+Miscellaneous Songs\Cafe del Mar - __.xml | Cafe del Mar - __.mp3
+Miscellaneous Songs\Solo - Track.xml | Solo - Track.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+--- mirror files (relative | length | bytes hex) ---
+\Artists\Alpha\Album One\Alpha - One.xml | 103 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-4F-6E-65-2E-6D-70-33
+\Artists\Alpha\Album One\Alpha - Two (feat. B).xml | 113 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-54-77-6F-20-28-66-65-61-74-2E-20-42-29-2E-6D-70-33
+\Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | 110 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-42-65-79-6F-6E-63-C3-A9-5C-4C-65-6D-6F-6E-61-64-65-5C-42-65-79-6F-6E-63-C3-A9-20-2D-20-53-6F-72-72-79-2E-6D-70-33
+\Artists\Pct\100% Real\100% - Hash #1.xml | 104 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-31-30-30-25-20-52-65-61-6C-5C-31-30-30-25-20-2D-20-48-61-73-68-20-23-31-2E-6D-70-33
+\Artists\Pct\Brackets [x]\A & B - [x] Song.xml | 109 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-42-72-61-63-6B-65-74-73-20-5B-78-5D-5C-41-20-26-20-42-20-2D-20-5B-78-5D-20-53-6F-6E-67-2E-6D-70-33
+\Artists\Wide　Name\Wide_ Title.xml | 101 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-57-69-64-65-E3-80-80-4E-61-6D-65-5C-57-69-64-65-EF-BC-9A-20-54-69-74-6C-65-2E-6D-70-33
+\Miscellaneous Songs\Cafe del Mar - __.xml | 108 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-43-61-66-C3-A9-20-64-65-6C-20-4D-61-72-20-2D-20-D0-94-D0-B0-2E-6D-70-33
+\Miscellaneous Songs\Solo - Track.xml | 100 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-53-6F-6C-6F-20-2D-20-54-72-61-63-6B-2E-6D-70-33
+\Miscellaneous Songs\Twin - Cafe.xml | 99 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-54-77-69-6E-20-2D-20-43-61-66-65-2E-6D-70-33
+--- mirror dirs ---
+\Artists
+\Artists\Alpha
+\Artists\Alpha\Album One
+\Artists\Beyoncé
+\Artists\Beyoncé\Lemonade
+\Artists\Pct
+\Artists\Pct\100% Real
+\Artists\Pct\Brackets [x]
+\Artists\Wide　Name
+\Empty Folder
+\Miscellaneous Songs
+--- stamp / staging ---
+staging exists: False
+old exists: False
+stamp written: False
+=== pass 3: one changed ===
+--- console (time line removed) ---
+
+Creating mirror of '<ROOT>\Audio'...
+ - Path: '<ROOT>\AUDIO_MIRROR'
+ - MP3 file count: 10
+ - Non-MP3 files found: 3 (UNEXPECTED!)
+  - Extension list: .ini, .jpg, .txt
+  - Unexpected file types:
+    .jpg (1 files):
+      - Artists\cover.jpg
+ - MP3 filenames sanitised: 4
+ - XMLs refreshed (MP3 updated since last analysis): 1
+ - Recreated: False
+
+--- helper per mp3 ---
+Artists\Alpha\Album One\Alpha - One.xml | Alpha - One.mp3
+Artists\Alpha\Album One\Alpha - Two (feat. B).xml | Alpha - Two (feat. B).mp3
+Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | Beyonce - Sorry.mp3
+Artists\Pct\100% Real\100% - Hash #1.xml | 100% - Hash #1.mp3
+Artists\Pct\Brackets [x]\A & B - [x] Song.xml | A & B - [x] Song.mp3
+Artists\Wide　Name\Wide_ Title.xml | Wide_ Title.mp3
+Miscellaneous Songs\Cafe del Mar - __.xml | Cafe del Mar - __.mp3
+Miscellaneous Songs\Solo - Track.xml | Solo - Track.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+--- mirror files (relative | length | bytes hex) ---
+\Artists\Alpha\Album One\Alpha - One.xml | 103 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-4F-6E-65-2E-6D-70-33
+\Artists\Alpha\Album One\Alpha - Two (feat. B).xml | 113 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-54-77-6F-20-28-66-65-61-74-2E-20-42-29-2E-6D-70-33
+\Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | 110 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-42-65-79-6F-6E-63-C3-A9-5C-4C-65-6D-6F-6E-61-64-65-5C-42-65-79-6F-6E-63-C3-A9-20-2D-20-53-6F-72-72-79-2E-6D-70-33
+\Artists\Pct\100% Real\100% - Hash #1.xml | 104 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-31-30-30-25-20-52-65-61-6C-5C-31-30-30-25-20-2D-20-48-61-73-68-20-23-31-2E-6D-70-33
+\Artists\Pct\Brackets [x]\A & B - [x] Song.xml | 109 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-42-72-61-63-6B-65-74-73-20-5B-78-5D-5C-41-20-26-20-42-20-2D-20-5B-78-5D-20-53-6F-6E-67-2E-6D-70-33
+\Artists\Wide　Name\Wide_ Title.xml | 101 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-57-69-64-65-E3-80-80-4E-61-6D-65-5C-57-69-64-65-EF-BC-9A-20-54-69-74-6C-65-2E-6D-70-33
+\Miscellaneous Songs\Cafe del Mar - __.xml | 108 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-43-61-66-C3-A9-20-64-65-6C-20-4D-61-72-20-2D-20-D0-94-D0-B0-2E-6D-70-33
+\Miscellaneous Songs\Solo - Track.xml | 100 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-53-6F-6C-6F-20-2D-20-54-72-61-63-6B-2E-6D-70-33
+\Miscellaneous Songs\Twin - Cafe.xml | 99 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-54-77-69-6E-20-2D-20-43-61-66-65-2E-6D-70-33
+--- mirror dirs ---
+\Artists
+\Artists\Alpha
+\Artists\Alpha\Album One
+\Artists\Beyoncé
+\Artists\Beyoncé\Lemonade
+\Artists\Pct
+\Artists\Pct\100% Real
+\Artists\Pct\Brackets [x]
+\Artists\Wide　Name
+\Empty Folder
+\Miscellaneous Songs
+--- stamp / staging ---
+staging exists: False
+old exists: False
+=== pass 4: delete + add ===
+--- console (time line removed) ---
+
+Creating mirror of '<ROOT>\Audio'...
+ - Path: '<ROOT>\AUDIO_MIRROR'
+ - MP3 file count: 10
+ - Non-MP3 files found: 3 (UNEXPECTED!)
+  - Extension list: .ini, .jpg, .txt
+  - Unexpected file types:
+    .jpg (1 files):
+      - Artists\cover.jpg
+ - MP3 filenames sanitised: 4
+ - XMLs pruned (MP3 deleted since last analysis): 1
+ - Recreated: False
+
+--- helper per mp3 ---
+Artists\Alpha\Album One\Alpha - Three.xml | Alpha - Three.mp3
+Artists\Alpha\Album One\Alpha - Two (feat. B).xml | Alpha - Two (feat. B).mp3
+Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | Beyonce - Sorry.mp3
+Artists\Pct\100% Real\100% - Hash #1.xml | 100% - Hash #1.mp3
+Artists\Pct\Brackets [x]\A & B - [x] Song.xml | A & B - [x] Song.mp3
+Artists\Wide　Name\Wide_ Title.xml | Wide_ Title.mp3
+Miscellaneous Songs\Cafe del Mar - __.xml | Cafe del Mar - __.mp3
+Miscellaneous Songs\Solo - Track.xml | Solo - Track.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+--- mirror files (relative | length | bytes hex) ---
+\Artists\Alpha\Album One\Alpha - Three.xml | 105 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-54-68-72-65-65-2E-6D-70-33
+\Artists\Alpha\Album One\Alpha - Two (feat. B).xml | 113 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-54-77-6F-20-28-66-65-61-74-2E-20-42-29-2E-6D-70-33
+\Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | 110 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-42-65-79-6F-6E-63-C3-A9-5C-4C-65-6D-6F-6E-61-64-65-5C-42-65-79-6F-6E-63-C3-A9-20-2D-20-53-6F-72-72-79-2E-6D-70-33
+\Artists\Pct\100% Real\100% - Hash #1.xml | 104 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-31-30-30-25-20-52-65-61-6C-5C-31-30-30-25-20-2D-20-48-61-73-68-20-23-31-2E-6D-70-33
+\Artists\Pct\Brackets [x]\A & B - [x] Song.xml | 109 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-42-72-61-63-6B-65-74-73-20-5B-78-5D-5C-41-20-26-20-42-20-2D-20-5B-78-5D-20-53-6F-6E-67-2E-6D-70-33
+\Artists\Wide　Name\Wide_ Title.xml | 101 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-57-69-64-65-E3-80-80-4E-61-6D-65-5C-57-69-64-65-EF-BC-9A-20-54-69-74-6C-65-2E-6D-70-33
+\Miscellaneous Songs\Cafe del Mar - __.xml | 108 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-43-61-66-C3-A9-20-64-65-6C-20-4D-61-72-20-2D-20-D0-94-D0-B0-2E-6D-70-33
+\Miscellaneous Songs\Solo - Track.xml | 100 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-53-6F-6C-6F-20-2D-20-54-72-61-63-6B-2E-6D-70-33
+\Miscellaneous Songs\Twin - Cafe.xml | 99 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-54-77-69-6E-20-2D-20-43-61-66-65-2E-6D-70-33
+--- mirror dirs ---
+\Artists
+\Artists\Alpha
+\Artists\Alpha\Album One
+\Artists\Beyoncé
+\Artists\Beyoncé\Lemonade
+\Artists\Pct
+\Artists\Pct\100% Real
+\Artists\Pct\Brackets [x]
+\Artists\Wide　Name
+\Empty Folder
+\Miscellaneous Songs
+--- stamp / staging ---
+staging exists: False
+old exists: False
+##### odd root #####
+=== pass 1: create ===
+--- console (time line removed) ---
+
+Creating mirror of '<ROOT>\Audio\..\Audio'...
+ - Path: '<ROOT>\AUDIO_MIRROR'
+ - MP3 file count: 10
+ - Non-MP3 files found: 3 (UNEXPECTED!)
+  - Extension list: .ini, .jpg, .txt
+  - Unexpected file types:
+    .jpg (1 files):
+      - Artists\cover.jpg
+ - MP3 filenames sanitised: 4
+ - Recreated: False
+
+--- helper per mp3 ---
+Artists\Alpha\Album One\Alpha - One.xml | Alpha - One.mp3
+Artists\Alpha\Album One\Alpha - Two (feat. B).xml | Alpha - Two (feat. B).mp3
+Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | Beyonce - Sorry.mp3
+Artists\Pct\100% Real\100% - Hash #1.xml | 100% - Hash #1.mp3
+Artists\Pct\Brackets [x]\A & B - [x] Song.xml | A & B - [x] Song.mp3
+Artists\Wide　Name\Wide_ Title.xml | Wide_ Title.mp3
+Miscellaneous Songs\Cafe del Mar - __.xml | Cafe del Mar - __.mp3
+Miscellaneous Songs\Solo - Track.xml | Solo - Track.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+--- mirror files (relative | length | bytes hex) ---
+\Artists\Alpha\Album One\Alpha - One.xml | 112 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-4F-6E-65-2E-6D-70-33
+\Artists\Alpha\Album One\Alpha - Two (feat. B).xml | 122 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-54-77-6F-20-28-66-65-61-74-2E-20-42-29-2E-6D-70-33
+\Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | 119 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-42-65-79-6F-6E-63-C3-A9-5C-4C-65-6D-6F-6E-61-64-65-5C-42-65-79-6F-6E-63-C3-A9-20-2D-20-53-6F-72-72-79-2E-6D-70-33
+\Artists\Pct\100% Real\100% - Hash #1.xml | 113 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-31-30-30-25-20-52-65-61-6C-5C-31-30-30-25-20-2D-20-48-61-73-68-20-23-31-2E-6D-70-33
+\Artists\Pct\Brackets [x]\A & B - [x] Song.xml | 118 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-42-72-61-63-6B-65-74-73-20-5B-78-5D-5C-41-20-26-20-42-20-2D-20-5B-78-5D-20-53-6F-6E-67-2E-6D-70-33
+\Artists\Wide　Name\Wide_ Title.xml | 110 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-57-69-64-65-E3-80-80-4E-61-6D-65-5C-57-69-64-65-EF-BC-9A-20-54-69-74-6C-65-2E-6D-70-33
+\Miscellaneous Songs\Cafe del Mar - __.xml | 117 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-43-61-66-C3-A9-20-64-65-6C-20-4D-61-72-20-2D-20-D0-94-D0-B0-2E-6D-70-33
+\Miscellaneous Songs\Solo - Track.xml | 109 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-53-6F-6C-6F-20-2D-20-54-72-61-63-6B-2E-6D-70-33
+\Miscellaneous Songs\Twin - Cafe.xml | 108 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-54-77-69-6E-20-2D-20-43-61-66-65-2E-6D-70-33
+--- mirror dirs ---
+\Artists
+\Artists\Alpha
+\Artists\Alpha\Album One
+\Artists\Beyoncé
+\Artists\Beyoncé\Lemonade
+\Artists\Pct
+\Artists\Pct\100% Real
+\Artists\Pct\Brackets [x]
+\Artists\Wide　Name
+\Empty Folder
+\Miscellaneous Songs
+--- stamp / staging ---
+staging exists: False
+old exists: False
+=== pass 2: no change ===
+--- console (time line removed) ---
+
+Creating mirror of '<ROOT>\Audio\..\Audio'...
+ - Path: '<ROOT>\AUDIO_MIRROR'
+ - MP3 file count: 10
+ - Non-MP3 files found: 3 (UNEXPECTED!)
+  - Extension list: .ini, .jpg, .txt
+  - Unexpected file types:
+    .jpg (1 files):
+      - Artists\cover.jpg
+ - MP3 filenames sanitised: 4
+ - Recreated: False
+
+--- helper per mp3 ---
+Artists\Alpha\Album One\Alpha - One.xml | Alpha - One.mp3
+Artists\Alpha\Album One\Alpha - Two (feat. B).xml | Alpha - Two (feat. B).mp3
+Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | Beyonce - Sorry.mp3
+Artists\Pct\100% Real\100% - Hash #1.xml | 100% - Hash #1.mp3
+Artists\Pct\Brackets [x]\A & B - [x] Song.xml | A & B - [x] Song.mp3
+Artists\Wide　Name\Wide_ Title.xml | Wide_ Title.mp3
+Miscellaneous Songs\Cafe del Mar - __.xml | Cafe del Mar - __.mp3
+Miscellaneous Songs\Solo - Track.xml | Solo - Track.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+--- mirror files (relative | length | bytes hex) ---
+\Artists\Alpha\Album One\Alpha - One.xml | 112 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-4F-6E-65-2E-6D-70-33
+\Artists\Alpha\Album One\Alpha - Two (feat. B).xml | 122 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-54-77-6F-20-28-66-65-61-74-2E-20-42-29-2E-6D-70-33
+\Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | 119 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-42-65-79-6F-6E-63-C3-A9-5C-4C-65-6D-6F-6E-61-64-65-5C-42-65-79-6F-6E-63-C3-A9-20-2D-20-53-6F-72-72-79-2E-6D-70-33
+\Artists\Pct\100% Real\100% - Hash #1.xml | 113 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-31-30-30-25-20-52-65-61-6C-5C-31-30-30-25-20-2D-20-48-61-73-68-20-23-31-2E-6D-70-33
+\Artists\Pct\Brackets [x]\A & B - [x] Song.xml | 118 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-42-72-61-63-6B-65-74-73-20-5B-78-5D-5C-41-20-26-20-42-20-2D-20-5B-78-5D-20-53-6F-6E-67-2E-6D-70-33
+\Artists\Wide　Name\Wide_ Title.xml | 110 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-57-69-64-65-E3-80-80-4E-61-6D-65-5C-57-69-64-65-EF-BC-9A-20-54-69-74-6C-65-2E-6D-70-33
+\Miscellaneous Songs\Cafe del Mar - __.xml | 117 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-43-61-66-C3-A9-20-64-65-6C-20-4D-61-72-20-2D-20-D0-94-D0-B0-2E-6D-70-33
+\Miscellaneous Songs\Solo - Track.xml | 109 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-53-6F-6C-6F-20-2D-20-54-72-61-63-6B-2E-6D-70-33
+\Miscellaneous Songs\Twin - Cafe.xml | 108 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-54-77-69-6E-20-2D-20-43-61-66-65-2E-6D-70-33
+--- mirror dirs ---
+\Artists
+\Artists\Alpha
+\Artists\Alpha\Album One
+\Artists\Beyoncé
+\Artists\Beyoncé\Lemonade
+\Artists\Pct
+\Artists\Pct\100% Real
+\Artists\Pct\Brackets [x]
+\Artists\Wide　Name
+\Empty Folder
+\Miscellaneous Songs
+--- stamp / staging ---
+staging exists: False
+old exists: False
+stamp written: False
+=== pass 3: one changed ===
+--- console (time line removed) ---
+
+Creating mirror of '<ROOT>\Audio\..\Audio'...
+ - Path: '<ROOT>\AUDIO_MIRROR'
+ - MP3 file count: 10
+ - Non-MP3 files found: 3 (UNEXPECTED!)
+  - Extension list: .ini, .jpg, .txt
+  - Unexpected file types:
+    .jpg (1 files):
+      - Artists\cover.jpg
+ - MP3 filenames sanitised: 4
+ - XMLs refreshed (MP3 updated since last analysis): 1
+ - Recreated: False
+
+--- helper per mp3 ---
+Artists\Alpha\Album One\Alpha - One.xml | Alpha - One.mp3
+Artists\Alpha\Album One\Alpha - Two (feat. B).xml | Alpha - Two (feat. B).mp3
+Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | Beyonce - Sorry.mp3
+Artists\Pct\100% Real\100% - Hash #1.xml | 100% - Hash #1.mp3
+Artists\Pct\Brackets [x]\A & B - [x] Song.xml | A & B - [x] Song.mp3
+Artists\Wide　Name\Wide_ Title.xml | Wide_ Title.mp3
+Miscellaneous Songs\Cafe del Mar - __.xml | Cafe del Mar - __.mp3
+Miscellaneous Songs\Solo - Track.xml | Solo - Track.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+--- mirror files (relative | length | bytes hex) ---
+\Artists\Alpha\Album One\Alpha - One.xml | 112 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-4F-6E-65-2E-6D-70-33
+\Artists\Alpha\Album One\Alpha - Two (feat. B).xml | 122 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-54-77-6F-20-28-66-65-61-74-2E-20-42-29-2E-6D-70-33
+\Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | 119 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-42-65-79-6F-6E-63-C3-A9-5C-4C-65-6D-6F-6E-61-64-65-5C-42-65-79-6F-6E-63-C3-A9-20-2D-20-53-6F-72-72-79-2E-6D-70-33
+\Artists\Pct\100% Real\100% - Hash #1.xml | 113 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-31-30-30-25-20-52-65-61-6C-5C-31-30-30-25-20-2D-20-48-61-73-68-20-23-31-2E-6D-70-33
+\Artists\Pct\Brackets [x]\A & B - [x] Song.xml | 118 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-42-72-61-63-6B-65-74-73-20-5B-78-5D-5C-41-20-26-20-42-20-2D-20-5B-78-5D-20-53-6F-6E-67-2E-6D-70-33
+\Artists\Wide　Name\Wide_ Title.xml | 110 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-57-69-64-65-E3-80-80-4E-61-6D-65-5C-57-69-64-65-EF-BC-9A-20-54-69-74-6C-65-2E-6D-70-33
+\Miscellaneous Songs\Cafe del Mar - __.xml | 117 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-43-61-66-C3-A9-20-64-65-6C-20-4D-61-72-20-2D-20-D0-94-D0-B0-2E-6D-70-33
+\Miscellaneous Songs\Solo - Track.xml | 109 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-53-6F-6C-6F-20-2D-20-54-72-61-63-6B-2E-6D-70-33
+\Miscellaneous Songs\Twin - Cafe.xml | 108 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-54-77-69-6E-20-2D-20-43-61-66-65-2E-6D-70-33
+--- mirror dirs ---
+\Artists
+\Artists\Alpha
+\Artists\Alpha\Album One
+\Artists\Beyoncé
+\Artists\Beyoncé\Lemonade
+\Artists\Pct
+\Artists\Pct\100% Real
+\Artists\Pct\Brackets [x]
+\Artists\Wide　Name
+\Empty Folder
+\Miscellaneous Songs
+--- stamp / staging ---
+staging exists: False
+old exists: False
+=== pass 4: delete + add ===
+--- console (time line removed) ---
+
+Creating mirror of '<ROOT>\Audio\..\Audio'...
+ - Path: '<ROOT>\AUDIO_MIRROR'
+ - MP3 file count: 10
+ - Non-MP3 files found: 3 (UNEXPECTED!)
+  - Extension list: .ini, .jpg, .txt
+  - Unexpected file types:
+    .jpg (1 files):
+      - Artists\cover.jpg
+ - MP3 filenames sanitised: 4
+ - XMLs pruned (MP3 deleted since last analysis): 1
+ - Recreated: False
+
+--- helper per mp3 ---
+Artists\Alpha\Album One\Alpha - Three.xml | Alpha - Three.mp3
+Artists\Alpha\Album One\Alpha - Two (feat. B).xml | Alpha - Two (feat. B).mp3
+Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | Beyonce - Sorry.mp3
+Artists\Pct\100% Real\100% - Hash #1.xml | 100% - Hash #1.mp3
+Artists\Pct\Brackets [x]\A & B - [x] Song.xml | A & B - [x] Song.mp3
+Artists\Wide　Name\Wide_ Title.xml | Wide_ Title.mp3
+Miscellaneous Songs\Cafe del Mar - __.xml | Cafe del Mar - __.mp3
+Miscellaneous Songs\Solo - Track.xml | Solo - Track.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+Miscellaneous Songs\Twin - Cafe.xml | Twin - Cafe.mp3
+--- mirror files (relative | length | bytes hex) ---
+\Artists\Alpha\Album One\Alpha - Three.xml | 114 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-54-68-72-65-65-2E-6D-70-33
+\Artists\Alpha\Album One\Alpha - Two (feat. B).xml | 122 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-41-6C-70-68-61-5C-41-6C-62-75-6D-20-4F-6E-65-5C-41-6C-70-68-61-20-2D-20-54-77-6F-20-28-66-65-61-74-2E-20-42-29-2E-6D-70-33
+\Artists\Beyoncé\Lemonade\Beyonce - Sorry.xml | 119 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-42-65-79-6F-6E-63-C3-A9-5C-4C-65-6D-6F-6E-61-64-65-5C-42-65-79-6F-6E-63-C3-A9-20-2D-20-53-6F-72-72-79-2E-6D-70-33
+\Artists\Pct\100% Real\100% - Hash #1.xml | 113 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-31-30-30-25-20-52-65-61-6C-5C-31-30-30-25-20-2D-20-48-61-73-68-20-23-31-2E-6D-70-33
+\Artists\Pct\Brackets [x]\A & B - [x] Song.xml | 118 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-50-63-74-5C-42-72-61-63-6B-65-74-73-20-5B-78-5D-5C-41-20-26-20-42-20-2D-20-5B-78-5D-20-53-6F-6E-67-2E-6D-70-33
+\Artists\Wide　Name\Wide_ Title.xml | 110 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-41-72-74-69-73-74-73-5C-57-69-64-65-E3-80-80-4E-61-6D-65-5C-57-69-64-65-EF-BC-9A-20-54-69-74-6C-65-2E-6D-70-33
+\Miscellaneous Songs\Cafe del Mar - __.xml | 117 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-43-61-66-C3-A9-20-64-65-6C-20-4D-61-72-20-2D-20-D0-94-D0-B0-2E-6D-70-33
+\Miscellaneous Songs\Solo - Track.xml | 109 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-53-6F-6C-6F-20-2D-20-54-72-61-63-6B-2E-6D-70-33
+\Miscellaneous Songs\Twin - Cafe.xml | 108 | 3C-52-4F-4F-54-3E-5C-41-75-64-69-6F-5C-2E-2E-5C-41-75-64-69-6F-5C-4D-69-73-63-65-6C-6C-61-6E-65-6F-75-73-20-53-6F-6E-67-73-5C-54-77-69-6E-20-2D-20-43-61-66-65-2E-6D-70-33
+--- mirror dirs ---
+\Artists
+\Artists\Alpha
+\Artists\Alpha\Album One
+\Artists\Beyoncé
+\Artists\Beyoncé\Lemonade
+\Artists\Pct
+\Artists\Pct\100% Real
+\Artists\Pct\Brackets [x]
+\Artists\Wide　Name
+\Empty Folder
+\Miscellaneous Songs
+--- stamp / staging ---
+staging exists: False
+old exists: False

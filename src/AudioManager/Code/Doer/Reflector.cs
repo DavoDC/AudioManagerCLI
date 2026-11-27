@@ -140,8 +140,10 @@ namespace AudioManager
         /// </summary>
         public void CreateFolders()
         {
-            // Directory.GetDirectories throws for a missing audio root, before anything is created
-            string[] realDirs = Directory.GetDirectories(audioRoot, "*", SearchOption.AllDirectories);
+            // One walk of the audio tree lists the folders and the files (and each file's mtime); it throws for a
+            // missing audio root, before anything is created
+            ListAudioTree();
+            string[] realDirs = listedDirs;
 
             // A stale staging folder (never the live mirror) is cleared before a fresh build
             if (AgeChecker.RegenMirror && Directory.Exists(buildPath))
@@ -163,6 +165,57 @@ namespace AudioManager
         }
 
 
+        // The audio tree as listed once per build: folders, files and (fast path only) each file's last-write time.
+        private string[] listedDirs;
+        private string[] listedFiles;
+        private DateTime[] listedFileTimesUtc;
+
+        /// <summary>
+        /// Lists the audio tree once. The fast path walks with DirectoryInfo, whose entries carry the mtime from the
+        /// directory read (no stat per file); it yields the same paths in the same order as Directory.GetFiles and
+        /// Directory.GetDirectories, but only for a root that is already in full-path form, so any other root keeps the
+        /// original calls (and their path spelling) untouched.
+        /// </summary>
+        private void ListAudioTree()
+        {
+            if (!IsFullPathForm(audioRoot))
+            {
+                listedDirs = Directory.GetDirectories(audioRoot, "*", SearchOption.AllDirectories);
+                listedFiles = Directory.GetFiles(audioRoot, "*", SearchOption.AllDirectories);
+                listedFileTimesUtc = null;
+                return;
+            }
+
+            var dirs = new List<string>();
+            var files = new List<string>();
+            var times = new List<DateTime>();
+            foreach (FileSystemInfo entry in new DirectoryInfo(audioRoot).EnumerateFileSystemInfos("*", SearchOption.AllDirectories))
+            {
+                if (entry is DirectoryInfo)
+                {
+                    dirs.Add(entry.FullName);
+                }
+                else
+                {
+                    files.Add(entry.FullName);
+                    times.Add(entry.LastWriteTimeUtc);
+                }
+            }
+            listedDirs = dirs.ToArray();
+            listedFiles = files.ToArray();
+            listedFileTimesUtc = times.ToArray();
+        }
+
+        /// <summary>
+        /// True when the path is already its own normalised full form, so FileSystemInfo.FullName spells it exactly as
+        /// the string-based directory calls do.
+        /// </summary>
+        private static bool IsFullPathForm(string path)
+        {
+            try { return string.Equals(Path.GetFullPath(path), path, StringComparison.Ordinal); }
+            catch (Exception) { return false; }
+        }
+
         /// <summary>
         /// Populate folder structure with mirrored files. In incremental mode, also prunes XMLs
         /// whose source MP3 no longer exists (guard: only when Audio root enumerated successfully).
@@ -176,29 +229,50 @@ namespace AudioManager
             int refreshedCount = 0;
             List<string> nonMP3Files = new List<string>();
 
-            // For every actual file
-            string[] realFiles = Directory.GetFiles(audioRoot, "*", SearchOption.AllDirectories);
+            // For every actual file (listed once, with CreateFolders)
+            string[] realFiles = listedFiles;
 
             // Track expected XML paths so orphan detection knows what to keep
             var expectedXmlPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var realFilePath in realFiles)
+            // Incremental mode: one walk of the existing mirror gives every XML's path and mtime. It serves the stale
+            // check below (no stat per XML) and the orphan prune after the loop (no second walk): XMLs written during the
+            // loop are all expected, so the prune outcome is the same as listing after the loop.
+            List<string> existingXmls = null;
+            Dictionary<string, DateTime> existingXmlTimes = null;
+            if (!AgeChecker.RegenMirror && Directory.Exists(buildPath) && IsFullPathForm(buildPath))
             {
-                // Get relative file path
-                string relativePath = GetRelativePath(audioRoot, realFilePath);
+                existingXmls = new List<string>();
+                existingXmlTimes = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+                foreach (FileInfo xml in new DirectoryInfo(buildPath).EnumerateFiles("*.xml", SearchOption.AllDirectories))
+                {
+                    existingXmls.Add(xml.FullName);
+                    existingXmlTimes[xml.FullName] = xml.LastWriteTimeUtc;
+                }
+            }
 
-                // For non-MP3 files, add to list and skip
+            for (int fileIndex = 0; fileIndex < realFiles.Length; fileIndex++)
+            {
+                string realFilePath = realFiles[fileIndex];
+                // For non-MP3 files, add the relative path to the list and skip
                 if (Path.GetExtension(realFilePath)?.ToLowerInvariant() != ".mp3")
                 {
-                    nonMP3Files.Add(relativePath);
+                    nonMP3Files.Add(GetRelativePath(audioRoot, realFilePath));
                     continue;
                 }
 
-                // Compute expected XML path (same helper as CreateFile, for orphan tracking)
-                expectedXmlPaths.Add(Path.Combine(buildPath, MirrorXmlRelativePath(audioRoot, realFilePath)));
+                // Compute the XML path once (the same helper as the pre-move gate), for orphan tracking and the write
+                string fullMirrorPath = Path.Combine(buildPath, MirrorXmlRelativePath(audioRoot, realFilePath, out bool sanitised));
+                bool firstUse = expectedXmlPaths.Add(fullMirrorPath);
+
+                // The listed mtime is valid only for the first mp3 that maps to this XML: a second one (two names that
+                // sanitise alike) must see the XML the first one just wrote, so it takes the live stat.
+                DateTime xmlTime = default(DateTime);
+                bool xmlTimeKnown = firstUse && existingXmlTimes != null && existingXmlTimes.TryGetValue(fullMirrorPath, out xmlTime);
+                DateTime? mp3Time = listedFileTimesUtc != null ? listedFileTimesUtc[fileIndex] : (DateTime?)null;
 
                 // Otherwise, process MP3 file
-                if (CreateFile(realFilePath, out bool refreshed))
+                if (CreateFile(realFilePath, fullMirrorPath, sanitised, xmlTimeKnown ? xmlTime : (DateTime?)null, mp3Time, out bool refreshed))
                     sanitisationCount++;
                 if (refreshed)
                     refreshedCount++;
@@ -210,7 +284,7 @@ namespace AudioManager
             // Guard: skip if Audio root returned 0 files (access failure or unexpected empty library).
             int prunedCount = 0;
             if (!AgeChecker.RegenMirror && realFiles.Length > 0)
-                prunedCount = PruneOrphanedXmls(buildPath, expectedXmlPaths);
+                prunedCount = PruneOrphanedXmls(buildPath, expectedXmlPaths, existingXmls);
 
             // Return holders
             return Tuple.Create(mp3FileCount, sanitisationCount, refreshedCount, prunedCount, nonMP3Files);
@@ -224,23 +298,35 @@ namespace AudioManager
         /// <param name="realFilePath">The actual MP3 file path</param>
         /// <param name="refreshed">Output: true if an existing XML was overwritten because the MP3 was newer</param>
         /// <returns>True if the filename was sanitised</returns>
-        private bool CreateFile(string realFilePath, out bool refreshed)
+        /// <param name="fullMirrorPath">The XML path, already computed by the caller from MirrorXmlRelativePath</param>
+        /// <param name="sanitised">True if the XML name differs from the MP3 name, from the same call</param>
+        /// <param name="knownXmlTimeUtc">The XML's mtime from the mirror walk when it was listed as existing, else null (stat it)</param>
+        /// <param name="knownMp3TimeUtc">The MP3's mtime from the audio walk, or null (stat it)</param>
+        private bool CreateFile(string realFilePath, string fullMirrorPath, bool sanitised, DateTime? knownXmlTimeUtc, DateTime? knownMp3TimeUtc, out bool refreshed)
         {
             refreshed = false;
 
-            // Sanitisation flag: the XML name differs from the MP3 name
-            string fileName = Path.GetFileName(realFilePath);
-            bool sanitised = fileName != SanitiseFilename(fileName);
+            // One stat of the XML answers both "exists" and "mtime" (File.Exists is false for a directory, as FileInfo.Exists is),
+            // and none is needed when the mirror walk already listed it
+            DateTime xmlTimeUtc = default(DateTime);
+            bool xmlExists = knownXmlTimeUtc.HasValue;
+            if (xmlExists)
+            {
+                xmlTimeUtc = knownXmlTimeUtc.Value;
+            }
+            else
+            {
+                var xmlInfo = new FileInfo(fullMirrorPath);
+                xmlExists = xmlInfo.Exists;
+                if (xmlExists) xmlTimeUtc = xmlInfo.LastWriteTimeUtc;
+            }
 
-            // Generate the full mirror path (same helper as the orphan tracking and the pre-move gate)
-            string fullMirrorPath = Path.Combine(buildPath, MirrorXmlRelativePath(audioRoot, realFilePath));
-
-            if (!File.Exists(fullMirrorPath))
+            if (!xmlExists)
             {
                 // XML doesn't exist: create it containing the real path
                 AtomicFile.WriteAllText(fullMirrorPath, realFilePath, new UTF8Encoding(false));
             }
-            else if (IsStaleMirrorXml(realFilePath, fullMirrorPath))
+            else if ((knownMp3TimeUtc ?? File.GetLastWriteTimeUtc(realFilePath)) > xmlTimeUtc)
             {
                 // MP3 was modified after the XML was written (e.g., tag edit in Mp3tag):
                 // overwrite with the real path so this run re-reads fresh tag data
@@ -268,6 +354,15 @@ namespace AudioManager
         /// </summary>
         internal static int PruneOrphanedXmls(string mirrorPath, HashSet<string> expectedXmlPaths)
         {
+            return PruneOrphanedXmls(mirrorPath, expectedXmlPaths, null);
+        }
+
+        /// <summary>
+        /// Same prune over an already-listed set of XML paths (spelled as Directory.GetFiles would), or a fresh
+        /// walk of mirrorPath when none is given.
+        /// </summary>
+        internal static int PruneOrphanedXmls(string mirrorPath, HashSet<string> expectedXmlPaths, IEnumerable<string> listedXmlPaths)
+        {
             if (!Directory.Exists(mirrorPath)) return 0;
 
             // Never delete everything on an empty expected set (e.g. a library with only non-MP3 files)
@@ -278,7 +373,7 @@ namespace AudioManager
             }
             int pruned = 0;
             // "*.xml" also matches longer extensions on .NET Framework (8.3 semantics), so filter exactly.
-            foreach (string xmlFile in Directory.GetFiles(mirrorPath, "*.xml", SearchOption.AllDirectories))
+            foreach (string xmlFile in listedXmlPaths ?? Directory.GetFiles(mirrorPath, "*.xml", SearchOption.AllDirectories))
             {
                 if (!xmlFile.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)) continue;
                 if (expectedXmlPaths.Contains(xmlFile)) continue;
@@ -404,13 +499,49 @@ namespace AudioManager
         /// <returns>Sanitised filename.</returns>
         public static string SanitiseFilename(string filename)
         {
+            // Fast path: a name made only of ASCII characters the full pipeline provably leaves unchanged
+            if (filename != null && IsUnchangedByFullSanitise(filename)) return filename;
+            return SanitiseFilenameFull(filename);
+        }
+
+        // The single-byte code page used for the wide-character squash, fetched once instead of per call.
+        // Declared before AsciiUnchanged: static initialisers run in textual order and the table build calls the full pipeline.
+        private static readonly Encoding CyrillicEncoding = Encoding.GetEncoding("Cyrillic");
+
+        // Per-ASCII-char answer from the full pipeline itself ("does a name of just this char come back unchanged"), built once.
+        // The pipeline works per character (category filter, single-byte code page round trip, invalid-char map), so a name
+        // whose every char is in the set is returned unchanged. Derived from SanitiseFilenameFull, never hand-listed.
+        private static readonly bool[] AsciiUnchanged = BuildAsciiUnchanged();
+
+        private static bool[] BuildAsciiUnchanged()
+        {
+            var table = new bool[128];
+            for (int c = 0; c < 128; c++)
+            {
+                string one = ((char)c).ToString();
+                table[c] = SanitiseFilenameFull(one) == one;
+            }
+            return table;
+        }
+
+        private static bool IsUnchangedByFullSanitise(string filename)
+        {
+            foreach (char c in filename)
+            {
+                if (c >= 128 || !AsciiUnchanged[c]) return false;
+            }
+            return true;
+        }
+
+        private static string SanitiseFilenameFull(string filename)
+        {
             // Remove any non-ASCII characters and replace wide characters with their closest equivalent
             string sanitisedFilename = new string(filename
                 .Where(c => Char.GetUnicodeCategory(c) != UnicodeCategory.Control &&
                             Char.GetUnicodeCategory(c) != UnicodeCategory.ModifierSymbol &&
                             Char.GetUnicodeCategory(c) != UnicodeCategory.OtherSymbol)
                 .ToArray());
-            sanitisedFilename = Encoding.ASCII.GetString(Encoding.GetEncoding("Cyrillic").GetBytes(sanitisedFilename));
+            sanitisedFilename = Encoding.ASCII.GetString(CyrillicEncoding.GetBytes(sanitisedFilename));
 
             // Replace invalid characters with an underscore if found
             if (sanitisedFilename.Any(c => Constants.InvalidChars.Contains(c)))
@@ -429,6 +560,8 @@ namespace AudioManager
         /// <param name="basePath">The base path.</param>
         /// <param name="targetPath">The target path.</param>
         /// <returns>The relative path from the base path to the target path.</returns>
+        private static volatile Tuple<string, Uri> lastBaseUri;
+
         private static string GetRelativePath(string basePath, string targetPath)
         {
             // Ensure basePath is treated as a directory (trailing separator) so Uri.MakeRelativeUri
@@ -440,7 +573,14 @@ namespace AudioManager
             }
 
             // Convert paths to URIs for accurate relative path calculation
-            Uri baseUri = new Uri(basePathFixed);
+            // The base is the same for every file of a run, so its parsed Uri is kept (one immutable pair, swapped whole, thread-safe)
+            var cached = lastBaseUri;
+            if (cached == null || !string.Equals(cached.Item1, basePathFixed, StringComparison.Ordinal))
+            {
+                cached = Tuple.Create(basePathFixed, new Uri(basePathFixed));
+                lastBaseUri = cached;
+            }
+            Uri baseUri = cached.Item2;
             Uri targetUri = new Uri(targetPath);
 
             // Calculate relative URI
@@ -460,10 +600,20 @@ namespace AudioManager
         /// </summary>
         internal static string MirrorXmlRelativePath(string audioRoot, string libraryFilePath)
         {
+            return MirrorXmlRelativePath(audioRoot, libraryFilePath, out _);
+        }
+
+        /// <summary>
+        /// Same path, also reporting whether the file name was sanitised (the XML name differs from the MP3 name),
+        /// so a caller that needs both pays for one sanitise and one relative-path calculation.
+        /// </summary>
+        internal static string MirrorXmlRelativePath(string audioRoot, string libraryFilePath, out bool sanitised)
+        {
             string relativePath = GetRelativePath(audioRoot, libraryFilePath);
             string fileName = Path.GetFileName(libraryFilePath);
             string sanitisedName = SanitiseFilename(fileName);
-            string xmlRelPath = fileName != sanitisedName
+            sanitised = fileName != sanitisedName;
+            string xmlRelPath = sanitised
                 ? ReplaceFileNameSegment(relativePath, sanitisedName)
                 : relativePath;
             return Path.ChangeExtension(xmlRelPath, ".xml");
