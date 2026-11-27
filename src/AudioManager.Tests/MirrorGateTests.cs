@@ -93,7 +93,7 @@ namespace AudioManager
                 + "<Year>" + year + "</Year>"
                 + "<TrackNumber>1</TrackNumber>"
                 + "<Genres>Rock</Genres>"
-                + "<Length>200</Length>"
+                + "<Length>00:03:20.0000000</Length>"
                 + "<AlbumCover><Count>1</Count><Width>1000</Width><Height>1000</Height></AlbumCover>"
                 + "<Compilation>true</Compilation>"
                 + "</Track>";
@@ -291,6 +291,75 @@ namespace AudioManager
                 Assert.True(!result, "auto-commit reports not committed on a bad year");
                 Assert.Equal(before, Head(repo), "auto-commit left HEAD unchanged");
                 Assert.True(capture.ToString().Contains("[WARN]"), "auto-commit prints a [WARN] line");
+            }
+            finally { Cleanup(repo); }
+        }
+
+        // BL-319: a mirror XML with the FieldRules fields set individually. Each argument is the raw element text.
+        private static string FieldsXml(string title = "Song", string genres = "Rock", string trackNumber = "1",
+            string length = "00:03:20.0000000", string coverWidth = "1000", string coverHeight = "1000")
+        {
+            return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<Track>"
+                + "<Title>" + title + "</Title>"
+                + "<Artists>Alpha</Artists>"
+                + "<Album>Album1</Album>"
+                + "<Year>2020</Year>"
+                + "<TrackNumber>" + trackNumber + "</TrackNumber>"
+                + "<Genres>" + genres + "</Genres>"
+                + "<Length>" + length + "</Length>"
+                + "<AlbumCover><Count>1</Count><Width>" + coverWidth + "</Width><Height>" + coverHeight + "</Height></AlbumCover>"
+                + "<Compilation>true</Compilation>"
+                + "</Track>";
+        }
+
+        public static void FieldRules_BlankGenre_PassesGate()
+        {
+            string repo = CreateRepoWithInitialCommit();
+            try
+            {
+                WriteFile(repo, GoodRel, FieldsXml(genres: ""));
+                MirrorGateResult r = MirrorGate.Validate(repo);
+                Assert.True(r.Problems.Count == 0, "a blank Genres is allowed");
+            }
+            finally { Cleanup(repo); }
+        }
+
+        public static void FieldRules_TrailingSpaceTitle_RefusedByGate()
+        {
+            string repo = CreateRepoWithInitialCommit();
+            try
+            {
+                WriteFile(repo, GoodRel, FieldsXml(title: "Song "));
+                MirrorGateResult r = MirrorGate.Validate(repo);
+                Assert.True(r.Problems.Count == 1, "a Title with a trailing space is refused");
+                Assert.True(r.Problems[0].Reason.Contains("Title"), "reason names Title: " + r.Problems[0].Reason);
+            }
+            finally { Cleanup(repo); }
+        }
+
+        public static void FieldRules_WarnOnlyFields_AllowedByGate()
+        {
+            string repo = CreateRepoWithInitialCommit();
+            try
+            {
+                // TrackNumber 0 (grandfathered), a nonsquare cover and a 45 minute track are WARN only: the commit goes ahead.
+                WriteFile(repo, GoodRel, FieldsXml(trackNumber: "0", coverWidth: "1200", coverHeight: "1000", length: "00:45:00"));
+                MirrorGateResult r = MirrorGate.Validate(repo);
+                Assert.True(r.Problems.Count == 0, "WARN-only fields do not refuse: " + (r.Problems.Count > 0 ? r.Problems[0].Reason : ""));
+                Assert.True(r.Ok, "a WARN-only file is ok");
+            }
+            finally { Cleanup(repo); }
+        }
+
+        public static void FieldRules_ShortLengthAndUnknownCover_RefusedByGate()
+        {
+            string repo = CreateRepoWithInitialCommit();
+            try
+            {
+                WriteFile(repo, GoodRel, FieldsXml(length: "00:00:05"));
+                Assert.True(MirrorGate.Validate(repo).Problems.Count == 1, "a 5 second Length is refused");
+                WriteFile(repo, GoodRel, FieldsXml(coverWidth: "Unknown"));
+                Assert.True(MirrorGate.Validate(repo).Problems.Count == 1, "an Unknown cover width is refused");
             }
             finally { Cleanup(repo); }
         }

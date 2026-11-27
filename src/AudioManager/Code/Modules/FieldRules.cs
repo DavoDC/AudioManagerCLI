@@ -37,7 +37,7 @@ namespace AudioManager.Code.Modules
                 case "Album":
                     return TextProblem(value);
                 case "Genres":
-                    return IsBlankOrMissing(value) ? Block("is missing or blank") : null;
+                    return null; // blank or Missing genre is allowed (David 2026-11-27)
                 case "Year":
                     if (value == Constants.MissingTag || YearRule.IsValid(value ?? string.Empty)) return null;
                     return Block("'" + (value ?? string.Empty) + "' is not a valid year (1900 to next year)");

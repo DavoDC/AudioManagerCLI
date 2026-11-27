@@ -49,10 +49,10 @@ namespace AudioManager
             }
         }
 
-        public static void FieldRules_Genres_BlankOrMissing_Blocks()
+        public static void FieldRules_Genres_BlankOrMissing_Passes()
         {
-            Assert.True(Blocks("Genres", ""), "empty genre blocks");
-            Assert.True(Blocks("Genres", "Missing"), "Missing genre blocks");
+            Assert.True(Passes("Genres", ""), "empty genre is allowed (David 2026-11-27)");
+            Assert.True(Passes("Genres", "Missing"), "Missing genre is allowed");
             Assert.True(Passes("Genres", "Rock; Pop"), "a genre passes");
         }
 
