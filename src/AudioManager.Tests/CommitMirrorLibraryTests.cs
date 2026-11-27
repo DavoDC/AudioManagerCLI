@@ -165,8 +165,9 @@ namespace AudioManager
             try
             {
                 string before = Head(repo);
-                WriteFile(repo, Rel, TrackXml());
-                WriteFile(repo, "AUDIO_MIRROR/Artists/Alpha/Singles/Alpha - Song 2.xml", TrackXml(album: "Album2"));
+                // Same album in one album folder: the pair is a duplicate and two songs from one album are not in Singles/
+                WriteFile(repo, "AUDIO_MIRROR/Artists/Alpha/Album1/Alpha - Song.xml", TrackXml());
+                WriteFile(repo, "AUDIO_MIRROR/Artists/Alpha/Album1/Alpha - Song 2.xml", TrackXml());
                 int code = RunCaptured(repo, "Add duplicate", out string output);
                 string json = LastLine(output);
                 Assert.True(code == 0, "a fix-later hit does not refuse, got " + code + " json: " + json);

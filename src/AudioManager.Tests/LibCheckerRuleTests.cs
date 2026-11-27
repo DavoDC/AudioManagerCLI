@@ -2,6 +2,7 @@ using AudioManager.Code.Modules;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace AudioManager
 {
@@ -46,11 +47,11 @@ namespace AudioManager
 
         public static void LibCheckerRule_Duplicates_ReportsBothCopies()
         {
-            // Same title and artists, different albums so the album-subfolder rule stays out of the way
+            // Same title, artist and album: the pair the duplicate rule must report (album now part of the match)
             var tagA = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A.xml",
                 "Song A", "Artist Alpha", "Album One");
             var tagB = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A (2).xml",
-                "Song A", "Artist Alpha", "Album Two");
+                "Song A", "Artist Alpha", "Album One");
             bool clean;
             string console = RunLibChecker(new List<TrackTag> { tagA, tagB }, out clean);
 
@@ -77,6 +78,136 @@ namespace AudioManager
             Assert.True(!console.Contains("duplicates another track!"),
                 "no duplicate message expected for different artists");
         }
+
+        // ---- Duplicate key and extra points (album and length) ----
+
+        private static TrackTag TrackWithLength(string relPath, string title, string artists, string album, string length)
+        {
+            return new TrackTag(relPath, title, artists, album, "2020", "1", "Hip-Hop",
+                length, "1", "True", "1200", "1200");
+        }
+
+        private static List<LibChecker.LibCheckerHit> DuplicateHits(List<TrackTag> tags)
+        {
+            var checker = new LibChecker(tags);
+            return checker.Hits.Where(h => h.Kind == "duplicate").ToList();
+        }
+
+        public static void LibCheckerRule_Duplicates_CaseInsensitiveMatch_Flagged()
+        {
+            // Same track, different case and padding in title and artist: still one duplicate pair
+            var tagA = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A.xml",
+                "Song A", "Artist Alpha", "Album One");
+            var tagB = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A (2).xml",
+                " SONG a ", "artist ALPHA", "Album One");
+            bool clean;
+            string console = RunLibChecker(new List<TrackTag> { tagA, tagB }, out clean);
+
+            Assert.True(!clean, "case and padding differences should still be a duplicate");
+            Assert.True(CountOf(console, "duplicates another track!") == 2,
+                "both members of a case-insensitive pair should be reported, had " + CountOf(console, "duplicates another track!"));
+        }
+
+        public static void LibCheckerRule_Duplicates_DifferentAlbum_NotFlagged()
+        {
+            // A live or remix release carries its own album, so the same title on another album is a different track
+            var tagA = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A.xml",
+                "Song A", "Artist Alpha", "Album One");
+            var tagB = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A (Live).xml",
+                "Song A", "Artist Alpha", "Live Album");
+            bool clean;
+            string console = RunLibChecker(new List<TrackTag> { tagA, tagB }, out clean);
+
+            Assert.True(!console.Contains("duplicates another track!"),
+                "same title and artist on different albums must not be a duplicate");
+        }
+
+        public static void LibCheckerRule_Duplicates_AlbumCaseOnlyDifference_Flagged()
+        {
+            var tagA = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A.xml",
+                "Song A", "Artist Alpha", "Album One");
+            var tagB = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A (2).xml",
+                "Song A", "Artist Alpha", "ALBUM one");
+            bool clean;
+            string console = RunLibChecker(new List<TrackTag> { tagA, tagB }, out clean);
+
+            Assert.True(CountOf(console, "duplicates another track!") == 2,
+                "album compare is case-insensitive, had " + CountOf(console, "duplicates another track!"));
+        }
+
+        public static void LibCheckerRule_Duplicates_BlankAlbumOnOneSide_StillFlagged()
+        {
+            // An unknown album agrees with anything, so a missing tag does not hide a duplicate
+            var tagA = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A.xml",
+                "Song A", "Artist Alpha", "Album One");
+            var tagB = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A (2).xml",
+                "Song A", "Artist Alpha", "");
+            bool clean;
+            string console = RunLibChecker(new List<TrackTag> { tagA, tagB }, out clean);
+
+            Assert.True(CountOf(console, "duplicates another track!") == 2,
+                "a blank album on one side is unknown and should still pair, had " + CountOf(console, "duplicates another track!"));
+        }
+
+        public static void LibCheckerRule_Duplicates_DifferentDuration_NotFlagged()
+        {
+            // Same title and album but a clearly longer length (a remix or extended cut) is a different track
+            var tagA = TrackWithLength("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A.xml",
+                "Song A", "Artist Alpha", "Album One", "00:03:00.0000000");
+            var tagB = TrackWithLength("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A (Remix).xml",
+                "Song A", "Artist Alpha", "Album One", "00:04:30.0000000");
+            bool clean;
+            string console = RunLibChecker(new List<TrackTag> { tagA, tagB }, out clean);
+
+            Assert.True(!console.Contains("duplicates another track!"),
+                "durations 90 s apart must not be a duplicate");
+        }
+
+        public static void LibCheckerRule_Duplicates_DurationWithinTwoSeconds_Flagged()
+        {
+            var tagA = TrackWithLength("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A.xml",
+                "Song A", "Artist Alpha", "Album One", "00:03:00.0000000");
+            var tagB = TrackWithLength("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A (2).xml",
+                "Song A", "Artist Alpha", "Album One", "00:03:01.5000000");
+            bool clean;
+            string console = RunLibChecker(new List<TrackTag> { tagA, tagB }, out clean);
+
+            Assert.True(CountOf(console, "duplicates another track!") == 2,
+                "durations 1.5 s apart are within the 2 s tolerance, had " + CountOf(console, "duplicates another track!"));
+        }
+
+        public static void LibCheckerRule_Duplicates_HitTextNamesAlbumAndFolder()
+        {
+            // Two same-title tracks must be told apart by album and folder in the hit text
+            var tagA = Track("\\Artists\\Artist Alpha\\Album One\\Song A.xml",
+                "Song A", "Artist Alpha", "Album One");
+            var tagB = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A (2).xml",
+                "Song A", "Artist Alpha", "Album One");
+            var hits = DuplicateHits(new List<TrackTag> { tagA, tagB });
+
+            Assert.True(hits.Count == 2, "both copies should produce a duplicate hit, had " + hits.Count);
+            var first = hits.First(h => h.Path == tagA.RelPath);
+            Assert.True(first.Detail.Contains("'Album One'"), "hit names its own album, got: " + first.Detail);
+            Assert.True(first.Detail.Contains("'\\Artists\\Artist Alpha\\Album One'"), "hit names its own folder, got: " + first.Detail);
+            Assert.True(first.Detail.Contains("'\\Artists\\Artist Alpha\\Singles'"), "hit names the other copy's folder, got: " + first.Detail);
+        }
+
+        public static void LibCheckerRule_Duplicates_WarnOnly_DoesNotBlockIntegration()
+        {
+            // Duplicate stays warn-only: a pair never sets the blocking flag the gate reads
+            var tagA = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A.xml",
+                "Song A", "Artist Alpha", "Album One");
+            var tagB = Track("\\Artists\\Artist Alpha\\Singles\\Artist Alpha - Song A (2).xml",
+                "song a", "Artist Alpha", "Album One");
+            var checker = new LibChecker(new List<TrackTag> { tagA, tagB });
+
+            Assert.True(checker.Hits.Any(h => h.Kind == "duplicate"), "the pair is still reported");
+            Assert.True(LibChecker.FixLaterKinds.Contains("duplicate"), "duplicate is a fix-later kind");
+            // Only non-duplicate hits may set the blocking flag: the pair itself never does
+            bool otherBlocking = checker.Hits.Any(h => h.Kind != "duplicate" && !LibChecker.FixLaterKinds.Contains(h.Kind));
+            Assert.True(checker.HasBlockingHits == otherBlocking, "a duplicate pair never sets the blocking flag by itself");
+        }
+
 
         // ---- CheckAlbumSubfolderRule ----
 

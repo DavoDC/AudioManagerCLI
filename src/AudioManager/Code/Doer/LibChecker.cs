@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -648,30 +649,84 @@ namespace AudioManager
         }
 
         /// <summary>
-        /// Check for duplicate tracks
+        /// Check for duplicate tracks. The key is artist + title, case-insensitive and trimmed. A pair is a duplicate only
+        /// when the extra points agree or are unknown: album (case-insensitive) and Length within 2 s. A live or remix
+        /// version has its own album or length, so it is not reported. Warn-only: the hits are fix-later kinds.
         /// </summary>
         private void CheckForDuplicates()
         {
             Console.WriteLine($" - Checking all tags for duplicates...");
 
-            // Get duplicate tracks using LINQ
+            // Group by artist + title (case-insensitive, trimmed); the extra points are checked per pair below
             var dupGroups = audioTags
-                .GroupBy(t => new { t.Title, t.Artists }) // Group the tracks by Title and all Artists
-                .Where(g => g.Count() > 1) // Filter to counts above 1
+                .GroupBy(t => DuplicateKey(t), StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1)
                 .ToList();
-            var duplicateTracks = dupGroups.SelectMany(g => g); // Get instances
 
-            // Print out info of each duplicate
+            // Print out info of each duplicate: a track is reported when at least one other group member agrees on album and length
             int totalHits = 0;
-            foreach (var curDupe in duplicateTracks)
+            foreach (var group in dupGroups)
             {
-                Console.WriteLine($"  - '{curDupe.RelPath}' duplicates another track!");
-                Hit("duplicate", curDupe.RelPath, "duplicates another track");
-                hits[hits.Count - 1].Related = dupGroups
-                    .First(g => g.Any(x => ReferenceEquals(x, curDupe))).Where(x => !ReferenceEquals(x, curDupe)).Select(x => x.RelPath).ToList();
-                totalHits++;
+                var members = group.ToList();
+                foreach (var curDupe in members)
+                {
+                    var matches = members.Where(x => !ReferenceEquals(x, curDupe) && SameTrackPoints(curDupe, x)).ToList();
+                    if (matches.Count == 0) continue;
+                    Console.WriteLine($"  - '{curDupe.RelPath}' duplicates another track!");
+                    Hit("duplicate", curDupe.RelPath, DuplicateDetail(curDupe, matches));
+                    hits[hits.Count - 1].Related = matches.Select(x => x.RelPath).ToList();
+                    totalHits++;
+                }
             }
             PrintTotalHits(totalHits);
+        }
+
+        /// <summary>Grouping key for duplicates: trimmed artists and title joined with a separator no tag text contains.</summary>
+        internal static string DuplicateKey(TrackTag t)
+        {
+            return (t.Artists ?? string.Empty).Trim() + "\u0001" + (t.Title ?? string.Empty).Trim();
+        }
+
+        /// <summary>True when the extra points agree or are unknown: album (case-insensitive) and Length within 2 s.</summary>
+        internal static bool SameTrackPoints(TrackTag a, TrackTag b)
+        {
+            if (!string.IsNullOrWhiteSpace(a.Album) && !string.IsNullOrWhiteSpace(b.Album)
+                && !string.Equals(a.Album.Trim(), b.Album.Trim(), StringComparison.OrdinalIgnoreCase))
+                return false;
+            double? la = LengthSeconds(a.Length);
+            double? lb = LengthSeconds(b.Length);
+            if (la.HasValue && lb.HasValue && Math.Abs(la.Value - lb.Value) > 2.0) return false;
+            return true;
+        }
+
+        /// <summary>Length as seconds, or null when blank or not a time span (bad_length reports that case).</summary>
+        private static double? LengthSeconds(string length)
+        {
+            TimeSpan span;
+            if (string.IsNullOrWhiteSpace(length) || !TimeSpan.TryParse(length.Trim(), CultureInfo.InvariantCulture, out span)) return null;
+            return span.TotalSeconds;
+        }
+
+        /// <summary>The folder part of a RelPath (the text before the last separator), or empty.</summary>
+        private static string FolderOf(string relPath)
+        {
+            int cut = (relPath ?? string.Empty).LastIndexOfAny(new[] { '\\', '/' });
+            return cut < 0 ? string.Empty : relPath.Substring(0, cut);
+        }
+
+        private static string AlbumText(string album)
+        {
+            return string.IsNullOrWhiteSpace(album) ? "(no album)" : "'" + album.Trim() + "'";
+        }
+
+        /// <summary>Hit text: this copy's album and folder, then the album and folder of each copy it matches.</summary>
+        private static string DuplicateDetail(TrackTag cur, List<TrackTag> matches)
+        {
+            var sb = new StringBuilder("duplicates another track: this copy is on album " + AlbumText(cur.Album)
+                + " in folder '" + FolderOf(cur.RelPath) + "'");
+            foreach (var m in matches)
+                sb.Append("; other copy is on album " + AlbumText(m.Album) + " in folder '" + FolderOf(m.RelPath) + "'");
+            return sb.ToString();
         }
 
         /// <summary>

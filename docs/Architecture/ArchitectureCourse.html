@@ -595,7 +595,7 @@ pre,code{white-space:pre-wrap;word-break:break-word;overflow-x:hidden;}
         <p>Think of LibChecker as a building inspector. Every new development needs inspection before people can move in. Every library analysis runs LibChecker before any integration is allowed.</p>
         <p>LibChecker does not fix problems - it only reports them. You fix them manually and run Analysis again until it is clean. Only a clean library can receive new songs.</p>
         <div class="badge-list animate-in">
-          <div class="badge-item"><code class="badge-code">Duplicate detection</code><span class="badge-desc">Finds songs that appear twice in the library - same title, same artist</span></div>
+          <div class="badge-item"><code class="badge-code">Duplicate detection</code><span class="badge-desc">Finds songs that appear twice in the library - same title, same artist (case-insensitive), same album and length within 2 s when both are known</span></div>
           <div class="badge-item"><code class="badge-code">Missing tags</code><span class="badge-desc">Flags songs with blank artist, title, or album fields - cannot be organized without them</span></div>
           <div class="badge-item"><code class="badge-code">Wrong folder</code><span class="badge-desc">Catches songs that ended up in a folder that does not match their tags - like a compilation in the Artists folder</span></div>
           <div class="badge-item"><code class="badge-code">Invalid filenames</code><span class="badge-desc">Finds filenames that do not follow the "Artist - Title.mp3" convention or contain illegal characters</span></div>

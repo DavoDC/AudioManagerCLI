@@ -13,7 +13,7 @@ namespace AudioManager
     // The timing test prints constructor times only and asserts nothing about speed.
     internal static class LibCheckerSpeedParityTests
     {
-        private const string ExpectedRecording = "2b09affdb3b8dcf3 hits=35";
+        private const string ExpectedRecording = "42d6278b8815617d hits=33";
 
         private static string ExceptionsXml() =>
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<Exceptions>\n" +
