@@ -7,6 +7,21 @@ namespace AudioManager
 {
     internal static class ParseCacheTests
     {
+        // Cluster 3 (BL-316): a rebuilt cache row with an implausible Year loads as Missing, never as the raw 201.
+        public static void RoundTrip_ImplausibleYear_LoadsAsMissing()
+        {
+            string path = TempCachePath();
+            try
+            {
+                var bad = new TrackTag("Artists/X/badyear.xml", "Title", "Artist", "Album", "201", "1", "Pop",
+                                       "00:03:30.0000000", "1", "False", "500", "499");
+                ParseCache.Save(path, new List<TrackTag> { bad });
+                ParseCache.TryDeserialize(path, out var loaded);
+                Assert.Equal(Constants.MissingTag, loaded[0].Year, "an implausible Year is stored as Missing");
+            }
+            finally { File.Delete(path); }
+        }
+
         private static string TempCachePath() =>
             Path.Combine(Path.GetTempPath(), $"am_cache_{Guid.NewGuid():N}.txt");
 

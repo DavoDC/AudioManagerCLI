@@ -55,6 +55,8 @@ namespace AudioManager.Code.Modules
                 // So load metadata from XML instead
                 
                 TrackXML.Read(mirrorFilePath, this);
+                // BL-316: an implausible Year in raw XML is stored as Missing, the same as the tag branch below
+                Year = YearRule.OrMissing(Year);
                 return;
             }
 

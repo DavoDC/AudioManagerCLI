@@ -26,6 +26,23 @@ namespace AudioManager
             Assert.True(message.Contains(badPath), "exception message should name the offending path");
         }
 
+        // Cluster 3 (BL-316): the raw-XML branch of the mirror constructor stores an implausible Year as Missing.
+        public static void TrackTag_RawXmlImplausibleYear_LoadsAsMissing()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "am_trackyear_" + Guid.NewGuid().ToString("N"));
+            string mirrorDir = Path.Combine(root, Constants.MirrorFolderName, "Artists", "X", "Singles");
+            string filePath = Path.Combine(mirrorDir, "badyear.xml");
+            try
+            {
+                Directory.CreateDirectory(mirrorDir);
+                TrackXML.Write(filePath, new TrackTag("Artists/X/Singles/badyear.xml", "Song", "Artist X", "Album",
+                                                      "201", "1", "Hip-Hop", "00:03:00.0000000", "1", "False", "500", "500"));
+                var tag = new TrackTag(filePath);
+                Assert.Equal(Constants.MissingTag, tag.Year, "an implausible Year in raw XML is stored as Missing");
+            }
+            finally { try { Directory.Delete(root, true); } catch (IOException) { } }
+        }
+
         public static void TrackTag_PathInsideMirror_RelPathIsRemainderAfterMarker()
         {
             string root = Path.Combine(Path.GetTempPath(), "am_trackpath_" + Guid.NewGuid().ToString("N"));

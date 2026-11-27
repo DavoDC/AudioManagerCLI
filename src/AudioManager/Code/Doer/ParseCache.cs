@@ -97,8 +97,9 @@ namespace AudioManager
                     var f = new string[FieldCount];
                     for (int j = 0; j < FieldCount; j++)
                         if (!TryUnescape(parts[j], out f[j])) return false;
+                    // BL-316: a stored implausible Year (e.g. 201) is Missing when the row is rebuilt
                     var tag = new TrackTag(f[0], f[1], f[2], f[3],
-                                           f[4], f[5], f[6], f[7],
+                                           YearRule.OrMissing(f[4]), f[5], f[6], f[7],
                                            f[8], f[9], f[10], f[11]);
                     // An empty HasLyrics field is how a null (unknown) value is stored
                     tag.HasLyrics = f[12].Length == 0 ? null : f[12];
