@@ -36,6 +36,8 @@ namespace AudioManager
         public static void MarkRegenerated(DateTime builtAt, string lastRunInfoPath = null)
         {
             string effectivePath = lastRunInfoPath ?? Constants.LastRunInfoFilePath;
+            string parent = Path.GetDirectoryName(effectivePath);
+            if (!string.IsNullOrEmpty(parent)) Directory.CreateDirectory(parent);
             AtomicFile.WriteAllText(effectivePath, builtAt.ToString(LastRunDateFormat, CultureInfo.InvariantCulture), new UTF8Encoding(false));
         }
 
@@ -46,9 +48,12 @@ namespace AudioManager
         /// <exception cref="FileLoadException">If parsing date in last run file fails</exception>
         /// <param name="forceMirrorRegen">Whether the mirror should be regenerated regardless of age.</param>
         /// <param name="lastRunInfoPath">Override last-run file path. Null uses Constants.LastRunInfoFilePath (production default).</param>
-        public AgeChecker(bool forceMirrorRegen, string lastRunInfoPath = null)
+        /// <param name="legacyLastRunInfoPath">Read-only fallback when the new file is missing. Null uses Constants.LegacyLastRunInfoFilePath
+        /// when lastRunInfoPath is null (production), and no fallback when a test path is injected.</param>
+        public AgeChecker(bool forceMirrorRegen, string lastRunInfoPath = null, string legacyLastRunInfoPath = null)
         {
             string effectivePath = lastRunInfoPath ?? Constants.LastRunInfoFilePath;
+            string legacyPath = legacyLastRunInfoPath ?? (lastRunInfoPath == null ? Constants.LegacyLastRunInfoFilePath : null);
 
             // Notify
             Console.WriteLine($"\nChecking age of mirror...");
@@ -56,6 +61,10 @@ namespace AudioManager
             // Get current date
             DateTime curDate = DateTime.Now;
             PrintDate("Now", curDate);
+
+            // First run after the move: the stamp may still sit in the old repo file. Read it, never write it.
+            if (!File.Exists(effectivePath) && legacyPath != null && File.Exists(legacyPath))
+                effectivePath = legacyPath;
 
             // If the last run info file doesn't exist
             if (!File.Exists(effectivePath))

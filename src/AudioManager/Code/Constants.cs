@@ -103,8 +103,23 @@ namespace AudioManager
         /// Mirror Management
         /// </summary>
 
-        // Last run info file path
-        public static readonly string LastRunInfoFilePath = MirrorRepoPath + "LastRunInfo.txt";
+        // Last run info file path: local state, never inside the AudioMirror repo (so it never dirties the mirror)
+        public static readonly string LastRunInfoFilePath = ResolveLastRunInfoPath(TestRoot,
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+
+        // Pre-move location inside the AudioMirror repo. Read-only fallback for the first run after the move; never written.
+        public static readonly string LegacyLastRunInfoFilePath = MirrorRepoPath + "LastRunInfo.txt";
+
+        /// <summary>
+        /// Resolves the last-run stamp path. A non-blank testRoot puts it under that root; otherwise it sits in the
+        /// local AudioManager state folder. Pure: no filesystem access.
+        /// </summary>
+        internal static string ResolveLastRunInfoPath(string testRoot, string localAppData)
+        {
+            if (!string.IsNullOrWhiteSpace(testRoot))
+                return Path.Combine(testRoot, "LastRunInfo.txt");
+            return Path.Combine(localAppData, "AudioManager", "LastRunInfo.txt");
+        }
 
         // Age threshold for mirror regeneration
         public static readonly TimeSpan AgeThreshold = TimeSpan.FromDays(7);

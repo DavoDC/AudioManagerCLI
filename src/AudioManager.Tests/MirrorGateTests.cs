@@ -25,11 +25,11 @@ namespace AudioManager
             return dir;
         }
 
-        // Repo with one commit (LastRunInfo.txt only), so later 'git add' calls never fail on a missing path.
+        // Repo with one commit (a neutral seed file, so git commit has something to record).
         private static string CreateRepoWithInitialCommit()
         {
             string dir = CreateTempGitRepo();
-            WriteFile(dir, "LastRunInfo.txt", "run");
+            WriteFile(dir, "seed.txt", "seed");
             RunProcess("git", "add -A", dir);
             RunProcess("git", "commit -m initial", dir);
             return dir;
@@ -82,6 +82,12 @@ namespace AudioManager
         }
 
         private const string GoodRel = "AUDIO_MIRROR/Artists/Alpha/Album1/a.xml";
+
+        // Cluster 3: the gate's own commit stages only the mirror folder and LastRunInfo.txt, never add -A.
+        public static void CommitAddArgs_StagesOnlyMirrorFolder()
+        {
+            Assert.Equal("add AUDIO_MIRROR/", MirrorGate.CommitAddArgs, "same staging as AudioMirrorCommitter");
+        }
 
         // A complete mirror XML with every element TrackXML.Read requires. Year is written as given.
         private static string TrackXml(string title = "Song", string artists = "Alpha", string year = "2020")

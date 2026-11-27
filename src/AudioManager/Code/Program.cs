@@ -953,15 +953,14 @@ namespace AudioManager
         }
 
         /// <summary>
-        /// True when 'git status --porcelain' output lists any change other than LastRunInfo.txt.
+        /// True when 'git status --porcelain' output lists any change at all.
         /// The "error" sentinel from RunGitStatus is not a porcelain line, so it counts as stale (fails closed).
         /// </summary>
         internal static bool IsMirrorStale(string mirrorStatusOutput)
         {
-            // Ignore LastRunInfo.txt (just a timestamp) - only care about XML changes
             return mirrorStatusOutput
                 .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-                .Any(line => !line.Contains("LastRunInfo.txt"));
+                .Any();
         }
 
         /// <summary>

@@ -80,12 +80,10 @@ namespace AudioManager
                 + "<Compilation>true</Compilation></Track>";
         }
 
-        // Repo with exactly one commit: LastRunInfo.txt, plus Artists/Alpha/Album1 when withArtist is true.
-        // LastRunInfo.txt is always committed so 'git add AUDIO_MIRROR/ LastRunInfo.txt' never fails on a missing path.
+        // Repo with exactly one commit: Artists/Alpha/Album1 when withArtist is true, else a readme under AUDIO_MIRROR/.
         private static string CreateRepoWithInitialCommit(bool withArtist)
         {
             string dir = CreateTempGitRepo();
-            WriteFile(dir, "LastRunInfo.txt", "run");
             if (withArtist) WriteFile(dir, "AUDIO_MIRROR/Artists/Alpha/Album1/a.xml", HealthyTrackXml());
             else WriteFile(dir, "AUDIO_MIRROR/readme.txt", "no artists");
             RunProcess("git", "add -A", dir);
@@ -244,6 +242,7 @@ namespace AudioManager
         public static void StageAndCommit_GitAddFails_DetailNamesStepAndGitMessage()
         {
             // The detail string is what the GUI shows: it must say which git step failed and quote git's own words.
+            // A stale .git/index.lock is a real failure: git add cannot take the index lock and exits non-zero.
             string dir = CreateTempGitRepo();
             TextWriter previousOut = Console.Out;
             try
@@ -251,13 +250,15 @@ namespace AudioManager
                 WriteFile(dir, "AUDIO_MIRROR/readme.txt", "x");
                 RunProcess("git", "add -A", dir);
                 RunProcess("git", "commit -m initial", dir);
+                WriteFile(dir, "AUDIO_MIRROR/readme2.txt", "y");
+                File.WriteAllText(Path.Combine(dir, ".git", "index.lock"), "");
                 Console.SetOut(new StringWriter());
                 string detail;
-                CommitOutcome outcome = AudioMirrorCommitter.StageAndCommit(dir, "add LastRunInfo.txt", "data: x", out detail);
+                CommitOutcome outcome = AudioMirrorCommitter.StageAndCommit(dir, "add AUDIO_MIRROR/", "data: x", out detail);
                 Console.SetOut(previousOut);
                 Assert.True(outcome == CommitOutcome.Failure, "a failing git add is a Failure");
                 Assert.True(detail.Contains("git add failed"), "detail names the step: " + detail);
-                Assert.True(detail.Contains("did not match any files"), "detail quotes git: " + detail);
+                Assert.True(detail.Contains("index.lock"), "detail quotes git: " + detail);
             }
             finally
             {
@@ -268,8 +269,8 @@ namespace AudioManager
 
         public static void TryCommit_GitAddFails_DoesNotCommitAndReportsFailure()
         {
-            // LastRunInfo.txt is never created here, so 'git add AUDIO_MIRROR/ LastRunInfo.txt' exits non-zero
-            // on the missing pathspec. The commit step must report that, stage nothing and leave HEAD alone.
+            // A held .git/index.lock makes 'git add AUDIO_MIRROR/' exit non-zero. The commit step must report that,
+            // stage nothing and leave HEAD alone.
             string dir = CreateTempGitRepo();
             TextWriter previousOut = Console.Out;
             var capture = new StringWriter();
@@ -279,8 +280,7 @@ namespace AudioManager
                 RunProcess("git", "add -A", dir);
                 RunProcess("git", "commit -m initial", dir);
                 WriteFile(dir, "AUDIO_MIRROR/Artists/Beta/Album2/b.xml", HealthyTrackXml());
-                Assert.True(RunGitOut(dir, "add --dry-run LastRunInfo.txt").Contains("did not match any files"),
-                    "precondition: LastRunInfo.txt pathspec must be missing so git add fails");
+                File.WriteAllText(Path.Combine(dir, ".git", "index.lock"), "");
 
                 Console.SetOut(capture);
                 AudioMirrorCommitter.TryCommitAt(dir, libCheckerClean: true, trigger: CommitTrigger.Integration);
@@ -363,7 +363,6 @@ namespace AudioManager
             try
             {
                 string artist = "Björk";
-                WriteFile(dir, "LastRunInfo.txt", "run");
                 WriteFile(dir, "AUDIO_MIRROR/Artists/" + artist + "/x.xml", HealthyTrackXml());
                 RunProcess("git", "add -A", dir);
                 RunProcess("git", "commit -m initial", dir);
@@ -489,14 +488,14 @@ namespace AudioManager
             Assert.True(result == Program.PreIntegrationGateResult.Passed, "fresh mirror with clean library should pass");
         }
 
-        public static void DecidePreIntegrationGate_OnlyLastRunInfoChanged_IsNotStale()
+        public static void DecidePreIntegrationGate_NonXmlPorcelainLine_IsMirrorStale()
         {
-            // LastRunInfo.txt is a timestamp only: it must not make the mirror stale
+            // No filename is exempt any more: every porcelain line, XML or not, makes the mirror stale
             Program.PreIntegrationGateResult result = Program.DecidePreIntegrationGate(
                 mirrorRepoExists: true,
-                mirrorStatus: () => " M LastRunInfo.txt\n",
+                mirrorStatus: () => " M notes.txt\n",
                 libCheckerClean: () => true);
-            Assert.True(result == Program.PreIntegrationGateResult.Passed, "LastRunInfo.txt alone should not be stale");
+            Assert.True(result == Program.PreIntegrationGateResult.MirrorStale, "a non-XML change must make the mirror stale");
         }
 
         public static void DecidePreIntegrationGate_GitErrorSentinel_ReturnsGitStatusFailed()

@@ -115,8 +115,8 @@ namespace AudioManager
                 ? commitTitle
                 : commitTitle + "\n\n" + commitBody; // blank line: git treats a single newline as part of the subject
 
-            // Stage AUDIO_MIRROR folder + LastRunInfo.txt (audit metadata at repo root)
-            CommitOutcome outcome = StageAndCommit(repoPath, "add AUDIO_MIRROR/ LastRunInfo.txt", fullMessage);
+            // Stage the AUDIO_MIRROR folder only. The last-run stamp lives in local state, not in this repo.
+            CommitOutcome outcome = StageAndCommit(repoPath, "add AUDIO_MIRROR/", fullMessage);
             if (outcome == CommitOutcome.Failure) return false;
             if (outcome == CommitOutcome.NothingToCommit) return true;
 

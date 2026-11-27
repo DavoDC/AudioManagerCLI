@@ -15,6 +15,66 @@ namespace AudioManager
         private static string TempInfoFile() =>
             Path.Combine(Path.GetTempPath(), $"am_agecheck_{Guid.NewGuid():N}.txt");
 
+        private static string TempStateDir()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), $"am_lastrun_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        private static void DeleteDirQuietly(string dir)
+        {
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
+
+        public static void AgeChecker_NewFileMissing_ReadsLegacyFile()
+        {
+            // First run after the move: the stamp still sits in the old repo file. A fresh legacy stamp must not force a regen.
+            string dir = TempStateDir();
+            try
+            {
+                string newPath = Path.Combine(dir, "state", "LastRunInfo.txt");
+                string legacy = Path.Combine(dir, "LastRunInfo.txt");
+                File.WriteAllText(legacy, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+                new AgeChecker(forceMirrorRegen: false, lastRunInfoPath: newPath, legacyLastRunInfoPath: legacy);
+                Assert.True(!AgeChecker.RegenMirror, "fresh legacy stamp should be read, so no regen is forced");
+                Assert.True(!File.Exists(newPath), "AgeChecker only reads: it must not create the new file");
+            }
+            finally { DeleteDirQuietly(dir); }
+        }
+
+        public static void AgeChecker_NewFilePresent_IgnoresLegacyFile()
+        {
+            // The new file wins: a stale new stamp regenerates even when the legacy file is fresh.
+            string dir = TempStateDir();
+            try
+            {
+                string newPath = Path.Combine(dir, "state", "LastRunInfo.txt");
+                string legacy = Path.Combine(dir, "LastRunInfo.txt");
+                Directory.CreateDirectory(Path.GetDirectoryName(newPath));
+                File.WriteAllText(newPath, DateTime.Now.AddDays(-10).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+                File.WriteAllText(legacy, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+                new AgeChecker(forceMirrorRegen: false, lastRunInfoPath: newPath, legacyLastRunInfoPath: legacy);
+                Assert.True(AgeChecker.RegenMirror, "the new stale stamp must win over the legacy fresh one");
+            }
+            finally { DeleteDirQuietly(dir); }
+        }
+
+        public static void MarkRegenerated_MissingParentFolder_CreatesItAndWritesOnlyNewPath()
+        {
+            string dir = TempStateDir();
+            try
+            {
+                string newPath = Path.Combine(dir, "state", "LastRunInfo.txt");
+                string legacy = Path.Combine(dir, "LastRunInfo.txt");
+                AgeChecker.MarkRegenerated(new DateTime(2026, 11, 27, 10, 0, 0), newPath);
+                Assert.True(Directory.Exists(Path.GetDirectoryName(newPath)), "parent state folder is created");
+                Assert.Equal("2026-11-27 10:00:00", File.ReadAllText(newPath), "stamp written in the invariant format");
+                Assert.True(!File.Exists(legacy), "MarkRegenerated never writes the legacy repo file");
+            }
+            finally { DeleteDirQuietly(dir); }
+        }
+
         public static void AgeChecker_MissingFile_SetsRegenTrue()
         {
             // No last-run file -> age unknown -> must regenerate

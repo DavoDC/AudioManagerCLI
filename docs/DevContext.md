@@ -321,13 +321,10 @@ Line references are to `src/AudioManager/Code/Program.cs`. The README CLI table 
 
 ## Audit Metadata in Version Control
 
-**AudioMirror audit metadata (LastRunInfo.txt) is as much part of the artifact as the data itself.** It lives in git because:
-- Answers "when was this mirror regenerated?" for every commit
-- Enables audit trail and diagnostics (regen failed? cache stale? force-regen active?)
-- Changes on every force-regen, so commits on every regen are expected and acceptable
-- Not noise - metadata IS the artifact state
-
-Treat it like you treat the XML files: version-control it, don't relegate it to ephemeral-only.
+**The last-run stamp (LastRunInfo.txt) is local state, not part of the AudioMirror repo.** The engine writes it to the local AudioManager state folder (`Constants.LastRunInfoFilePath`, or under the test root when `AUDIOMANAGER_TEST_ROOT` is set), so it never dirties the mirror repo. The auto-commit stages `AUDIO_MIRROR/` only.
+- Answers "when was this mirror regenerated?" for the local engine (age check, regen decision)
+- The pre-move copy at the repo root (`Constants.LegacyLastRunInfoFilePath`) is read only as a first-run fallback when the new file is missing; the engine never writes it
+- Because the stamp no longer lives in the repo, any dirty line in the mirror repo, XML or not, counts as stale
 
 ## Avoid Output-Capture for Control Flow
 

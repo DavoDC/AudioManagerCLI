@@ -42,6 +42,8 @@ namespace AudioManager
         internal const int ExitOk = 0;
         internal const int ExitError = 1;
         internal const int ExitRefused = 3;
+        // Stages only the mirror folder and the audit file, the same as AudioMirrorCommitter (never add -A).
+        internal const string CommitAddArgs = "add AUDIO_MIRROR/";
 
         internal static string DefaultRepoPath()
         {
@@ -189,7 +191,7 @@ namespace AudioManager
                 {
                     // Local commit of the whole AudioMirror repo. Never a push.
                     string failureDetail;
-                    CommitOutcome outcome = AudioMirrorCommitter.StageAndCommit(repoPath, "add -A", message, out failureDetail);
+                    CommitOutcome outcome = AudioMirrorCommitter.StageAndCommit(repoPath, CommitAddArgs, message, out failureDetail);
                     if (outcome == CommitOutcome.Failure)
                     {
                         result.Error = failureDetail + ". Nothing was committed. Close any program using the AudioMirror repo (Desktop Plus) and try again.";

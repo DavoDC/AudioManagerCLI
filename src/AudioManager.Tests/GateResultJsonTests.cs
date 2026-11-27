@@ -31,11 +31,11 @@ namespace AudioManager
             Assert.True(json.Contains("\"action\": \"commit_mirror\""), "action hint code");
         }
 
-        public static void Build_MirrorStale_IgnoresLastRunInfoLine()
+        public static void Build_MirrorStale_CountsEveryDirtyLine()
         {
-            var dirty = new List<string> { " M LastRunInfo.txt", " M a.xml" };
+            var dirty = new List<string> { " M notes.txt", " M a.xml" };
             string json = GateResultJson.Build(Program.PreIntegrationGateResult.MirrorStale, dirty, 0, FixedNow);
-            Assert.True(json.Contains("\"mirrorDirtyCount\": 1"), "LastRunInfo.txt not counted");
+            Assert.True(json.Contains("\"mirrorDirtyCount\": 2"), "every dirty line is counted, no filename is exempt");
         }
 
         public static void Build_LibCheckerDirty_CarriesIssueCount()

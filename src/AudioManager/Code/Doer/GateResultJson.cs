@@ -71,11 +71,11 @@ namespace AudioManager
             AtomicFile.WriteAllText(Path.Combine(logsDir, OutputFileName), sb.ToString(), new UTF8Encoding(false));
         }
 
-        /// <summary>Pure builder. mirrorStatusLines are raw 'git status --porcelain' lines; LastRunInfo.txt is ignored.</summary>
+        /// <summary>Pure builder. mirrorStatusLines are raw 'git status --porcelain' lines; every non-blank line is reported.</summary>
         public static string Build(Program.PreIntegrationGateResult result, IList<string> mirrorStatusLines, int libCheckerIssues, DateTime generatedAt)
         {
             var dirty = (mirrorStatusLines ?? new List<string>())
-                .Where(l => !string.IsNullOrWhiteSpace(l) && !l.Contains("LastRunInfo.txt"))
+                .Where(l => !string.IsNullOrWhiteSpace(l))
                 .ToList();
             bool mirrorDirty = result == Program.PreIntegrationGateResult.MirrorStale;
 

@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 
 namespace AudioManager
@@ -23,6 +24,31 @@ namespace AudioManager
         {
             string oldPath = Path.Combine(Constants.RepoRoot, "reports");
             Assert.True(Constants.ReportsPath != oldPath, "reports must not sit at the repo root");
+        }
+
+        // ---- Constants.LastRunInfoFilePath (local state, never inside the AudioMirror repo) ----
+
+        public static void LastRunInfoPath_TestRoot_PutsFileUnderTestRoot()
+        {
+            Assert.Equal(Path.Combine("T", "LastRunInfo.txt"), Constants.ResolveLastRunInfoPath("T", "L"), "test root redirects the last-run file");
+        }
+
+        public static void LastRunInfoPath_NoTestRoot_UsesLocalAppDataState()
+        {
+            string expected = Path.Combine("L", "AudioManager", "LastRunInfo.txt");
+            Assert.Equal(expected, Constants.ResolveLastRunInfoPath(null, "L"), "no test root keeps the local state folder");
+            Assert.Equal(expected, Constants.ResolveLastRunInfoPath("  ", "L"), "blank test root keeps the local state folder");
+        }
+
+        public static void LastRunInfoFilePath_IsNotInsideMirrorRepo()
+        {
+            Assert.True(!Constants.LastRunInfoFilePath.StartsWith(Constants.MirrorRepoPath, StringComparison.OrdinalIgnoreCase),
+                "the stamp must never be written inside the AudioMirror repo: " + Constants.LastRunInfoFilePath);
+        }
+
+        public static void LegacyLastRunInfoFilePath_IsTheOldRepoFile()
+        {
+            Assert.Equal(Constants.MirrorRepoPath + "LastRunInfo.txt", Constants.LegacyLastRunInfoFilePath, "legacy path is the old repo-root file, read only");
         }
     }
 }
