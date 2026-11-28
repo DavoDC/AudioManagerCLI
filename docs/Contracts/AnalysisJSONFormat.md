@@ -169,7 +169,8 @@ sliced/filtered in memory by the consumer. This file is why consumers never need
       "coverHeight": 1200,
       "hasArt": true,                       // cover present with parseable dimensions
       "hiResArt": true,                     // hasArt AND min(w,h) >= 800
-      "addedDate": "2026-07-01",            // mirror-XML mtime (ISO date), or null
+      "addedDate": "2026-07-01",            // earlier of the XML DateAdded and the MP3 creation date (ISO date), or null
+      "modifiedDate": "2026-11-27",         // MP3 last-write date (ISO date), or null
       "filePath": "<home>\\Audio\\Sources\\YouTube\\PlentaKill\\PlentaKill - Don't You Worry Bot.mp3"
     }
     // ... one per track

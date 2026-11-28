@@ -84,7 +84,7 @@ namespace AudioManager
                 "generatedAt", "trackCount", "tracks[].id", "tracks[].title", "tracks[].artists", "tracks[].primaryArtist",
                 "tracks[].album", "tracks[].year", "tracks[].decade", "tracks[].genres", "tracks[].lengthSeconds",
                 "tracks[].compilation", "tracks[].coverWidth", "tracks[].hasArt", "tracks[].hiResArt",
-                "tracks[].addedDate", "tracks[].filePath"),
+                "tracks[].addedDate", "tracks[].modifiedDate", "tracks[].filePath"),
             Row("routing-blocked-path-too-long", "RoutingJSONFormat.md", "recordType=routing;schemaVersion=1",
                 "blocked.status", "blocked.action", "blocked.files[].file", "blocked.files[].projectedLength",
                 "blocked.files[].limit", "summary.counts.files", "artistSpellingCandidates"),

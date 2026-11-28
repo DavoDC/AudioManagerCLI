@@ -62,7 +62,8 @@ namespace AudioManager
                 bool hasArt = KnownDim(t, out int w, out int h);
                 bool hiRes = hasArt && Math.Min(w, h) >= 800;
                 string mp3Path = ReconstructMp3Path(t.RelPath);
-                string addedDate = TryGetAddedDate(t.RelPath);
+                string addedDate = PickAddedDate(t.DateAdded, TryMp3Time(mp3Path, created: true));
+                string modifiedDate = Iso(TryMp3Time(mp3Path, created: false));
                 string decade = Decade(t.Year);
 
                 sb.AppendLine("    {");
@@ -84,6 +85,7 @@ namespace AudioManager
                 sb.AppendLine($"      \"hasArt\": {(hasArt ? "true" : "false")},");
                 sb.AppendLine($"      \"hiResArt\": {(hiRes ? "true" : "false")},");
                 sb.AppendLine($"      \"addedDate\": {(addedDate == null ? "null" : JsonText.Quote(addedDate))},");
+                sb.AppendLine($"      \"modifiedDate\": {(modifiedDate == null ? "null" : JsonText.Quote(modifiedDate))},");
                 sb.AppendLine($"      \"filePath\": {JsonText.Quote(mp3Path)}");
                 sb.AppendLine($"    }}{comma}");
             }
@@ -109,20 +111,30 @@ namespace AudioManager
             return Path.ChangeExtension(full, ".mp3");
         }
 
-        /// <summary>Best-effort "date added" = last-write time of the mirror XML file (ISO date), or null.</summary>
-        private static string TryGetAddedDate(string relPath)
+        /// <summary>
+        /// "Date added" = the earlier of the XML's recorded DateAdded and the MP3's creation date
+        /// (yyyy-MM-dd), or null. Never the mirror XML's mtime: a force-regen resets that.
+        /// </summary>
+        internal static string PickAddedDate(string xmlDateAdded, DateTime? mp3Created)
+        {
+            DateTime? xml = DateTime.TryParseExact(xmlDateAdded, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out DateTime d) ? d : (DateTime?)null;
+            DateTime? best = xml.HasValue && mp3Created.HasValue
+                ? (xml.Value <= mp3Created.Value.Date ? xml : mp3Created.Value.Date)
+                : (xml ?? (mp3Created?.Date));
+            return Iso(best);
+        }
+
+        private static string Iso(DateTime? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        private static DateTime? TryMp3Time(string mp3Path, bool created)
         {
             try
             {
-                if (string.IsNullOrEmpty(relPath)) return null;
-                string xmlPath = Path.Combine(Constants.MirrorFolderPath, relPath.TrimStart('\\', '/'));
-                if (!File.Exists(xmlPath)) return null;
-                return File.GetLastWriteTime(xmlPath).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                if (string.IsNullOrEmpty(mp3Path) || !File.Exists(mp3Path)) return null;
+                return created ? File.GetCreationTime(mp3Path) : File.GetLastWriteTime(mp3Path);
             }
-            catch
-            {
-                return null;
-            }
+            catch { return null; }
         }
 
         /// <summary>Decade label from a year string ("2020s"), or null if the year isn't parseable.</summary>
