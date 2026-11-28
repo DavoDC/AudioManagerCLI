@@ -6,6 +6,25 @@ namespace AudioManager
 {
     internal static class TagFixerTests
     {
+        // ---- Whitespace: a fix never writes padded text ----
+
+        public static void TidyWhitespace_TrimsAndCollapses()
+        {
+            Assert.Equal("Calling", TagFixer.TidyWhitespace("  Calling  "), "padding is removed");
+            Assert.Equal("A B", TagFixer.TidyWhitespace("A   B"), "double space collapses");
+            Assert.Equal("", TagFixer.TidyWhitespace(""), "empty stays empty");
+        }
+
+        public static void EveryBuiltInTitleStep_NeverReturnsPaddedText()
+        {
+            foreach (string raw in new[] { " Song (feat. X) ", "Song ft. X ", "  Song  (Explicit)", "Song (featuring X) " })
+            {
+                string result = TagFixer.StripTrailingCredit(TagFixer.RemoveParentheticals(raw));
+                Assert.True(result == result.Trim() && !result.Contains("  "), $"'{raw}' came back padded: '{result}'");
+            }
+            Assert.True(TagFixer.StripAlbumSuffixes(" Album (Deluxe Edition) ") == "Album", "album strip trims");
+        }
+
         // ---- RemoveParentheticals ----
 
         public static void RemoveParentheticals_StripsFeatArtist()

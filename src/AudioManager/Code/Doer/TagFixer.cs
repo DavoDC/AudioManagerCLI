@@ -529,6 +529,12 @@ namespace AudioManager
                     }
                 }
 
+                // Last line of defence: no path above may hand back padded or double-spaced text. A field the user protected
+                // with keep= stays exactly as read.
+                if (!keepTitle) finalTitle = TidyWhitespace(finalTitle);
+                if (!keepAlbum) finalAlbum = TidyWhitespace(finalAlbum);
+                if (!keepArtist) finalArtists = TidyWhitespace(finalArtists);
+
                 // Tag values this fix would write (the plan JSON reads these; the real run writes the same values).
                 log.NewTags =new TagState { Title = finalTitle, Album = finalAlbum, Artists = finalArtists, Genre = finalGenres, Compilation = true, ArtCount = log.OldTags.ArtCount };
 
@@ -1027,6 +1033,13 @@ namespace AudioManager
             string result = Regex.Replace(title, @"\s*[\(\[]\s*featuring\s+[^)\]]+[\)\]]", "", RegexOptions.IgnoreCase);
             if (BareTrailingCredit.IsMatch(result)) result = BareTrailingCreditCut.Replace(result, "");
             return Regex.Replace(result, @"\s+", " ").Trim();
+        }
+
+        /// <summary>Collapses runs of whitespace to one space and trims both ends. Null and empty come back unchanged.</summary>
+        internal static string TidyWhitespace(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            return Regex.Replace(text, @"\s+", " ").Trim();
         }
 
         private static Dictionary<string, string> _artistOverrides;
