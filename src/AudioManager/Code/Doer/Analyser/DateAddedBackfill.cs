@@ -98,10 +98,13 @@ namespace AudioManager
                 report.Scanned++;
                 string key = FirstSeenDates.KeyFor(mirrorRoot, file);
                 if (key == null) { report.Unreadable++; continue; }
-                bool? hasDateAdded = HasDateAddedElement(file);
-                if (hasDateAdded == null) { report.Unreadable++; continue; }
-                if (hasDateAdded.Value) { report.AlreadySet++; continue; }
-                if (!firstAdds.TryGetValue(key, out string date)) { report.Unresolved++; continue; }
+                if (!TryReadDateAdded(file, out string existing)) { report.Unreadable++; continue; }
+                firstAdds.TryGetValue(key, out string gitDate);
+                DateTime? mp3 = Mp3Created?.Invoke(key);
+                // Best guess = the earliest known date: an existing value is never moved later, and a wrong today-stamp loses to any real source.
+                string date = Earliest(existing, gitDate, mp3?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+                if (date == null) { report.Unresolved++; continue; }
+                if (date == existing) { report.AlreadySet++; continue; }
 
                 report.ToFill++;
                 report.FillDates[key] = date;
@@ -113,16 +116,44 @@ namespace AudioManager
             return report;
         }
 
-        /// <summary>True when the element is present (even empty), false when absent, null when the file cannot be read as XML.</summary>
-        private static bool? HasDateAddedElement(string path)
+        /// <summary>MP3 creation date for a mirror key (null = unknown). Real lookup by default; tests may replace it.</summary>
+        internal static Func<string, DateTime?> Mp3Created = RealMp3Created;
+
+        private static DateTime? RealMp3Created(string key)
         {
             try
             {
-                return XDocument.Load(path).Root?.Element("DateAdded") != null;
+                string mp3 = Path.ChangeExtension(Path.Combine(Constants.AudioFolderPath, key.TrimStart('\\', '/')), ".mp3");
+                return File.Exists(mp3) ? File.GetCreationTime(mp3).Date : (DateTime?)null;
+            }
+            catch (Exception) { return null; }
+        }
+
+        /// <summary>Earliest valid yyyy-MM-dd among the candidates (nulls and malformed values ignored), or null.</summary>
+        internal static string Earliest(params string[] candidates)
+        {
+            string best = null;
+            foreach (string c in candidates)
+            {
+                if (!DateTime.TryParseExact(c, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)) continue;
+                if (best == null || string.CompareOrdinal(c, best) < 0) best = c;
+            }
+            return best;
+        }
+
+        /// <summary>False when the file cannot be read as XML; existing is the valid DateAdded text or null (absent, empty or malformed).</summary>
+        private static bool TryReadDateAdded(string path, out string existing)
+        {
+            existing = null;
+            try
+            {
+                string v = XDocument.Load(path).Root?.Element("DateAdded")?.Value;
+                if (DateTime.TryParseExact(v, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)) existing = v;
+                return true;
             }
             catch (Exception)
             {
-                return null;
+                return false;
             }
         }
 

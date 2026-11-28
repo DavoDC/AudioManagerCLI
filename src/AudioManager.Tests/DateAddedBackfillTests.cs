@@ -170,6 +170,41 @@ namespace AudioManager
             Assert.Equal("1", YearCount(r, 2023).ToString(), "one fill dated 2023");
         }
 
+        // ---- best guess: earliest of existing, git, mp3 ----
+
+        public static void Earliest_PicksTheEarliestValidDateAndIgnoresJunk()
+        {
+            Assert.Equal("2019-05-05", DateAddedBackfill.Earliest("2026-11-28", null, "2019-05-05", "garbage", "2021-01-01"), "earliest valid wins");
+            Assert.True(DateAddedBackfill.Earliest(null, "", "x") == null, "no valid candidate gives null");
+        }
+
+        public static void Scan_TodayStampIsReplacedByAnEarlierGitDate()
+        {
+            string root = NewTempRoot();
+            Put(root, "a.xml", "2026-11-28");
+            var dates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "a.xml", "2023-03-10" } };
+            DateAddedBackfill.Report r = DateAddedBackfill.Scan(MirrorOf(root), dates);
+            Assert.Equal("1", r.ToFill.ToString(), "a wrong later stamp is refilled");
+            Assert.Equal("2023-03-10", Get(r.FillDates, "a.xml"), "with the earlier git date");
+        }
+
+        public static void Scan_EarlierMp3CreationBeatsLaterGitDate_AndNeverMovesDatesLater()
+        {
+            string root = NewTempRoot();
+            Put(root, "a.xml", null);
+            Put(root, "b.xml", "2020-01-01");
+            var dates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "a.xml", "2023-03-10" }, { "b.xml", "2023-03-10" } };
+            var saved = DateAddedBackfill.Mp3Created;
+            DateAddedBackfill.Mp3Created = k => new DateTime(2018, 2, 3);
+            try
+            {
+                DateAddedBackfill.Report r = DateAddedBackfill.Scan(MirrorOf(root), dates);
+                Assert.Equal("2018-02-03", Get(r.FillDates, "a.xml"), "mp3 creation earlier than git wins");
+                Assert.Equal("2018-02-03", Get(r.FillDates, "b.xml"), "an existing later date is lowered to the earlier source");
+            }
+            finally { DateAddedBackfill.Mp3Created = saved; }
+        }
+
         // ---- TryRun: dry run and apply ----
 
         public static void TryRun_WithoutTheFlag_IsNotHandledAndRunsNoGit()

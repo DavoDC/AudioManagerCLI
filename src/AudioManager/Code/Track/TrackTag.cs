@@ -64,7 +64,8 @@ namespace AudioManager.Code.Modules
 
             // Load metadata object from file; disposed (releasing the file handle) once read
             // First-seen date: the one Reflector read from the XML it replaced, else today (a new track). Size from the mp3.
-            DateAdded = FirstSeenDates.Lookup(mirrorFilePath) ?? FirstSeenDates.Today();
+            // A track with no recorded date gets the earlier of the mp3's creation date and today, never a blind today.
+            DateAdded = FirstSeenDates.Lookup(mirrorFilePath) ?? FirstSeenDates.NewTrackDate(File.GetCreationTime(fileContents[0]));
             FileBytes = new System.IO.FileInfo(fileContents[0]).Length;
             using (TagLib.File tagFile = TagLib.File.Create(fileContents[0]))
             {

@@ -82,6 +82,13 @@ namespace AudioManager
             finally { Cleanup(e, saved); }
         }
 
+        public static void NewTrackDate_IsTheEarlierOfFileCreationAndToday()
+        {
+            Assert.Equal("2019-04-05", FirstSeenDates.NewTrackDate(new DateTime(2019, 4, 5, 13, 0, 0)), "an old file keeps its creation date");
+            Assert.Equal(Today(), FirstSeenDates.NewTrackDate(DateTime.Now.AddDays(3)), "a future creation date is capped at today");
+            Assert.Equal(Today(), FirstSeenDates.NewTrackDate(DateTime.Now), "a fresh file is today");
+        }
+
         public static void Regen_NewTrack_GetsTodayAndFileBytes()
         {
             var e = NewEnv();

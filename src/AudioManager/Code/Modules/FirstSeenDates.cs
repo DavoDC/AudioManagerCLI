@@ -21,6 +21,14 @@ namespace AudioManager.Code.Modules
         /// <summary>Today as the stored form, yyyy-MM-dd.</summary>
         internal static string Today() => DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
+        /// <summary>DateAdded for a track with no recorded date: the earlier of the file's creation date and today (a copied file keeps its true age; a fresh one is today).</summary>
+        internal static string NewTrackDate(DateTime fileCreated)
+        {
+            DateTime today = DateTime.Now.Date;
+            DateTime d = fileCreated.Date < today ? fileCreated.Date : today;
+            return d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+
         /// <summary>Forget everything and set the mirror root the keys are relative to (called when a Reflector build starts).</summary>
         internal static void Reset(string mirrorRoot)
         {
