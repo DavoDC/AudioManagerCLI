@@ -66,6 +66,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Code\Doer\AtomicFile.cs" />
+    <Compile Include="Code\Doer\LibraryTagFixer.cs" />
     <Compile Include="Code\Doer\GateResultJson.cs" />
     <Compile Include="Code\Doer\JsonText.cs" />
     <Compile Include="Code\Doer\TagFixApplier.cs" />

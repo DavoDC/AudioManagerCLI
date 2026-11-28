@@ -53,6 +53,14 @@ namespace AudioManager
                     return;
                 }
 
+                // --libtagfix-plan / --libtagfix-apply <planPath> / --libtagfix-revert <journalPath>: padded Title and missing
+                // TCMP fix, journaled and revertable. Returns before mode parsing and never touches NewMusic.
+                if (TryRunLibTagFix(args, out int libTagFixCode))
+                {
+                    if (libTagFixCode != 0) Environment.Exit(libTagFixCode);
+                    return;
+                }
+
                 // --validate-mirror / --commit-mirror --message "text" (BL-317): the AudioMirror health gate. Prints one JSON
                 // line last (docs/Contracts/MirrorCommitJSON.md). Returns before mode parsing; commits are local only.
                 if (MirrorGate.TryRunCommand(args, out int mirrorGateCode))
@@ -770,6 +778,71 @@ namespace AudioManager
         }
 
         /// <summary>
+        /// Library tag fix commands (padded Title, missing TCMP). Returns false when no --libtagfix flag is present.
+        /// --libtagfix-plan writes libtagfix-plan.json only; --libtagfix-apply &lt;planPath&gt; and --libtagfix-revert
+        /// &lt;journalPath&gt; change files and write a journal. Exit code 0 only for plan written, applied, reverted.
+        /// </summary>
+        internal static bool TryRunLibTagFix(string[] args, out int exitCode)
+        {
+            exitCode = 1;
+            int planIdx = Array.FindIndex(args, a => a.Equals("--libtagfix-plan", StringComparison.OrdinalIgnoreCase));
+            int applyIdx = Array.FindIndex(args, a => a.Equals("--libtagfix-apply", StringComparison.OrdinalIgnoreCase));
+            int revertIdx = Array.FindIndex(args, a => a.Equals("--libtagfix-revert", StringComparison.OrdinalIgnoreCase));
+            int requested = (planIdx >= 0 ? 1 : 0) + (applyIdx >= 0 ? 1 : 0) + (revertIdx >= 0 ? 1 : 0);
+            if (requested == 0) return false;
+            if (requested > 1)
+            {
+                Console.WriteLine(" - ERROR: use only one of --libtagfix-plan, --libtagfix-apply, --libtagfix-revert. Nothing was run.");
+                return true;
+            }
+
+            string libraryRoot = Constants.AudioFolderPath;
+            string logsDir = Constants.LogsPath;
+
+            if (planIdx >= 0)
+            {
+                LibraryTagFixer.Plan plan = LibraryTagFixer.BuildPlan(libraryRoot);
+                string planPath = Path.Combine(logsDir, LibraryTagFixer.PlanFileName);
+                LibraryTagFixer.WriteJson(planPath, LibraryTagFixer.PlanSchema, plan);
+                Console.WriteLine($" - Library tag fix plan written: {planPath} ({plan.Entries.Count} file(s)). Nothing was changed.");
+                exitCode = 0;
+                return true;
+            }
+
+            int pathIdx = applyIdx >= 0 ? applyIdx : revertIdx;
+            if (pathIdx + 1 >= args.Length)
+            {
+                Console.WriteLine(" - ERROR: --libtagfix-apply needs a plan path and --libtagfix-revert needs a journal path. Nothing was run.");
+                return true;
+            }
+
+            LibraryTagFixer.Result result;
+            try
+            {
+                if (applyIdx >= 0)
+                {
+                    LibraryTagFixer.Plan plan = LibraryTagFixer.ReadJson(args[pathIdx + 1], LibraryTagFixer.PlanSchema);
+                    result = LibraryTagFixer.Apply(plan, Path.Combine(logsDir, LibraryTagFixer.JournalFileName(DateTime.Now)), libraryRoot);
+                }
+                else
+                {
+                    result = LibraryTagFixer.Revert(args[pathIdx + 1], libraryRoot);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($" - ERROR: library tag fix could not run: {ex.Message}");
+                return true;
+            }
+
+            foreach (string n in result.Notes) Console.WriteLine("   - " + n);
+            Console.WriteLine($" - Library tag fix {result.Operation}: {result.Status}. {result.Message}");
+            if (result.Operation == "apply") Console.WriteLine($" - Journal: {result.JournalPath}");
+            exitCode = result.Status == "applied" || result.Status == "reverted" ? 0 : 1;
+            return true;
+        }
+
+        /// <summary>
         /// --misc-revert &lt;journalPath&gt;: undoes a Misc migration (see MusicIntegrator.RevertMiscMigration). Returns false when
         /// the flag is absent. Exit code 0 only when nothing failed; a missing path, an unreadable journal or a journal that is
         /// not a Misc migration journal exits 1. Writes nothing but the journal's own moves and tag restores.
@@ -838,12 +911,14 @@ namespace AudioManager
             {
                 "--force-regen", "--dry-run", "--no-input", "--json-output", "--no-auto-commit",
                 "--manifest", "--revert", "--apply-plan", "--only", "--mirror-retry", "--fingerprint",
-                "--libfix-plan", "--libfix-apply", "--libfix-revert", "--misc-revert"
+                "--libfix-plan", "--libfix-apply", "--libfix-revert", "--misc-revert",
+                "--libtagfix-plan", "--libtagfix-apply", "--libtagfix-revert"
             };
             // Value-taking flags: the next token is read as args[idx + 1] (Main, TryRunLibFix, TryRunMiscRevert).
             var valueFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "--manifest", "--revert", "--only", "--libfix-apply", "--libfix-revert", "--misc-revert"
+                "--manifest", "--revert", "--only", "--libfix-apply", "--libfix-revert", "--misc-revert",
+                "--libtagfix-apply", "--libtagfix-revert"
             };
             for (int i = 1; i < args.Length; i++)
             {
